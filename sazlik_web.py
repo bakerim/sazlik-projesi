@@ -5,230 +5,238 @@ import json
 import time
 import yfinance as yf
 import pandas as pd
+from datetime import datetime, timedelta
 
-# --- AYARLAR ---
-st.set_page_config(page_title="Sazlık v6.0: Forensic Auditor", page_icon="🕵️‍♂️", layout="wide")
+# --- AYARLAR: PROFESYONEL QUANT ARAYÜZÜ ---
+st.set_page_config(page_title="Sazlık Quant v9.0", page_icon="🏛️", layout="wide")
 
 st.markdown("""
 <style>
-    .reportview-container { background: #000000; }
-    .signal-card {
-        padding: 15px; border-radius: 8px; margin-bottom: 15px;
-        border-left: 6px solid; background-color: #111;
-        font-family: 'Courier New', monospace;
+    .reportview-container { background: #0e1117; }
+    .main-header { font-family: 'Courier New', monospace; color: #fff; border-bottom: 2px solid #333; padding-bottom: 10px; }
+    .trade-card {
+        background-color: #161b22; border: 1px solid #30363d;
+        border-radius: 8px; padding: 20px; margin-bottom: 20px;
     }
-    .success { border-color: #00ff00; } 
-    .warning { border-color: #ffa500; } 
-    .rejected { border-color: #555; opacity: 0.6; } /* Elenenler için */
-    h3 { color: #fff !important; margin: 0; }
-    p { color: #ccc !important; }
-    .badge {
-        font-size: 0.75em; background: #222; padding: 3px 8px; 
-        border-radius: 4px; border: 1px solid #444; margin-right: 5px; color: #fff;
+    .metric-box {
+        background: #0d1117; border: 1px solid #21262d;
+        padding: 10px; border-radius: 6px; text-align: center;
     }
+    .metric-label { font-size: 0.75em; color: #8b949e; text-transform: uppercase; }
+    .metric-val { font-size: 1.1em; font-weight: bold; color: #e6edf3; }
+    .success-text { color: #3fb950; }
+    .danger-text { color: #f85149; }
+    .warning-text { color: #d29922; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- KAYNAKLAR ---
+# --- VERİ KAYNAKLARI (RSS) ---
 RSS_URLS = [
     "https://www.kap.org.tr/rss",
-    "https://www.tcmb.gov.tr/wps/wcm/connect/tr/tcmb+tr/main+menu/duyurular/basin/rss",
     "https://news.google.com/rss/search?q=borsa+istanbul+şirket+haberleri&hl=tr&gl=TR&ceid=TR:tr",
     "https://finance.yahoo.com/news/rssindex",
-    "https://www.federalreserve.gov/feeds/press_all.xml"
 ]
 
-# --- 1. TICKER DOĞRULAMA (Anti-Halüsinasyon) ---
-def validate_ticker(ticker_guess):
-    if not ticker_guess or len(ticker_guess) > 10 or " " in ticker_guess: return None
-    
-    COMMON_FIXES = {
-        "GALAT": "GSRAY.IS", "GSRAY": "GSRAY.IS", "THY": "THYAO.IS", "THYAO": "THYAO.IS",
-        "GARAN": "GARAN.IS", "ASELS": "ASELS.IS", "SASA": "SASA.IS", "EREGL": "EREGL.IS",
-        "KCHOL": "KCHOL.IS", "FBYD": "FBYD"
-    }
-    
-    guess = COMMON_FIXES.get(ticker_guess, ticker_guess)
-    
-    # .IS Ekleme Mantığı
-    if not guess.endswith(".IS") and not guess.isalpha(): pass 
-    elif not guess.endswith(".IS") and len(guess) <= 5: guess += ".IS"
+# --- FONKSİYON 1: DİNAMİK DOĞRULAMA (Sözlük Yok, Mantık Var) ---
+def verify_ticker_math(ticker):
+    """
+    Manuel liste kullanmaz.
+    1. Saf halini dener (Örn: AAPL).
+    2. .IS ekleyip dener (Örn: THYAO -> THYAO.IS).
+    Veri geliyorsa onaylar, gelmiyorsa reddeder.
+    """
+    if not ticker or ticker == "UNKNOWN": return None
 
-    try:
-        stock = yf.Ticker(guess)
-        # Hızlı kontrol için info yerine history kullan (daha hızlı ve güvenilir)
-        hist = stock.history(period="1d")
-        if not hist.empty:
-            return guess
-    except: pass
-    return None
+    # Olasılıklar: Kendisi veya .IS hali
+    candidates = [ticker.upper(), f"{ticker.upper()}.IS"]
+    
+    for symbol in candidates:
+        try:
+            stock = yf.Ticker(symbol)
+            # Borsaya "Ping" atıyoruz. Cevap (Fiyat) var mı?
+            hist = stock.history(period="1d")
+            if not hist.empty:
+                return symbol # Çalışan kodu döndür
+        except:
+            continue
+            
+    return None # Hiçbiri çalışmadı, bu hisse yok hükmünde.
 
-# --- 2. HACİM TEYİDİ (Volume Confirmation) ---
-# "Haber gerçekse, büyük paralar da giriyor olmalı."
-def check_volume_surge(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        # Son 5 günün verisini al
-        hist = stock.history(period="5d")
-        
-        if len(hist) < 2: return False, 0, "Veri Yetersiz"
-        
-        current_vol = hist['Volume'].iloc[-1]
-        avg_vol = hist['Volume'].mean()
-        
-        # Eğer hacim yoksa (0 ise) veya ortalamanın çok altındaysa haber YALANDIR/ETKİSİZDİR.
-        # KURAL: Bugünkü hacim, ortalamanın en az %80'i kadar olmalı. 
-        # (Tam patlama beklemiyoruz ama ölü taklidi de yapmamalı)
-        if current_vol < (avg_vol * 0.8):
-            return False, current_vol, "Hacim Çok Düşük (İlgi Yok)"
-        
-        return True, current_vol, "Hacim Onaylandı"
-    except:
-        return False, 0, "Hacim Verisi Yok"
-
-# --- 3. FİYAT VE VOLATİLİTE KONTROLÜ ---
-def check_price_reality(ticker):
+# --- FONKSİYON 2: QUANT TEKNİK FİLTRE (RSI + Trend) ---
+def quant_filter(ticker):
+    """
+    Matematiksel Eleme:
+    1. Trend (SMA200) yukarı mı?
+    2. Fiyat aşırı mı şişmiş (RSI > 70)?
+    """
     try:
         stock = yf.Ticker(ticker)
-        hist = stock.history(period="5d")
+        # Analiz için 1 yıllık veri çek
+        df = stock.history(period="1y")
         
-        if len(hist) < 2: return None, None, None
-        
-        curr = hist['Close'].iloc[-1]
-        prev = hist['Close'].iloc[-2]
-        change_pct = ((curr - prev) / prev) * 100
-        
-        return change_pct, curr, hist
-    except: return None, None, None
+        if len(df) < 200: 
+            # Yeni halka arz ise 50 günlükle idare et
+            if len(df) < 50: return False, "Yetersiz Veri (Yeni Halka Arz)"
+            ma_long = df['Close'].rolling(window=50).mean().iloc[-1]
+        else:
+            ma_long = df['Close'].rolling(window=200).mean().iloc[-1]
 
-# --- ÇÖP FİLTRESİ ---
-def is_garbage(title):
-    BAD = ["coin", "token", "kripto", "sponsor", "reklam", "iddia", "uzman", "tahmin", "analiz"]
-    return any(b in title.lower() for b in BAD)
+        current_price = df['Close'].iloc[-1]
+        
+        # RSI HESAPLAMA (Matematik)
+        delta = df['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs)).iloc[-1]
+        
+        # --- QUANT KURALLARI ---
+        
+        # 1. KURAL: TREN KAÇTI MI? (RSI Kontrolü)
+        if rsi > 70:
+            return False, f"⛔ FİLTRELENDİ: Fiyat çok şişmiş (RSI: {rsi:.1f}). Düzeltme riski yüksek."
+            
+        # 2. KURAL: DÜŞEN BIÇAK MI? (Trend Kontrolü)
+        if current_price < ma_long:
+            return False, f"⛔ FİLTRELENDİ: Fiyat ({current_price:.2f}), uzun vadeli ortalamanın ({ma_long:.2f}) altında. Ayı piyasası."
 
-# --- PROMPT ---
+        # Her şey yolundaysa
+        return True, f"✅ ONAYLI: Trend Pozitif, Fiyat Makul (RSI: {rsi:.1f})"
+
+    except Exception as e:
+        return False, f"Veri Hatası: {e}"
+
+# --- PROMPT (YAPAY ZEKA EMRİ) ---
 SYSTEM_PROMPT = """
-**GÖREV:** Borsa haberlerini analiz et. Sadece ŞİRKET KASASINA PARA GİREN somut olayları bul.
+**GÖREV:** Sen bir Algoritmik Ticaret Botusun. Duygu yok, sadece veri.
+Sana verilen haberleri tara. Sadece **SOMUT NAKİT AKIŞI** (Bilanço, İhale, Temettü, Satın Alma) yaratan haberleri seç.
 
-**KURALLAR:**
-1. **SOMUT KANIT:** Sadece "İhale", "Bilanço", "Temettü", "Geri Alım" haberlerini kabul et. "Beklenti" haberlerini ÇÖPE AT.
-2. **TICKER:** Hisse kodunu bilmiyorsan UNKNOWN yaz.
-3. **ETKİ:** Bu haber hisseyi neden artırsın? 1 cümlelik finansal sebep yaz.
+**KATİ KURALLAR:**
+1. **TICKER:** Hisse kodunu kesinlikle bulmalısın. Bulamıyorsan o haberi YOK SAY. "UNKNOWN" kabul edilmez.
+2. **NETLİK:** "Yükselebilir", "Tahmin ediliyor" gibi haberleri ALMA. "İmzaladı", "Açıkladı", "Onaylandı" gibi kesin haberleri AL.
 
-**OUTPUT (JSON):**
-[{"Action": "AL", "Ticker": "THYAO", "Type": "İhale", "Confidence": 85, "Analysis": "..."}]
+**ÇIKTI FORMATI (JSON):**
+Her fırsat için bir "Yatırım Kartı" oluştur:
+- **Ticker:** Hisse Kodu (Örn: THYAO)
+- **Signal_Type:** Haberin Türü (Bilanço/İhale/Yatırım)
+- **Reason:** Neden para kazandırır? (Tek cümle)
+- **Target_Percent:** Hedef Kar % (Makul ol, örn: 3.5)
+- **Stop_Percent:** Stop Loss % (Garantici ol, örn: 1.5)
+- **Portfolio_Allocation:** Kasanın % kaçı? (Max %15)
+- **Hold_Days:** Vade (Gün)
+
+JSON LİSTESİ DÖNDÜR.
 """
 
-# --- MOTOR ---
-def analyze_market():
+# --- ANA MOTOR ---
+def run_analysis():
     if not st.session_state.get('api_key'):
-        st.error("API Key giriniz.")
+        st.error("⚠️ Lütfen sol menüden API Anahtarını giriniz.")
         return
 
     genai.configure(api_key=st.session_state.api_key)
     model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=SYSTEM_PROMPT)
-    status = st.empty()
+    status_box = st.empty()
     
-    # 1. Haber Toplama
-    status.text("📡 Haberler toplanıyor...")
+    # 1. Haber Akışı
+    status_box.info("📡 Veri akışı taranıyor...")
     headlines = []
     for url in RSS_URLS:
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:6]:
-                if not is_garbage(entry.title):
-                    headlines.append(f"- {entry.title}")
+            for entry in feed.entries[:10]:
+                headlines.append(f"- {entry.title}")
         except: pass
-
+    
     if not headlines:
-        st.error("Haber yok.")
+        st.error("Veri kaynağına ulaşılamadı.")
         return
 
-    # 2. AI Analizi
-    status.text("🧠 İçerik Analizi Yapılıyor...")
+    # 2. AI İşleme
+    status_box.info("🧠 Algoritmik Analiz Çalışıyor...")
     try:
-        resp = model.generate_content("\n".join(headlines[:50]))
-        signals = json.loads(resp.text.replace('```json','').replace('```','').strip())
-        status.empty()
+        response = model.generate_content("\n".join(headlines[:60]))
+        opportunities = json.loads(response.text.replace('```json','').replace('```','').strip())
+    except:
+        st.warning("Uygun kriterde fırsat bulunamadı veya AI yanıt veremedi.")
+        return
+    
+    status_box.empty()
+    valid_count = 0
+
+    # 3. İŞLEME VE FİLTRELEME
+    for opp in opportunities:
+        raw_ticker = opp.get('Ticker', '')
         
-        if not signals:
-            st.info("Temiz haber bulundu ama 'Somut Fırsat' (Para Girişi) tespit edilemedi.")
-            return
-
-        for s in signals:
-            raw_ticker = s.get('Ticker', 'UNKNOWN')
+        # A. Ticker Doğrulama (Borsa Kontrolü)
+        valid_ticker = verify_ticker_math(raw_ticker)
+        if not valid_ticker:
+            continue # Kod hatalıysa sessizce geç.
             
-            # --- AŞAMA 1: Ticker Doğrulama ---
-            valid_ticker = validate_ticker(raw_ticker)
-            if not valid_ticker: continue # Halüsinasyon silindi
+        # B. Quant Filtre (Teknik Analiz)
+        is_safe, tech_msg = quant_filter(valid_ticker)
+        if not is_safe:
+            # Garantici olduğumuz için riskli olanı hiç göstermiyoruz.
+            # (Merak edersen burayı açabiliriz ama 'Standart' istediğin için kapalı)
+            continue
             
-            # --- AŞAMA 2: Hacim Dedektörü (YENİ) ---
-            # Kimse almıyorsa, haber boştur.
-            vol_ok, vol_val, vol_msg = check_volume_surge(valid_ticker)
+        valid_count += 1
+        
+        # C. Tarih Hesaplama
+        today = datetime.now()
+        buy_date = today.strftime("%d.%m.%Y")
+        sell_date = (today + timedelta(days=int(opp.get('Hold_Days', 7)))).strftime("%d.%m.%Y")
+        
+        # D. KARTLARI BAS
+        st.markdown(f"""
+        <div class="trade-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:10px;">
+                <h3 style="color:#fff;">💎 {valid_ticker}</h3>
+                <span style="background:#238636; color:white; padding:2px 8px; border-radius:4px; font-size:0.8em;">AL SİNYALİ</span>
+            </div>
             
-            # --- AŞAMA 3: Fiyat/Gap Kontrolü ---
-            pct, price, _ = check_price_reality(valid_ticker)
+            <p style="margin-top:10px; color:#d0d7de;"><b>Gerekçe:</b> {opp['Reason']}</p>
+            <p style="font-size:0.8em; color:#8b949e;">{tech_msg}</p>
             
-            # --- KARAR MEKANİZMASI ---
-            final_decision = "ONAY"
-            reject_reason = ""
-            
-            # Elekler:
-            if not vol_ok:
-                final_decision = "RED"
-                reject_reason = f"⛔ {vol_msg} (Piyasa haberi takmıyor)"
-            elif pct and pct > 2.0:
-                final_decision = "RED"
-                reject_reason = f"⛔ Fiyat Çok Şişmiş (%{pct:.2f} artış)"
-            elif pct and pct < -2.0:
-                final_decision = "RED"
-                reject_reason = "⛔ Negatif Trend (Düşen Bıçak)"
-            
-            # EKRANA BASMA
-            if final_decision == "ONAY":
-                card_class = "success"
-                icon = "💎"
-                main_msg = f"GÜVENLİ GİRİŞ (Değişim: %{pct:.2f})"
-            else:
-                card_class = "rejected"
-                icon = "🗑️"
-                main_msg = f"FİLTRELENDİ: {reject_reason}"
-
-            # Sadece ONAY alanları mı gösterelim yoksa elenenleri de mi?
-            # Garantici adam neyin elendiğini de görmek ister ki sistemin çalıştığına güvensin.
-            
-            st.markdown(f"""
-            <div class="signal-card {card_class}">
-                <div style="display:flex; justify-content:space-between;">
-                    <h3>{icon} {valid_ticker} <span style="font-size:0.6em; color:#888;">{s['Type']}</span></h3>
-                    <span class="badge">{vol_msg}</span>
+            <div style="display:flex; justify-content:space-between; margin-top:15px;">
+                <div class="metric-box" style="width:23%;">
+                    <div class="metric-label">Alım Tarihi</div>
+                    <div class="metric-val">{buy_date}</div>
                 </div>
-                <div style="margin:10px 0; font-weight:bold; color:{'#4caf50' if final_decision=='ONAY' else '#ff5555'};">
-                   {main_msg}
+                <div class="metric-box" style="width:23%;">
+                    <div class="metric-label">Satış Tarihi</div>
+                    <div class="metric-val">{sell_date}</div>
                 </div>
-                <p>{s['Analysis']}</p>
-                <div style="font-size:0.8em; color:#666; margin-top:5px;">
-                    Güven Puanı: %{s['Confidence']} | Fiyat: {price}
+                 <div class="metric-box" style="width:23%;">
+                    <div class="metric-label">Hedef</div>
+                    <div class="metric-val success-text">+{opp['Target_Percent']}%</div>
+                </div>
+                 <div class="metric-box" style="width:23%;">
+                    <div class="metric-label">Stop Loss</div>
+                    <div class="metric-val danger-text">-{opp['Stop_Percent']}%</div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            
+            <div style="margin-top:15px; padding:10px; background:#161b22; border:1px dashed #30363d; text-align:center; border-radius:6px;">
+                <span style="color:#8b949e;">Önerilen Kasa Oranı:</span>
+                <span style="color:#fff; font-weight:bold;"> %{opp['Portfolio_Allocation']}</span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    except Exception as e:
-        st.error(f"Sistem Hatası: {e}")
+    if valid_count == 0:
+        st.info("ℹ️ **Rapor:** Piyasada şu an 'Somut Para Girişi' olan ve 'Teknik Olarak Ucuz' (RSI < 70) kalmış bir fırsat tespit edilemedi. Nakitte beklemek en iyi stratejidir.")
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.title("🕵️‍♂️ Forensic Mod")
-    st.session_state.api_key = st.text_input("API Key", type="password")
+    st.title("🏛️ Sazlık Quant")
+    st.caption("v9.0 Final Sürüm")
+    st.session_state.api_key = st.text_input("API Key Giriniz", type="password")
     st.divider()
-    st.info("""
-    **BU MODUN FARKI:**
-    Haber ne kadar iyi olursa olsun;
-    1. **Hacim Düşükse** (Kimse almıyorsa)
-    2. **Fiyat Şişmişse** (Gap varsa)
-    
-    Sistem sinyali **REDDEDER** ve neden reddettiğini yazar.
-    """)
+    st.markdown("### ⚙️ Sistem Parametreleri")
+    st.text("✅ RSI Limiti: < 70")
+    st.text("✅ Trend: SMA200 Üstü")
+    st.text("✅ Haber: Sadece Somut")
 
-if st.button("DENETİMİ BAŞLAT (v6.0) 🚀"):
-    analyze_market()
+if st.button("ANALİZİ BAŞLAT 🚀", use_container_width=True):
+    run_analysis()
