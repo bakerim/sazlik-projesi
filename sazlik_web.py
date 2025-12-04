@@ -1,142 +1,121 @@
-import streamlit as st
-import google.generativeai as genai
-import feedparser
-import json
+import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 
-# --- AYARLAR ---
-st.set_page_config(page_title="Sazlık v10.0: Native", page_icon="🏛️", layout="wide")
-
-# --- KAYNAKLAR ---
-RSS_URLS = [
-    "https://www.kap.org.tr/rss",
-    "https://news.google.com/rss/search?q=borsa+istanbul+şirket+haberleri&hl=tr&gl=TR&ceid=TR:tr",
-    "https://finance.yahoo.com/news/rssindex",
-]
-
-# --- FONKSİYON 1: DOĞRULAMA ---
-def verify_ticker(ticker):
-    if not ticker or ticker == "UNKNOWN": return None
-    candidates = [ticker.upper(), f"{ticker.upper()}.IS"]
-    for symbol in candidates:
-        try:
-            stock = yf.Ticker(symbol)
-            if not stock.history(period="1d").empty:
-                return symbol
-        except: continue
-    return None
-
-# --- FONKSİYON 2: TEKNİK FİLTRE ---
-def quant_filter(ticker):
+# --- MODÜL 1: HAFIZA (RETRIEVAL) ---
+def get_past_context(ticker, archive_path='data/news_archive.json', lookback_days=30):
+    """
+    Belirtilen hisse için arşivdeki geçmiş haberleri getirir.
+    RAG'ın 'Retrieval' kısmıdır.
+    """
     try:
-        stock = yf.Ticker(ticker)
-        df = stock.history(period="1y")
-        if len(df) < 50: return False, "Yetersiz Veri"
+        # Arşiv dosyasını oku
+        df = pd.read_json(archive_path)
         
-        current = df['Close'].iloc[-1]
-        # Trend (SMA 50/200)
-        ma_long = df['Close'].rolling(window=200).mean().iloc[-1] if len(df) > 200 else df['Close'].rolling(window=50).mean().iloc[-1]
+        # Tarih formatını düzelt
+        df['date'] = pd.to_datetime(df['date'])
         
-        # RSI
-        delta = df['Close'].diff()
+        # Sadece ilgili hisseyi ve son X günü filtrele
+        cutoff_date = datetime.now() - timedelta(days=lookback_days)
+        mask = (df['ticker'] == ticker) & (df['date'] > cutoff_date)
+        relevant_news = df.loc[mask].sort_values(by='date', ascending=True) # Eskiden yeniye
+        
+        if relevant_news.empty:
+            return "Bu hisse ile ilgili yakın geçmişte (son 30 gün) kayıtlı bir haber akışı yok."
+            
+        # Bağlam metnini oluştur
+        context_text = ""
+        for _, row in relevant_news.iterrows():
+            date_str = row['date'].strftime('%Y-%m-%d')
+            # Eğer geçmiş analizde bir skor varsa onu da ekle
+            past_score = row.get('ai_score', 'N/A') 
+            context_text += f"- [{date_str}] Haber: {row['content']} (Önceki AI Skoru: {past_score})\n"
+            
+        return context_text
+
+    except FileNotFoundError:
+        return "Arşiv dosyası bulunamadı. Bu ilk analiz olabilir."
+    except Exception as e:
+        return f"Bağlam getirilirken hata oluştu: {str(e)}"
+
+# --- MODÜL 2: TEKNİK GÖZ (SMART MONEY CHECK) ---
+def get_technical_status(ticker):
+    """
+    Hissenin teknik durumunu (Ayı/Boğa piyasası, Aşırı Alım/Satım) kontrol eder.
+    Haberin zamanlamasını yargılamak için kritiktir.
+    """
+    try:
+        # BIST hisseleri için .IS ekle (Eğer kodda yoksa)
+        symbol = f"{ticker}.IS" if not ticker.endswith(".IS") else ticker
+        
+        # Son 1 yıllık veriyi çek
+        stock = yf.Ticker(symbol)
+        hist = stock.history(period="1y")
+        
+        if hist.empty:
+            return "Teknik veri çekilemedi."
+            
+        current_price = hist['Close'].iloc[-1]
+        
+        # Hareketli Ortalamalar (Trend tespiti için)
+        sma50 = hist['Close'].rolling(window=50).mean().iloc[-1]
+        sma200 = hist['Close'].rolling(window=200).mean().iloc[-1]
+        
+        # Trend Yorumu
+        trend = "NÖTR"
+        if current_price > sma200:
+            trend = "YÜKSELİŞ TRENDİ (Boğa)" if current_price > sma50 else "DÜZELTME/YATAY"
+        else:
+            trend = "DÜŞÜŞ TRENDİ (Ayı)"
+            
+        # RSI Hesabı (Basitleştirilmiş - Aşırı alım/satım için)
+        delta = hist['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs)).iloc[-1]
         
-        if rsi > 70: return False, f"⚠️ RSI Şişmiş ({rsi:.1f})"
-        if current < ma_long: return False, f"⚠️ Düşüş Trendi (Fiyat < Ort)"
+        rsi_status = "Normal"
+        if rsi > 70: rsi_status = "AŞIRI ALIM (Pahalı)"
+        elif rsi < 30: rsi_status = "AŞIRI SATIM (Ucuz)"
+            
+        return f"Fiyat: {current_price:.2f} TL | Ana Trend: {trend} | RSI: {rsi:.1f} ({rsi_status})"
         
-        return True, f"✅ Teknik Uygun (RSI: {rsi:.1f})"
-    except: return False, "Veri Hatası"
+    except Exception as e:
+        return f"Teknik analiz hatası: {str(e)}"
 
-# --- PROMPT ---
-SYSTEM_PROMPT = """
-**GÖREV:** Borsa haberlerini tara. Sadece SOMUT NAKİT AKIŞI (Bilanço, İhale, Temettü) olanları seç.
-**KURAL:** Hisse kodunu (Ticker) bilmiyorsan o haberi YOK SAY.
-**ÇIKTI:**
-[
-  {
-    "Ticker": "THYAO",
-    "Reason": "Yeni uçak alımı...",
-    "Target_Percent": 5,
-    "Stop_Percent": 2,
-    "Portfolio_Allocation": 10,
-    "Hold_Days": 7
-  }
-]
+# --- MODÜL 3: BEYİN (PROMPT HAZIRLAMA) ---
+def create_rag_prompt(ticker, new_news_content, past_context, technical_status):
+    """
+    Tüm verileri birleştirip LLM'e gidecek 'Bilimsel' promptu hazırlar.
+    """
+    system_prompt = f"""
+SEN BİR SWING TRADE VE RİSK ANALİZ UZMANISIN.
+Görevin: Aşağıdaki yeni haberi, hissenin geçmiş haber akışı ve mevcut teknik durumuyla HARMANLAYARAK analiz etmektir.
+
+HEDEF: "{ticker}" hissesi için bu haberin kısa-orta vadeli (1-10 gün) etkisini öngörmek.
+
+--- ANALİZ VERİLERİ ---
+
+1. [CANLI TEKNİK DURUM] (Piyasa Gerçekliği):
+{technical_status}
+*(Dikkat: Eğer hisse "Aşırı Alım" bölgesindeyse, iyi haberler bile "Satış Fırsatı" olabilir. Trend "Ayı" ise iyi haberlerin etkisi sınırlı kalabilir.)*
+
+2. [HAFIZA / BAĞLAM] (Son 30 Gün):
+{past_context}
+*(Dikkat: Bu yeni haber, geçmişteki bir hikayenin devamı mı? Yoksa sürpriz mi?)*
+
+3. [YENİ HABER]:
+"{new_news_content}"
+
+--- İSTENEN ÇIKTI (SADECE JSON) ---
+Lütfen sadece aşağıdaki JSON formatında yanıt ver, başka metin yazma:
+{{
+  "impact_score": (0 ile 100 arası, 50 nötr),
+  "sentiment": "POZİTİF / NEGATİF / NÖTR",
+  "reasoning": "Teknik veriler trendin X olduğunu gösteriyor, ancak geçmiş haberlerde Y olduğu için bu haber Z etkisi yaratabilir...",
+  "action_suggestion": "İzlemeye Al / Kademeli Alım / Satış Fırsatı / İşlem Yapma",
+  "estimated_duration": "Anlık Tepki / 1-3 Gün / Trend Değiştirici"
+}}
 """
-
-# --- ANA MOTOR ---
-def run_analysis():
-    if not st.session_state.get('api_key'):
-        st.error("⚠️ API Key Giriniz")
-        return
-
-    genai.configure(api_key=st.session_state.api_key)
-    model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=SYSTEM_PROMPT)
-    
-    with st.spinner('📡 Piyasalar taranıyor ve analiz ediliyor...'):
-        headlines = []
-        for url in RSS_URLS:
-            try:
-                feed = feedparser.parse(url)
-                for entry in feed.entries[:8]: headlines.append(f"- {entry.title}")
-            except: pass
-        
-        if not headlines:
-            st.error("Haber bulunamadı.")
-            return
-
-        try:
-            resp = model.generate_content("\n".join(headlines[:60]))
-            opps = json.loads(resp.text.replace('```json','').replace('```','').strip())
-        except:
-            st.warning("Fırsat bulunamadı.")
-            return
-
-        valid_count = 0
-        
-        for opp in opps:
-            raw = opp.get('Ticker', '')
-            valid = verify_ticker(raw)
-            if not valid: continue
-            
-            is_safe, tech_msg = quant_filter(valid)
-            if not is_safe: continue
-            
-            valid_count += 1
-            
-            # --- TARİHLER ---
-            today = datetime.now()
-            sell_date = today + timedelta(days=int(opp.get('Hold_Days', 7)))
-            
-            # --- EKRANA BASMA (NATIVE UI - SAF STREAMLIT) ---
-            # Artık HTML yok, Streamlit'in kendi güzel kutuları var.
-            with st.container(border=True):
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.subheader(f"💎 {valid} (AL)")
-                    st.caption(f"📅 Satış Hedefi: {sell_date.strftime('%d.%m.%Y')}")
-                with col2:
-                    st.success(f"Hedef: +%{opp['Target_Percent']}")
-                
-                st.write(f"**Gerekçe:** {opp['Reason']}")
-                st.info(f"📊 {tech_msg}")
-                
-                # Metrikleri yan yana dizelim
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Stop Loss", f"-{opp['Stop_Percent']}%", delta_color="inverse")
-                m2.metric("Vade", f"{opp['Hold_Days']} Gün")
-                m3.metric("Kasa Oranı", f"%{opp['Portfolio_Allocation']}")
-
-        if valid_count == 0:
-            st.info("🤷‍♂️ Kriterlere uyan güvenli fırsat bulunamadı.")
-
-# --- SIDEBAR ---
-with st.sidebar:
-    st.header("🏛️ Sazlık v10")
-    st.session_state.api_key = st.text_input("API Key", type="password")
-    if st.button("ANALİZ ET 🚀", use_container_width=True):
-        run_analysis()
+    return system_prompt
