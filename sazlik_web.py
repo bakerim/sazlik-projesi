@@ -45,7 +45,7 @@ def ask_gemini(ticker, price, trend, news_text):
     """
     Hazırlanan promptu Google Gemini'ye gönderir ve cevabı alır.
     """
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
     prompt = f"""
     SEN BİR PORTFÖY YÖNETİCİSİSİN.
@@ -118,3 +118,4 @@ with col2:
 # Alt Bilgi
 st.markdown("---")
 st.caption("Bu sistem yatırım tavsiyesi vermez. Sazlık Projesi v0.2")
+
