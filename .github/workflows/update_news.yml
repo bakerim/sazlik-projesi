@@ -3,7 +3,7 @@ name: Haber Avcısı Botu
 # Ne zaman çalışsın?
 on:
   schedule:
-    # Her 4 saatte bir çalış (Saat başlarında)
+    # Her 1 saatte bir çalış (Saat başlarında)
     - cron: '0 * * * *'
   # İstersen butona basınca da çalışsın (Manuel Tetikleme)
   workflow_dispatch:
