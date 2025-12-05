@@ -2,9 +2,13 @@ import yfinance as yf
 import json
 import os
 import time
+from datetime import datetime
 
-# Sadece tek bir hisseye bakalım, sorunu anlamak için yeterli
-WATCHLIST = ['NVDA']
+# --- 🔥 SAZLIK AVCI LİSTESİ ---
+WATCHLIST = [
+    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'AMD', 
+    'COIN', 'MSTR', 'PLTR', 'INTC'
+]
 
 ARCHIVE_FILE = 'news_archive.json'
 
@@ -21,58 +25,120 @@ def save_archive(data):
     with open(ARCHIVE_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
+def parse_news_data(news_item):
+    """
+    Yahoo'nun karışık veri yapısını çözen akıllı fonksiyon.
+    Hem düz yapıyı hem de 'content' içine gömülü yapıyı dener.
+    """
+    title = None
+    link = None
+    date_str = datetime.now().strftime('%Y-%m-%d') # Varsayılan: Bugün
+
+    # 1. BAŞLIK VE LİNKİ BULMA
+    # Yöntem A: Düz Yapı
+    if 'title' in news_item:
+        title = news_item['title']
+        link = news_item.get('link')
+    
+    # Yöntem B: İç İçe Yapı (Senin yakaladığın durum)
+    elif 'content' in news_item:
+        content = news_item['content']
+        title = content.get('title')
+        # Link bazen 'clickThroughUrl' içindedir
+        if 'clickThroughUrl' in content:
+            link = content['clickThroughUrl'].get('url')
+    
+    if not title:
+        return None # Başlık yoksa bu veriyi atla
+
+    # 2. TARİHİ BULMA
+    # Yöntem A: Unix Timestamp
+    if 'providerPublishTime' in news_item:
+        ts = news_item['providerPublishTime']
+        date_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+    
+    # Yöntem B: ISO String (Örn: 2025-12-05T13:00:07Z)
+    elif 'content' in news_item and 'pubDate' in news_item['content']:
+        raw_date = news_item['content']['pubDate']
+        try:
+            # Sadece ilk 10 karakteri (YYYY-MM-DD) alıp işi çözelim
+            date_str = raw_date[:10]
+        except:
+            pass
+
+    return {
+        "title": title,
+        "link": link,
+        "date": date_str
+    }
+
 def fetch_sweet_spots():
-    print(f"🔍 RÖNTGEN MODU BAŞLATILDI (Veri Yapısı Analizi)...")
+    print(f"🇺🇸 ABD Botu (Akıllı Mod) Başlatıldı...")
     
     archive_data = load_archive()
+    existing_fingerprints = {f"{item.get('ticker')}_{item.get('content')}" for item in archive_data}
+    
+    total_new = 0
     
     for ticker in WATCHLIST:
-        print(f"\n🔬 {ticker} inceleniyor...")
+        print(f"\n🔍 {ticker} taranıyor...")
         try:
             stock = yf.Ticker(ticker)
             news_list = stock.news
             
             if not news_list:
-                print("   ⚠️ Liste tamamen boş.")
+                print(f"   ⚠️ Liste boş.")
                 continue
             
-            print(f"   -> {len(news_list)} adet veri paketi yakalandı.")
-            
-            # --- İŞTE BURASI ÖNEMLİ ---
-            # İlk haberin İÇİNDEKİ her şeyi ekrana dökelim
-            first_news = news_list[0]
-            print("\n🚨 [KRİTİK BİLGİ] İLK HABERİN HAM YAPISI:")
-            print(json.dumps(first_news, indent=4))
-            print("--------------------------------------------------\n")
-            
-            # Şimdi körlemesine kaydetmeyi deneyelim (Başlık olmasa bile)
-            for news in news_list:
-                # Başlık 'title' değilse 'headline' olabilir, hepsini deneyelim
-                title = news.get('title') or news.get('headline') or "BAŞLIK BULUNAMADI"
-                link = news.get('link') or "Link Yok"
+            count = 0
+            for raw_news in news_list:
+                # Veriyi akıllı fonksiyona gönderip temiz halini alalım
+                clean_data = parse_news_data(raw_news)
                 
-                # Parmak izi kontrolü
-                fingerprint = f"{ticker}_{title}"
-                exists = any(f"{item['ticker']}_{item['content']}" == fingerprint for item in archive_data)
+                if not clean_data:
+                    continue
+
+                # Parmak izi kontrolü (Aynı haberi kaydetme)
+                fingerprint = f"{ticker}_{clean_data['title']}"
                 
-                if not exists:
+                # Tarih Kontrolü (Son 30 gün)
+                try:
+                    news_dt = datetime.strptime(clean_data['date'], '%Y-%m-%d')
+                    days_diff = (datetime.now() - news_dt).days
+                    if days_diff > 30:
+                        continue
+                except:
+                    pass
+
+                if fingerprint not in existing_fingerprints:
                     entry = {
-                        "date": "2024-12-05", # Şimdilik tarihi boşver, veri akışını görelim
+                        "date": clean_data['date'],
                         "ticker": ticker,
-                        "content": title,
-                        "link": link,
-                        "ai_sentiment": "Test Verisi"
+                        "content": clean_data['title'],
+                        "link": clean_data['link'],
+                        "ai_sentiment": "Analiz Bekliyor"
                     }
                     archive_data.append(entry)
-                    print(f"   ✅ Zorla Kaydedildi: {title[:30]}...")
-
+                    existing_fingerprints.add(fingerprint)
+                    total_new += 1
+                    count += 1
+                    print(f"   ✅ [KAYDEDİLDİ] {clean_data['date']}: {clean_data['title'][:40]}...")
+            
+            if count == 0:
+                print("   ℹ️ Yeni kayıt yok (Hepsi eski veya zaten var).")
+                
+            time.sleep(1) 
+                    
         except Exception as e:
             print(f"   ❌ Hata: {e}")
 
-    # Kaydet
-    if len(archive_data) > 0:
+    # KAYIT
+    if total_new > 0:
+        print(f"\n💾 Toplam {total_new} yeni haber arşive yazılıyor...")
+        archive_data.sort(key=lambda x: x['date'], reverse=True)
         save_archive(archive_data)
-        print("\n💾 Arşiv dosyası güncellendi.")
+    else:
+        print("\n💤 Değişiklik yok.")
 
 if __name__ == "__main__":
     fetch_sweet_spots()
