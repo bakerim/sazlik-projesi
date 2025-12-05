@@ -26,9 +26,10 @@ def save_archive(data):
         json.dump(data, f, indent=4)
 
 def fetch_sweet_spots():
-    print(f"🇺🇸 ABD Botu Başlatıldı... Hedef: {len(WATCHLIST)} Hisse")
+    print(f"🇺🇸 ABD Botu (Debug Modu) Başlatıldı...")
     
     archive_data = load_archive()
+    # Parmak izlerini oluştur
     existing_fingerprints = {f"{item.get('ticker')}_{item.get('content')}" for item in archive_data}
     
     total_found = 0
@@ -39,10 +40,12 @@ def fetch_sweet_spots():
             stock = yf.Ticker(ticker)
             news_list = stock.news
             
-            # Hata Ayıklama: Liste boş mu?
+            # 1. HATA KONTROLÜ: LİSTE BOŞ MU?
             if not news_list:
-                print(f"   ⚠️ {ticker} için haber listesi BOŞ döndü. (API engeli veya veri yok)")
+                print(f"   ⚠️ {ticker} için haber listesi BOŞ geldi. (Yahoo veriyi vermedi)")
                 continue
+            
+            print(f"   -> {len(news_list)} adet ham veri bulundu. Filtreleniyor...")
             
             count_per_stock = 0
             for news in news_list:
@@ -50,16 +53,24 @@ def fetch_sweet_spots():
                 link = news.get('link')
                 pub_time = news.get('providerPublishTime')
                 
-                if not pub_time or not title: 
+                if not title: 
                     continue
                 
-                # FİLTREYİ GEVŞETTİK: SON 14 GÜN
-                news_date = datetime.fromtimestamp(pub_time)
-                days_diff = (datetime.now() - news_date).days
+                # Tarih Kontrolü
+                news_date = datetime.now() # Varsayılan
+                days_diff = 0
                 
-                if days_diff > 14: # 3 yerine 14 yaptık
-                    # Çok eski haberleri terminale basalım ki çalıştığını görelim
-                    # print(f"   [Eski] {days_diff} günlük haber atlandı.") 
+                if pub_time:
+                    news_date = datetime.fromtimestamp(pub_time)
+                    days_diff = (datetime.now() - news_date).days
+                    # DEBUG BASKISI: Tarihi görelim
+                    print(f"      - Haber Tarihi: {news_date.strftime('%Y-%m-%d')} ({days_diff} gün önce)")
+                else:
+                    print("      - Tarih verisi yok, yine de alınıyor.")
+
+                # FİLTREYİ GEVŞETTİK: 60 GÜN (2 AY)
+                if days_diff > 60: 
+                    print(f"        -> Çok eski, atlandı.")
                     continue
 
                 fingerprint = f"{ticker}_{title}"
@@ -76,23 +87,24 @@ def fetch_sweet_spots():
                     existing_fingerprints.add(fingerprint)
                     total_found += 1
                     count_per_stock += 1
-                    print(f"   ✅ [KAYDEDİLDİ] {title[:40]}...")
+                    print(f"      ✅ EKLENDİ: {title[:30]}...")
             
             if count_per_stock == 0:
-                print("   ℹ️ Yeni haber yok (Tüm haberler ya eski ya da zaten kayıtlı).")
+                print("   ℹ️ Bu hisse için uygun yeni kayıt çıkmadı.")
                 
-            time.sleep(1) # API engelini aşmak için bekleme
+            time.sleep(1) 
                     
         except Exception as e:
-            print(f"   ❌ Kritik Hata ({ticker}): {e}")
+            print(f"   ❌ Hata ({ticker}): {e}")
 
     # SONUÇ
     if total_found > 0:
         print(f"\n💾 Toplam {total_found} yeni haber bulundu ve arşive yazılıyor...")
+        # En yeniden en eskiye sırala
         archive_data.sort(key=lambda x: x['date'], reverse=True)
         save_archive(archive_data)
     else:
-        print("\n💤 Hiçbir yeni haber bulunamadı. Dosya değiştirilmiyor.")
+        print("\n💤 Hiçbir yeni kayıt yapılamadı.")
 
 if __name__ == "__main__":
     fetch_sweet_spots()
