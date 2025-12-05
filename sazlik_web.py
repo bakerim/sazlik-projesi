@@ -6,7 +6,7 @@ import requests
 import json
 from datetime import datetime
 
-st.set_page_config(page_title="Sazlık Pro: Risk Yönetimi", page_icon="💰", layout="wide")
+st.set_page_config(page_title="Sazlık Pro: Garantici Baba", page_icon="💰", layout="wide")
 
 # --- API KONTROL ---
 try:
@@ -33,7 +33,7 @@ WATCHLIST = [
 ]
 WATCHLIST.sort()
 
-# --- CSS TASARIMI ---
+# --- CSS TASARIMI (GİRİNTİSİZ VE TEMİZ) ---
 st.markdown("""
 <style>
     .card {
@@ -130,7 +130,7 @@ def score_opportunity(ticker, tech_data, news_list):
         return json.loads(text)
     except: return None
 
-# --- HTML KART GÖSTERİM FONKSİYONU ---
+# --- HTML KART GÖSTERİM FONKSİYONU (Kritik Düzeltme Burada Yapıldı) ---
 def display_card(res):
     puan = res['puan']
     
@@ -139,26 +139,27 @@ def display_card(res):
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
+    # HTML blokunu en soldan başlattık (Streamlit hatasını önlemek için)
     html_card = f"""
-    <div class="card {c}">
-        <div class="card-header">
-            {i} {res['ticker']} <div class="score-badge">{puan}</div>
-        </div>
-        <div class="analysis-text">{res['analiz']}</div>
-        
-        <div class="risk-row">
-            <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
-            <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
-        </div>
-        
-        <div class="strategy-grid">
-            <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
-            <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
-            <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
-            <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
-        </div>
+<div class="card {c}">
+    <div class="card-header">
+        {i} {res['ticker']} <div class="score-badge">{puan}</div>
     </div>
-    """
+    <div class="analysis-text">{res['analiz']}</div>
+    
+    <div class="risk-row">
+        <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
+        <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
+    </div>
+    
+    <div class="strategy-grid">
+        <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
+        <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
+        <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
+        <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
+    </div>
+</div>
+"""
     st.markdown(html_card, unsafe_allow_html=True)
     with st.expander(f"Haber Detayları ({res['ticker']})"):
         st.text("\n".join(res['news'][:3]))
