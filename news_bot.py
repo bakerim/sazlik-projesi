@@ -6,10 +6,38 @@ from datetime import datetime
 
 # --- 🔥 SAZLIK AVCI LİSTESİ ---
 WATCHLIST = [
-    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'AMD', 
-    'COIN', 'MSTR', 'PLTR', 'INTC'
+    # > MUHTEŞEM 7'Lİ & TEKNOLOJİ DEVLERİ
+    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'ADBE', 'CRM',
+    'ORCL', 'CSCO', 'INTC', 'AMD', 'QCOM', 'TXN', 'AVGO', 'MU', 'LRCX', 'AMAT',
+    
+    # > YÜKSEK VOLATİLİTE & YAPAY ZEKA (Swing Cenneti)
+    'PLTR', 'AI', 'SMCI', 'ARM', 'PATH', 'SNOW', 'DDOG', 'CRWD', 'PANW', 'ZS',
+    'NET', 'MDB', 'TEAM', 'U', 'DKNG', 'ROKU', 'SQ', 'SHOP', 'PYPL', 'HOOD',
+    
+    # > KRİPTO & BLOCKCHAIN (Bitcoin Hareketleri)
+    'COIN', 'MSTR', 'MARA', 'RIOT', 'CLSK', 'HUT', 'BITF',
+    
+    # > ELEKTRİKLİ ARAÇ & ENERJİ
+    'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'FSLR', 'ENPH', 'SEDG', 'PLUG', 'FCEL',
+    
+    # > FİNANS & BANKACILIK (Hacim Depoları)
+    'JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'BLK', 'V', 'MA', 'AXP',
+    
+    # > PERAKENDE & TÜKETİM (Bilanço Dönemleri İçin)
+    'WMT', 'TGT', 'COST', 'HD', 'LOW', 'NKE', 'LULU', 'SBUX', 'MCD', 'KO',
+    
+    # > SAĞLIK & BİYOTEKNOLOJİ (Haber Odaklı)
+    'LLY', 'NVO', 'PFE', 'MRNA', 'BNTX', 'VRTX', 'REGN', 'GILD', 'AMGN', 'ISRG',
+    
+    # > ENDÜSTRİ & SAVUNMA
+    'BA', 'LMT', 'RTX', 'GE', 'CAT', 'DE', 'HON', 'UNP', 'UPS', 'FDX',
+    
+    # > ÇİN & GELİŞMEKTE OLANLAR (Riskli ama Karlı)
+    'BABA', 'PDD', 'BIDU', 'JD', 'TCEHY',
+    
+    # > DİĞER POPÜLER HİSSELER
+    'DIS', 'CMCSA', 'TMUS', 'VZ', 'T', 'F', 'GM', 'UBER', 'ABNB', 'DASH'
 ]
-
 ARCHIVE_FILE = 'news_archive.json'
 
 def load_archive():
