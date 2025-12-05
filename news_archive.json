@@ -2744,6 +2744,118 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-05",
+        "ticker": "TSLA",
+        "content": "Tesla, Inc. (TSLA): A\u00a0Bull\u00a0Case Theory",
+        "link": "https://finance.yahoo.com/news/tesla-inc-tsla-bull-case-212023326.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "Peloton Interactive, Inc. (PTON): A\u00a0Bull\u00a0Case Theory",
+        "link": "https://finance.yahoo.com/news/peloton-interactive-inc-pton-bull-212133881.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "Sector Update: Tech Stocks Rise Late Afternoon",
+        "link": "https://finance.yahoo.com/news/sector-tech-stocks-rise-afternoon-204504676.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "GOOGL",
+        "content": "Google veteran says U.S. free markets are winning after 'genius' idea",
+        "link": "https://finance.yahoo.com/news/google-veteran-says-u-free-210639145.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "Nvidia\u2019s chips face new competition from Google, but the company's not about to lose its edge",
+        "link": "https://finance.yahoo.com/news/nvidias-chips-face-new-competition-from-google-but-the-companys-not-about-to-lose-its-edge-164809828.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "META",
+        "content": "Sector Update: Tech Stocks Rise Late Afternoon",
+        "link": "https://finance.yahoo.com/news/sector-tech-stocks-rise-afternoon-204504676.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "NFLX",
+        "content": "SpaceX seeks $800B val., theater stocks fall on Netflix news",
+        "link": "https://finance.yahoo.com/video/spacex-seeks-800b-val-theater-205757951.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "NFLX",
+        "content": "US Equity Markets Higher After Soft Inflation Report",
+        "link": "https://finance.yahoo.com/news/us-equity-markets-higher-soft-211057416.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "PLTR",
+        "content": "Palantir Technologies Inc. (PLTR): A\u00a0Bull\u00a0Case Theory",
+        "link": "https://finance.yahoo.com/news/palantir-technologies-inc-pltr-bull-212009505.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AI",
+        "content": "C3.ai (NYSE:AI) Posts Q3 CY2025 Sales In Line With Estimates",
+        "link": "https://finance.yahoo.com/news/c3-ai-nyse-ai-posts-212745630.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "ORCL",
+        "content": "Earnings live: Mentions of 'AI' on earnings calls reach peak levels as Oracle gears up to report",
+        "link": "https://finance.yahoo.com/news/live/earnings-live-mentions-of-ai-on-earnings-calls-reach-peak-levels-as-oracle-gears-up-to-report-211525703.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "ORCL",
+        "content": "Following Oracle? Mark Your Calendars for Dec. 10.",
+        "link": "https://finance.yahoo.com/news/following-oracle-mark-calendars-dec-204636492.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "ADBE",
+        "content": "Earnings live: Mentions of 'AI' on earnings calls reach peak levels as Oracle gears up to report",
+        "link": "https://finance.yahoo.com/news/live/earnings-live-mentions-of-ai-on-earnings-calls-reach-peak-levels-as-oracle-gears-up-to-report-211525703.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "JPM",
+        "content": "JPMorgan Chase & Co. (JPM): A\u00a0Bull\u00a0Case Theory",
+        "link": "https://finance.yahoo.com/news/jpmorgan-chase-co-jpm-bull-212028468.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "COST",
+        "content": "Earnings live: Mentions of 'AI' on earnings calls reach peak levels as Oracle gears up to report",
+        "link": "https://finance.yahoo.com/news/live/earnings-live-mentions-of-ai-on-earnings-calls-reach-peak-levels-as-oracle-gears-up-to-report-211525703.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "NVO",
+        "content": "Sector Update: Health Care Stocks Lower Late Afternoon",
+        "link": "https://finance.yahoo.com/news/sector-health-care-stocks-lower-205656620.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-04",
         "ticker": "NVDA",
         "content": "How Nvidia is outperforming AI competition with a lower valuation",
