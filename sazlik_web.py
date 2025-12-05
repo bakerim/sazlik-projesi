@@ -6,165 +6,148 @@ import requests
 import json
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık AI 2.0", page_icon="🌾", layout="wide")
+st.set_page_config(page_title="Sazlık Pro: US Swing", page_icon="🇺🇸", layout="wide")
 
-# --- API ANAHTARI KONTROLÜ (Streamlit Secrets) ---
+# --- API ANAHTARI ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-except Exception as e:
-    st.error("⚠️ API Anahtarı Bulunamadı! Streamlit panelinden 'Secrets' ayarını yapmalısın.")
+except Exception:
+    st.error("⚠️ API Anahtarı yok! Secrets ayarlarını kontrol et.")
     st.stop()
 
-# --- 1. MODÜL: TEKNİK ANALİZ (GÖZ) ---
+# --- 1. MODÜL: ABD TEKNİK ANALİZİ ($) ---
 def get_technical_status(ticker):
-    """
-    Canlı piyasadan son fiyatı ve trend durumunu çeker.
-    """
     try:
-        # BIST kodu kontrolü (.IS ekleme)
-        symbol = f"{ticker}.IS" if not ticker.endswith(".IS") else ticker
-        
-        # Son 1 aylık veri
-        stock = yf.Ticker(symbol)
+        # ABD Borsası için .IS EKLEMİYORUZ (Direkt AAPL, TSLA)
+        stock = yf.Ticker(ticker)
         hist = stock.history(period="1mo")
         
         if hist.empty:
-            return None, "Veri Yok"
+            return None, "Veri Yok", 0
             
         price = hist['Close'].iloc[-1]
         sma20 = hist['Close'].rolling(20).mean().iloc[-1]
         
-        # Basit Trend Analizi (Fiyat Ortalamanın neresinde?)
+        # Volatilite Hesabı
+        daily_change = (hist['High'] - hist['Low']).mean()
+        volatility_pct = (daily_change / price) * 100
+        
+        # Trend
         if price > sma20 * 1.01:
-            trend = "YÜKSELİŞ TRENDİ (Boğa) 🟢"
+            trend = "YÜKSELİŞ (Bullish) 🟢"
         elif price < sma20 * 0.99:
-            trend = "DÜŞÜŞ TRENDİ (Ayı) 🔴"
+            trend = "DÜŞÜŞ (Bearish) 🔴"
         else:
-            trend = "YATAY / KARARSIZ 🟡"
+            trend = "YATAY (Neutral) 🟡"
             
-        return price, trend
+        return price, trend, volatility_pct
     except Exception as e:
-        return None, "Hata"
+        return None, f"Hata: {str(e)}", 0
 
-# --- 2. MODÜL: GERÇEK HAFIZA (RAG) ---
+# --- 2. MODÜL: OTOMATİK HAFIZA (Botun Topladığı Veriler) ---
 def get_past_context(ticker):
-    """
-    GitHub'daki news_archive.json dosyasını okur.
-    Gerçek veriye dayalı hafıza modülü.
-    """
-    # Senin GitHub Repo Adresin (bakerim/sazlik-projesi)
+    # Senin botunun doldurduğu gerçek dosya
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
     
     try:
         response = requests.get(url)
-        
         if response.status_code != 200:
-            return "⚠️ Arşiv dosyasına (news_archive.json) ulaşılamadı. Henüz oluşturmamış olabilirsin."
+            return "⚠️ Bot dosyasına ulaşılamadı."
             
         data = response.json()
         
-        # O hisseyle ilgili haberleri bul ve listele
+        # İlgili hissenin haberlerini süz
         found_news = []
         for item in data:
             if item.get('ticker') == ticker:
-                found_news.append(f"- [{item['date']}] {item['content']} (Duygu: {item.get('ai_sentiment', '-')})")
+                # Tarih ve Başlık
+                found_news.append(f"- [{item['date']}] {item['content']}")
         
         if found_news:
-            return "\n".join(found_news)
+            # En güncel 5 haberi al
+            return "\n".join(found_news[:5])
         else:
-            return f"ℹ️ {ticker} için arşivde kayıtlı geçmiş veri yok."
-            
-    except json.JSONDecodeError:
-        return "⚠️ JSON Format Hatası: Arşiv dosyasındaki parantezleri kontrol et."
-    except Exception as e:
-        return f"Hafıza Hatası: {str(e)}"
+            return f"ℹ️ {ticker} için botun yakaladığı bir haber henüz yok."
+    except:
+        return "Veri okuma hatası."
 
-# --- 3. MODÜL: AI BEYNİ (GEMINI 2.0 FLASH) ---
-def ask_gemini(ticker, price, trend, context, news_text):
-    """
-    Toplanan tüm verileri Gemini 2.0'a gönderir.
-    """
-    # En güncel ve hızlı model
+# --- 3. MODÜL: HEDGE FUND AI (Gemini 2.0) ---
+def ask_trader_ai(ticker, price, trend, volatility, context, news_text):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
     
     prompt = f"""
-    SEN UZMAN BİR SWING TRADE VE RİSK ANALİSTİSİN.
+    SEN TECRÜBELİ BİR ABD BORSA TRADER'ISIN.
     
-    Aşağıdaki veri setini kullanarak detaylı bir analiz yap.
-
-    1. VARLIK: {ticker}
-    2. PİYASA GERÇEKLİĞİ (Teknik): Fiyat {price:.2f} TL | Durum: {trend}
-    3. KURUMSAL HAFIZA (Geçmiş Haberler): 
+    ANALİZ VERİLERİ:
+    1. HİSSE: {ticker} (Şu an: ${price:.2f})
+    2. TREND: {trend}
+    3. VOLATİLİTE: %{volatility:.2f}
+    4. BOT İSTİHBARATI (Hafıza): 
     {context}
     
-    4. FLAŞ GELİŞME (Yeni Haber): 
+    5. ODAK HABER: 
     "{news_text}"
 
-    GÖREVİN:
-    Bu yeni haberin fiyata etkisini ölç.
-    Özellikle hafızadaki eski haberlerle bu yeni haber arasında bir bağlantı (devamlılık veya çelişki) varsa bunu mutlaka belirt.
-
-    ÇIKTI FORMATI (Türkçe):
-    1. Etki Skoru: (0-100 arası)
-    2. Derin Analiz: (Teknik trend ve hafızayı harmanlayarak yapılmış yorum)
-    3. Swing Sinyali: (Güçlü Al / Kademeli Al / İzle / Sat / Uzak Dur)
+    GÖREV:
+    Kısa vadeli (1-5 Gün) swing trade analizi yap.
+    
+    ÇIKTI FORMATI:
+    ### 📊 TİCARET PLANI
+    * **Karar:** (GÜÇLÜ AL / İZLE / SAT)
+    * **Giriş:** ${price:.2f}
+    * **Hedef (TP):** (Trende uygun hedef)
+    * **Stop (SL):** (Mantıklı zarar kes)
+    * **Vade:** (Gün sayısı)
+    
+    ### 🧠 ANALİZ
+    (Kısa ve net yorum)
     """
     
     try:
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"AI Bağlantı Hatası: {str(e)}"
+        return f"AI Hatası: {str(e)}"
 
-# --- ARAYÜZ (UI) ---
-st.title("🌾 Sazlık Projesi v2.0")
-st.caption("Powered by Gemini 2.0 Flash & GitHub RAG Architecture")
-st.markdown("---")
+# --- ARAYÜZ ---
+st.title("🇺🇸 Sazlık Pro: Wall Street Edition")
+st.caption("ABD Borsası Otomatik Analiz Sistemi")
 
 col1, col2 = st.columns([1, 2])
 
 with col1:
-    st.header("Sinyal Paneli")
-    ticker = st.text_input("Hisse Kodu (Örn: TKFEN, ASELS)", "TKFEN").upper()
-    news = st.text_area("Haber / Duyum", height=150, placeholder="Yeni düşen haberi buraya yapıştır...")
-    analyze_btn = st.button("Analiz Et (Gemini 2.0)", type="primary")
+    st.subheader("İşlem Masası")
+    ticker = st.text_input("Sembol (Ticker)", "NVDA").upper()
+    btn = st.button("Sinyal Üret ⚡", type="primary")
 
 with col2:
-    if analyze_btn:
-        if not ticker or not news:
-            st.warning("Lütfen hisse kodu ve haber metni girin.")
-        else:
-            with st.spinner(f"{ticker} için piyasa ve arşiv taranıyor..."):
-                # 1. Teknik Veri
-                price, trend = get_technical_status(ticker)
+    if btn:
+        with st.spinner("Piyasa verileri taranıyor..."):
+            # 1. Teknik
+            price, trend, vol = get_technical_status(ticker)
+            
+            if price:
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Fiyat", f"${price:.2f}")
+                c2.metric("Trend", trend)
+                c3.metric("Volatilite", f"%{vol:.2f}")
                 
-                if price:
-                    # Metrik Gösterimi
-                    m1, m2 = st.columns(2)
-                    m1.metric("Anlık Fiyat", f"{price:.2f} TL")
-                    m2.metric("Trend Yönü", trend)
-                    
-                    st.divider()
-                    
-                    # 2. Hafıza (RAG) - Gerçek GitHub Dosyası
-                    context = get_past_context(ticker)
-                    with st.expander(f"📂 {ticker} Arşiv Kayıtları (Hafıza)"):
-                        if "Arşiv dosyasına ulaşılamadı" in context:
-                            st.warning(context)
-                            st.caption("GitHub ana dizininde 'news_archive.json' dosyasını oluşturmalısın.")
-                        else:
-                            st.info(context)
-                    
-                    # 3. AI Analizi
-                    result = ask_gemini(ticker, price, trend, context, news)
-                    
-                    st.markdown("### 🤖 Yapay Zeka Kararı")
-                    st.success("Analiz Tamamlandı")
-                    st.markdown(result)
-                else:
-                    st.error("Hisse bulunamadı. Kodu doğru girdiğinden emin ol.")
-
-# Alt Bilgi
-st.markdown("---")
-st.caption("Sazlık Yatırım Asistanı - Bilimsel Veri Analizi")
+                # 2. Hafıza
+                context = get_past_context(ticker)
+                
+                # Bot haber bulduysa onu kullan, bulamadıysa genel analiz yap
+                main_news = "Genel teknik görünüm ve piyasa durumu analizi."
+                if "haber henüz yok" not in context and "Hata" not in context:
+                    main_news = context.split('\n')[0] # En güncel haberi al
+                    st.info(f"📌 Analiz Edilen Haber: {main_news}")
+                
+                with st.expander("📂 Botun Topladığı Veriler"):
+                    st.text(context)
+                
+                # 3. AI Kararı
+                result = ask_trader_ai(ticker, price, trend, vol, context, main_news)
+                
+                st.markdown(result)
+            else:
+                st.error("Hisse bulunamadı. Lütfen 'NVDA', 'TSLA' gibi ABD kodları girin.")
