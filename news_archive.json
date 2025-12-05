@@ -2,19 +2,7 @@
   {
     "date": "2024-12-01",
     "ticker": "TKFEN",
-    "content": "Katar otoyol projesi ihalesi kazanıldı.",
+    "content": "Katar projesi ihalesi kazanıldı.",
     "ai_sentiment": "Pozitif"
-  },
-  {
-    "date": "2024-12-02",
-    "ticker": "ASELS",
-    "content": "Yeni savunma sanayi ihracat sözleşmesi imzalandı.",
-    "ai_sentiment": "Pozitif"
-  },
-  {
-    "date": "2024-12-03",
-    "ticker": "THYAO",
-    "content": "Petrol fiyatlarındaki artış maliyet baskısı yaratıyor.",
-    "ai_sentiment": "Negatif"
   }
 ]
