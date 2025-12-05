@@ -130,7 +130,7 @@ def score_opportunity(ticker, tech_data, news_list):
         return json.loads(text)
     except: return None
 
-# --- HTML KART GÖSTERİM FONKSİYONU (Kritik Düzeltme Burada Yapıldı) ---
+# --- HTML KART GÖSTERİM FONKSİYONU ---
 def display_card(res):
     puan = res['puan']
     
