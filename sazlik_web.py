@@ -6,221 +6,230 @@ import requests
 import json
 from datetime import datetime
 
-st.set_page_config(page_title="Sazlık Pro: Fırsat Radarı", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Sazlık: Garantici Baba", page_icon="🎯", layout="wide")
 
-# --- API ---
+# --- API KONTROL ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
 except:
-    st.error("API Anahtarı Yok!")
+    st.error("API Anahtarı Yok! Streamlit Secrets ayarlarını yapmalısın.")
     st.stop()
 
-# --- CSS (KART TASARIMI) ---
+# --- DÜZELTİLMİŞ CSS (GÖRSEL KAYMA YOK) ---
 st.markdown("""
 <style>
     .card {
+        background-color: #1b5e20; /* Sadece Yeşil Kartlar Olacak */
+        border: 2px solid #00e676;
         padding: 20px;
-        border-radius: 12px;
+        border-radius: 15px;
         margin-bottom: 20px;
         color: white;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 15px rgba(0,230,118,0.2);
     }
     .card-header {
-        font-size: 22px;
+        font-size: 26px;
         font-weight: bold;
         display: flex;
         align-items: center;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        padding-bottom: 10px;
         margin-bottom: 10px;
     }
-    .badge {
-        background: rgba(255,255,255,0.15);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.8em;
-        margin-left: 10px;
+    .badge-score {
+        background: #00e676;
+        color: #000;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.6em;
+        margin-left: auto;
+        font-weight: 800;
     }
-    .metric-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+    .main-text {
+        font-size: 16px;
+        line-height: 1.5;
+        opacity: 0.9;
+    }
+    .strategy-box {
+        background: rgba(0,0,0,0.3);
+        border-radius: 10px;
+        padding: 15px;
         margin-top: 15px;
+        display: flex;
+        justify-content: space-around;
         text-align: center;
-        background: rgba(0,0,0,0.2);
-        padding: 10px;
-        border-radius: 8px;
     }
+    .stat-label { font-size: 12px; color: #aaa; text-transform: uppercase; }
+    .stat-value { font-size: 18px; font-weight: bold; color: #fff; }
+    .win-green { color: #69f0ae; }
+    .loss-red { color: #ff8a80; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- FONKSİYONLAR ---
 
-def get_technical_summary(ticker):
-    """Hızlı teknik tarama (Detaylı analiz değil, ön eleme için)"""
+def get_technical_filter(ticker):
+    """
+    İLK FİLTRE: Sadece Yükseliş Trendinde olanları geçirir.
+    Ayı piyasasındaki hisseyi Garantici Baba içeri almaz.
+    """
     try:
         stock = yf.Ticker(ticker)
-        # Sadece son 5 günü çek, hızlı olsun
-        hist = stock.history(period="5d") 
+        hist = stock.history(period="1mo") # Son 1 ay
         if hist.empty: return None
         
         price = hist['Close'].iloc[-1]
-        prev_price = hist['Close'].iloc[-2]
-        change_pct = ((price - prev_price) / prev_price) * 100
+        sma20 = hist['Close'].rolling(20).mean().iloc[-1]
         
-        # Basit Trend: Son fiyat 5 günlüğün üstünde mi?
-        sma5 = hist['Close'].mean()
-        trend = "YÜKSELİŞ" if price > sma5 else "DÜŞÜŞ"
-        
-        return {"price": price, "change": change_pct, "trend": trend}
+        # EĞER FİYAT ORTALAMANIN ALTINDAYSA DİREKT ELE (False)
+        if price < sma20:
+            return None 
+            
+        # Yükseliş trendinde ise verileri döndür
+        return {"price": price, "sma": sma20}
     except: return None
 
-def get_hot_leads():
-    """Botun bulduğu haberlerden 'Bugün' hareketli olanları seçer"""
+def get_news_leads():
+    """Botun bulduğu haberlerden 'Bugün' ve 'Dün' hareketli olanları seçer"""
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
     try:
         data = requests.get(url).json()
-        
-        # Hisseleri grupla
         leads = {}
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        
         for item in data:
             ticker = item.get('ticker')
-            date = item.get('date')
-            
-            # Sadece son 3 günün haberleri "Sıcak" sayılır
-            # (Burada basitlik için tüm arşivi tarıyoruz ama normalde tarih farkına bakılır)
+            # Sadece son 48 saatin haberlerini dikkate al
+            # (Basitlik için tümünü alıyoruz ama AI'a tarihleri vereceğiz)
             if ticker not in leads:
                 leads[ticker] = []
-            leads[ticker].append(f"- [{date}] {item['content']}")
-            
-        # Ön eleme yap: Sadece en çok haberi olan veya en yeni haberi olan 5 hisseyi seç
-        # (API Limitini yememek için 5 ile sınırlıyoruz)
-        sorted_leads = sorted(leads.items(), key=lambda x: x[1][0], reverse=True)[:5]
-        return sorted_leads
-    except: return []
+            leads[ticker].append(f"- {item['content']}")
+        return leads
+    except: return {}
 
-def ask_ai_oracle(ticker, tech_data, news_list):
-    """Garantici Baba'ya sorar"""
+def ask_garantici_baba(ticker, tech_data, news_list):
+    """
+    Sadece %90 üstü fırsatları döndürür.
+    """
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    news_text = "\n".join(news_list[:3]) # En yeni 3 haber
+    news_text = "\n".join(news_list[:3])
     
     prompt = f"""
-    SEN "GARANTİCİ BABA" LAKAPLI BİR SWING TRADER'SIN.
+    SEN "GARANTİCİ BABA" LAKAPLI, RİSKTEN NEFRET EDEN BİR TRADER'SIN.
     
-    HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | GÜNLÜK DEĞİŞİM: %{tech_data['change']:.2f}
-    TREND DURUMU: {tech_data['trend']}
+    HİSSE: {ticker}
+    FİYAT: ${tech_data['price']:.2f} (Şu an 20 günlük ortalamanın üzerinde, Teknik POZİTİF)
     HABERLER:
     {news_text}
     
-    GÖREV: Sadece çok net fırsat varsa öner. Yoksa "Pas Geç" de.
+    GÖREV:
+    Bu hisse "BEDAVA PARA" (Free Money) kıvamında mı?
+    Sadece %90 ve üzeri kazanma ihtimali görüyorsan öner. Aksi takdirde boş JSON döndür.
     
-    ÇIKTI (JSON):
+    KRİTERLER:
+    1. Trend güçlü olmalı.
+    2. Haber çok pozitif olmalı (Örn: Rekor bilanço, Dev ortaklık).
+    3. Swing Trade (3-5 gün) için uygun olmalı.
+    
+    EĞER ŞARTLAR UYUYORSA BU JSON'I DOLDUR:
     {{
-        "karar": "AL (FIRSAT)" veya "PAS GEÇ (RİSKLİ)",
-        "guven": (0-100),
-        "analiz": "Tek cümlelik özet.",
-        "strateji": {{
-            "giris": {tech_data['price']:.2f},
-            "hedef": (Fiyatın %4-%10 fazlası),
-            "stop": (Fiyatın %3-%5 altı),
-            "vade": "X Gün"
-        }},
-        "potansiyel_kar_zarar": "1'e 3 Oran (Risk/Kazanç)"
+        "uygun": true,
+        "guven": (90-99 arası puan),
+        "analiz": "Neden bu kadar eminsin? (Tek cümle)",
+        "giris": {tech_data['price']:.2f},
+        "hedef": (Makul kar al noktası),
+        "stop": (Yakın stop),
+        "vade": "X Gün"
     }}
+    
+    EĞER UYMUYORSA (RİSK VARSA):
+    {{ "uygun": false }}
     """
     try:
         response = model.generate_content(prompt)
         text = response.text.replace('```json', '').replace('```', '')
-        return json.loads(text)
+        data = json.loads(text)
+        return data if data.get('uygun') == True else None
     except: return None
 
 # --- ARAYÜZ ---
-st.title("📡 Sazlık: Fırsat Radarı")
-st.markdown("Sistem 100 hisseyi tarar, sadece 'Haber Akışı' olanları AI analizine sokar.")
+st.title("🎯 Sazlık: Sniper Modu")
+st.markdown("""
+Bu mod **sadece %90 ve üzeri** kazanma ihtimali olan, trendi YUKARI yönlü hisseleri gösterir. 
+Eğer ekran boşsa, paran cebinde kalsın demektir.
+""")
 st.markdown("---")
 
-# 1. RADAR BÖLÜMÜ (OTOMATİK)
-st.subheader("🔥 Bugünün Sıcak Fırsatları (AI Önerileri)")
-
-if st.button("RADARI ÇALIŞTIR VE TARA 🚀", type="primary"):
-    with st.spinner("Piyasa taranıyor, haberler analiz ediliyor..."):
-        hot_leads = get_hot_leads() # Haber olan hisseleri getir
+if st.button("KESKİN NİŞANCIYI ÇALIŞTIR 🔭", type="primary"):
+    
+    news_dict = get_news_leads() # Haberleri çek
+    
+    if not news_dict:
+        st.warning("Bot henüz yeterince veri toplamadı veya GitHub dosyasına erişilemiyor.")
+    else:
+        found_any = False
+        status_text = st.empty()
+        progress_bar = st.progress(0)
         
-        found_opportunity = False
+        # Taranacak hisseler
+        tickers_to_scan = list(news_dict.keys())
+        total = len(tickers_to_scan)
         
-        # Sütunlar halinde gösterelim
-        cols = st.columns(3)
-        col_index = 0
+        cols = st.columns(2) # 2 Sütunlu düzen
+        col_idx = 0
         
-        for ticker, news in hot_leads:
-            # 1. Teknik veriyi çek
-            tech = get_technical_summary(ticker)
-            if not tech: continue
+        for i, ticker in enumerate(tickers_to_scan):
+            status_text.text(f"Taranıyor: {ticker}...")
+            progress_bar.progress((i + 1) / total)
             
-            # 2. AI Analizi yap
-            ai_result = ask_ai_oracle(ticker, tech, news)
+            # 1. ELEME: Teknik Trend (Ayı piyasasıysa direkt geç)
+            tech = get_technical_filter(ticker)
+            if not tech:
+                continue # Trend kötü, AI'a bile sorma
+                
+            # 2. ELEME: Garantici Baba (AI)
+            result = ask_garantici_baba(ticker, tech, news_dict[ticker])
             
-            if ai_result:
-                # Sadece "AL" veya yüksek güvenlileri gösterelim (Filtreleme)
-                # Amaç kullanıcıyı boğmamak.
-                karar = ai_result['karar'].upper()
-                
-                # Kart Rengi
-                if "AL" in karar:
-                    color = "#1b5e20" # Yeşil
-                    border = "#00e676"
-                    icon = "💎"
-                    found_opportunity = True
-                else:
-                    color = "#262730" # Gri (Pas Geçilenler)
-                    border = "#555"
-                    icon = "💤"
-                
-                # Kartı Çiz
-                with cols[col_index % 3]:
+            if result:
+                found_any = True
+                with cols[col_idx % 2]:
                     st.markdown(f"""
-                    <div class="card" style="background-color: {color}; border: 1px solid {border};">
+                    <div class="card">
                         <div class="card-header">
-                            {icon} {ticker} <span class="badge">{karar}</span>
+                            💎 {ticker} AL
+                            <span class="badge-score">Güven: %{result['guven']}</span>
                         </div>
-                        <p style="font-size:0.9em; opacity:0.8;">{ai_result['analiz']}</p>
+                        <div class="main-text">{result['analiz']}</div>
                         
-                        <div class="metric-grid">
+                        <div class="strategy-box">
                             <div>
-                                <small>Giriş</small><br>
-                                <b>${ai_result['strateji']['giris']}</b>
+                                <div class="stat-label">GİRİŞ</div>
+                                <div class="stat-value">${result['giris']}</div>
                             </div>
-                            <div style="color: #00e676;">
-                                <small>Hedef</small><br>
-                                <b>${ai_result['strateji']['hedef']}</b>
+                            <div>
+                                <div class="stat-label">HEDEF</div>
+                                <div class="stat-value win-green">${result['hedef']}</div>
                             </div>
-                            <div style="color: #ff5252;">
-                                <small>Stop</small><br>
-                                <b>${ai_result['strateji']['stop']}</b>
+                            <div>
+                                <div class="stat-label">STOP</div>
+                                <div class="stat-value loss-red">${result['stop']}</div>
                             </div>
-                        </div>
-                        
-                        <div style="margin-top:10px; font-size:0.85em; text-align:center;">
-                            ⏳ Vade: <b>{ai_result['strateji']['vade']}</b> | 🛡️ Güven: <b>%{ai_result['guven']}</b>
+                            <div>
+                                <div class="stat-label">VADE</div>
+                                <div class="stat-value">{result['vade']}</div>
+                            </div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    with st.expander(f"{ticker} Haberleri"):
-                        st.text("\n".join(news))
+                    with st.expander("Destekleyen Haberler"):
+                        st.text("\n".join(news_dict[ticker][:3]))
                 
-                col_index += 1
+                col_idx += 1
         
-        if not found_opportunity:
-            st.info("Bot tarama yaptı ancak 'Garantici Baba' kriterlerine uyan net bir alım fırsatı bulamadı. Piyasa yatay veya riskli olabilir.")
-
-st.markdown("---")
-
-# 2. MANUEL KONTROL (ESKİ SİSTEM)
-with st.expander("🔍 Manuel Hisse Sorgula (Tekli Analiz)"):
-    ticker_manual = st.text_input("Hisse Kodu Gir", "TSLA").upper()
-    if st.button("Tekli Analiz Yap"):
-        # Buraya eski tekli analiz kodları gelir (Sadelik için burayı kısa tuttum, 
-        # istersen eski kodları buraya entegre edebiliriz ama Radar bence yeterli)
-        st.write(f"{ticker_manual} için detaylı analiz özelliği şu an Radar modunda pasif.")
+        status_text.empty()
+        progress_bar.empty()
+        
+        if not found_any:
+            st.info("✅ Tarama bitti. Şu an 'Garantici Baba' standartlarına (%90+) uyan kusursuz bir fırsat yok. Nakitte kalmak da bir pozisyondur.")
+        else:
+            st.balloons()
