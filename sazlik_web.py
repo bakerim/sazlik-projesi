@@ -6,7 +6,7 @@ import requests
 import json
 from datetime import datetime
 
-st.set_page_config(page_title="Sazlık: Fırsat Sıralaması", page_icon="🏆", layout="wide")
+st.set_page_config(page_title="Sazlık Pro: Mobil", page_icon="📱", layout="wide")
 
 # --- API KONTROL ---
 try:
@@ -15,6 +15,23 @@ try:
 except:
     st.error("API Anahtarı Yok! Streamlit Secrets ayarlarını yapmalısın.")
     st.stop()
+
+# --- 100 HİSSELİK LİSTE (Dropdown İçin) ---
+WATCHLIST = [
+    'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC',
+    'PLTR', 'AI', 'SMCI', 'ARM', 'PATH', 'SNOW', 'CRWD', 'PANW', 'ORCL', 'ADBE',
+    'COIN', 'MSTR', 'MARA', 'RIOT', 'HOOD', 'PYPL', 'SQ', 'V', 'MA', 'JPM',
+    'RIVN', 'LCID', 'NIO', 'FSLR', 'ENPH', 'XOM', 'CVX',
+    'WMT', 'COST', 'TGT', 'DIS', 'BA', 'LMT', 'GE', 'PFE', 'LLY', 'NVO',
+    'BABA', 'PDD', 'BIDU', 'JD', 'CSCO', 'TXN', 'AVGO', 'MU', 'LRCX', 'AMAT',
+    'DDOG', 'ZS', 'NET', 'MDB', 'TEAM', 'U', 'DKNG', 'ROKU', 'SHOP',
+    'CLSK', 'HUT', 'BITF', 'XPEV', 'LI', 'SEDG', 'PLUG', 'FCEL',
+    'BAC', 'WFC', 'C', 'GS', 'MS', 'BLK', 'AXP',
+    'HD', 'LOW', 'NKE', 'LULU', 'SBUX', 'MCD', 'KO',
+    'MRNA', 'BNTX', 'VRTX', 'REGN', 'GILD', 'AMGN', 'ISRG',
+    'RTX', 'CAT', 'DE', 'HON', 'UNP', 'UPS', 'FDX', 'CMCSA', 'TMUS', 'VZ', 'T', 'F', 'GM', 'UBER', 'ABNB', 'DASH'
+]
+WATCHLIST.sort() # Alfabetik sırala ki telefonda bulmak kolay olsun
 
 # --- CSS TASARIMI ---
 st.markdown("""
@@ -25,10 +42,7 @@ st.markdown("""
         margin-bottom: 20px;
         color: white;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        transition: transform 0.2s;
     }
-    .card:hover { transform: scale(1.02); }
-    
     .score-badge {
         background: rgba(255,255,255,0.2);
         padding: 5px 15px;
@@ -37,9 +51,8 @@ st.markdown("""
         font-size: 1.1em;
         float: right;
     }
-    
     .card-header { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-    .analysis-text { font-size: 15px; opacity: 0.9; margin-bottom: 15px; min-height: 60px; }
+    .analysis-text { font-size: 15px; opacity: 0.9; margin-bottom: 15px; }
     
     .strategy-grid {
         display: grid;
@@ -53,10 +66,10 @@ st.markdown("""
     .stat-label { font-size: 11px; color: #ccc; text-transform: uppercase; }
     .stat-val { font-size: 16px; font-weight: bold; }
     
-    /* Renk Sınıfları */
     .tier-s { background: linear-gradient(135deg, #1b5e20 0%, #00e676 100%); border: 2px solid #00e676; }
     .tier-a { background: linear-gradient(135deg, #0d47a1 0%, #2979ff 100%); border: 2px solid #2979ff; }
     .tier-b { background: linear-gradient(135deg, #bf360c 0%, #ff6d00 100%); border: 2px solid #ff6d00; }
+    .tier-fail { background: #424242; border: 1px solid #757575; opacity: 0.8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -71,10 +84,10 @@ def get_technical_filter(ticker):
         price = hist['Close'].iloc[-1]
         sma20 = hist['Close'].rolling(20).mean().iloc[-1]
         
-        # Trend kontrolü
-        if price < sma20: return None 
+        # Manuel analizde trend kötü olsa bile fiyatı döndürelim ki AI yorumlayabilsin (ama uyarırız)
+        trend_durumu = "POZİTİF" if price > sma20 else "NEGATİF"
         
-        return {"price": price}
+        return {"price": price, "trend": trend_durumu}
     except: return None
 
 def get_news_leads():
@@ -91,95 +104,78 @@ def get_news_leads():
 
 def score_opportunity(ticker, tech_data, news_list):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    news_text = "\n".join(news_list[:3])
+    
+    # Haber yoksa AI'a haber yok diyelim
+    news_text = "\n".join(news_list[:3]) if news_list else "Bot bu hisse için güncel haber bulamadı. Sadece teknik ve genel bilgiyle yorumla."
     
     prompt = f"""
     SEN "GARANTİCİ BABA" LAKAPLI TRADER'SIN.
-    HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} (Teknik: YÜKSELİŞ Trendi)
+    HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | TREND: {tech_data['trend']}
     HABERLER: {news_text}
     
     GÖREV: Swing trade fırsatına 0-100 arası GÜVEN PUANI ver.
+    Eğer TREND NEGATİF ise puanı otomatikman 50'nin altına düşür (Short önermiyoruz, sadece Long).
     
     ÇIKTI (JSON):
     {{
         "puan": (Sayı),
-        "baslik": "Kısa Başlık (Örn: ROKET HAZIRLIĞI)",
-        "analiz": "Neden bu puanı verdin? (Maks 2 cümle)",
+        "baslik": "Kısa Başlık",
+        "analiz": "Yorumun (Maks 2 cümle)",
         "giris": {tech_data['price']:.2f},
         "hedef": (Kar al),
-        "stop": (Stop noktası),
+        "stop": (Stop),
         "vade": "X Gün"
     }}
     """
     try:
         response = model.generate_content(prompt)
-        # --- DÜZELTİLEN SATIR BURASI ---
         text = response.text.replace('```json', '').replace('```', '')
-        # -------------------------------
         return json.loads(text)
     except: return None
 
 # --- ARAYÜZ ---
-st.title("🏆 Sazlık: Fırsat Sıralaması")
+st.title("🏆 Sazlık: Garantici Baba")
 st.markdown("---")
 
-if st.button("LİDERLİK TABLOSUNU OLUŞTUR 📊", type="primary"):
-    
+# 1. BÖLÜM: OTOMATİK TARAMA (LİDERLİK TABLOSU)
+if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
     news_dict = get_news_leads()
-    
     if not news_dict:
-        st.warning("Bot henüz veri toplamamış.")
+        st.warning("Bot veri toplamamış.")
     else:
-        status_text = st.empty()
+        status = st.empty()
         bar = st.progress(0)
-        
         tickers = list(news_dict.keys())
-        scanned_results = []
+        results = []
         
         for i, ticker in enumerate(tickers):
-            status_text.text(f"Analiz ediliyor: {ticker}...")
-            bar.progress((i + 1) / len(tickers))
-            
+            status.text(f"Taranıyor: {ticker}...")
+            bar.progress((i+1)/len(tickers))
             tech = get_technical_filter(ticker)
-            if not tech: continue
+            if not tech or tech['trend'] == "NEGATİF": continue # Otomatikte sadece iyileri göster
             
-            ai_res = score_opportunity(ticker, tech, news_dict[ticker])
-            
-            # 60 Puan Barajı
-            if ai_res and ai_res['puan'] >= 60:
-                ai_res['ticker'] = ticker
-                ai_res['news'] = news_dict[ticker]
-                scanned_results.append(ai_res)
+            ai = score_opportunity(ticker, tech, news_dict[ticker])
+            if ai and ai['puan'] >= 60:
+                ai['ticker'] = ticker
+                ai['news'] = news_dict[ticker]
+                results.append(ai)
         
-        status_text.empty()
+        status.empty()
         bar.empty()
+        results.sort(key=lambda x: x['puan'], reverse=True)
         
-        # SIRALAMA
-        scanned_results.sort(key=lambda x: x['puan'], reverse=True)
-        
-        if not scanned_results:
-            st.info("Trendi pozitif olup geçer not (60+) alan hisse çıkmadı.")
+        if not results:
+            st.info("Kriterlere uyan (Trend Pozitif + Puan 60+) hisse çıkmadı.")
         else:
-            st.success(f"Toplam {len(scanned_results)} fırsat bulundu!")
-            
-            for res in scanned_results:
+            for res in results:
                 puan = res['puan']
-                if puan >= 90:
-                    css_class = "tier-s"
-                    icon = "💎"
-                elif puan >= 75:
-                    css_class = "tier-a"
-                    icon = "🔥"
-                else:
-                    css_class = "tier-b"
-                    icon = "⚠️"
+                if puan >= 90: c, i = "tier-s", "💎"
+                elif puan >= 75: c, i = "tier-a", "🔥"
+                else: c, i = "tier-b", "⚠️"
                 
                 st.markdown(f"""
-                <div class="card {css_class}">
-                    <div class="card-header">
-                        {icon} {res['ticker']}: {res['baslik']}
-                        <div class="score-badge">PUAN: {puan}</div>
-                    </div>
+                <div class="card {c}">
+                    <div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
                     <div class="analysis-text">{res['analiz']}</div>
                     <div class="strategy-grid">
                         <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
@@ -187,8 +183,53 @@ if st.button("LİDERLİK TABLOSUNU OLUŞTUR 📊", type="primary"):
                         <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
                         <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                </div>""", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# 2. BÖLÜM: TEKLİ SEÇİM (MOBİL İÇİN)
+with st.expander("🕵️ MANUEL ANALİZ / TEKLİ SEÇİM (Tıkla Aç)", expanded=True):
+    st.caption("Listeden bir hisse seç ve sadece onu analiz et.")
+    
+    # Dropdown Menü (Telefonda çok rahat kullanılır)
+    selected_ticker = st.selectbox("Hisse Seçiniz:", WATCHLIST)
+    
+    if st.button(f"{selected_ticker} ANALİZ ET 🔍"):
+        with st.spinner(f"{selected_ticker} inceleniyor..."):
+            # 1. Haberleri Çek
+            all_news = get_news_leads()
+            specific_news = all_news.get(selected_ticker, [])
+            
+            # 2. Teknik Veri
+            tech = get_technical_filter(selected_ticker)
+            
+            if not tech:
+                st.error("Hisse verisi çekilemedi.")
+            else:
+                # 3. AI Analizi (Trend kötü olsa bile analiz yapacak, ama puan kıracak)
+                res = score_opportunity(selected_ticker, tech, specific_news)
                 
-                with st.expander(f"Haber Detayları"):
-                    st.text("\n".join(res['news'][:3]))
+                if res:
+                    puan = res['puan']
+                    # Renkler
+                    if puan >= 90: c, i = "tier-s", "💎"
+                    elif puan >= 75: c, i = "tier-a", "🔥"
+                    elif puan >= 50: c, i = "tier-b", "⚠️"
+                    else: c, i = "tier-fail", "⛔" # Düşük puanlılar gri/siyah olsun
+                    
+                    st.markdown(f"""
+                    <div class="card {c}">
+                        <div class="card-header">{i} {res.get('baslik', 'Analiz Sonucu')} <div class="score-badge">{puan}</div></div>
+                        <div class="analysis-text">{res['analiz']}</div>
+                        <div class="strategy-grid">
+                            <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
+                            <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
+                            <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
+                            <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+                    
+                    if specific_news:
+                        st.info("Bot Haberleri:\n" + "\n".join(specific_news[:2]))
+                    else:
+                        st.warning("Bot bu hisse için özel bir haber yakalamamış. Analiz genel verilere dayanıyor.")
