@@ -5,7 +5,7 @@ import google.generativeai as genai
 import requests
 import json
 
-st.set_page_config(page_title="Sazlık Pro: 100", page_icon="🇺🇸", layout="wide")
+st.set_page_config(page_title="Sazlık 100 Pro", page_icon="🇺🇸", layout="wide")
 
 # --- API ---
 try:
@@ -15,21 +15,37 @@ except:
     st.error("API Anahtarı Yok!")
     st.stop()
 
-# --- CSS İLE GÖRSEL GÜZELLEŞTİRME ---
+# --- CSS İLE KART TASARIMI ---
 st.markdown("""
 <style>
-    .kasa-box {
-        padding: 15px;
-        border-radius: 10px;
-        background-color: #1e2130;
-        border-left: 5px solid #ffd700;
-        margin-bottom: 10px;
-    }
-    .sinyal-box {
+    .card {
         padding: 20px;
-        border-radius: 10px;
-        background-color: #0e1117;
-        border: 1px solid #30333d;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        color: white;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .card-header {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+    }
+    .kasa-badge {
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 14px;
+        margin-top: 10px;
+        border-left: 3px solid #FFD700;
+    }
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        font-size: 16px;
+        font-weight: bold;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -46,7 +62,7 @@ def get_technical_status(ticker):
         daily_range = (hist['High'] - hist['Low']).mean()
         volatility = (daily_range / price) * 100
         
-        trend = "YÜKSELİŞ (Bullish) 🟢" if price > sma20 else "DÜŞÜŞ (Bearish) 🔴"
+        trend = "YÜKSELİŞ 🟢" if price > sma20 else "DÜŞÜŞ 🔴"
         return price, trend, volatility
     except: return None, "Hata", 0
 
@@ -61,22 +77,26 @@ def get_bot_news(ticker):
 def ask_ai(ticker, price, trend, vol, news):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
     prompt = f"""
-    SEN BİR PORTFÖY YÖNETİCİSİSİN. RİSK ALMAYI SEVMEYEN "GARANTİCİ" BİR TARZIN VAR.
+    SEN "GARANTİCİ BABA" LAKAPLI BİR FON YÖNETİCİSİSİN.
     
-    VARLIK: {ticker} | FİYAT: ${price:.2f} | TREND: {trend} | VOLATİLİTE: %{vol:.2f}
+    HİSSE: {ticker} | FİYAT: ${price:.2f} | TREND: {trend} | VOLATİLİTE: %{vol:.2f}
     HABERLER: {news}
     
     GÖREV: Swing Trade analizi yap.
     
+    ÖNEMLİ: 
+    - Kararın "AL" ise, neden güvenli olduğunu anlat.
+    - Kararın "İZLE" veya "SAT" ise riskleri vurgula.
+    - Kasa yönetimi konusunda cimri ol.
+    
     ÇIKTIYI JSON FORMATINDA VER:
     {{
-        "karar": "AL (LONG) veya SAT (SHORT) veya İZLE",
+        "karar": "AL (FIRSAT) veya SAT (RİSKLİ) veya İZLE (NÖTR)",
         "guven_skoru": (0-100 arası sayı),
-        "analiz": "Kısa ve net yorum (maks 2 cümle)",
-        "kasa_yonetimi": "Kasanın %X'i ile girilmeli. (Risk düşükse %10, yüksekse %5)",
-        "giris": {price:.2f},
-        "hedef": (Trende göre %3-%8 yukarısı),
-        "stop": (Destek altı, %2-%4 aşağısı)
+        "analiz": "Kısa ve net yorum.",
+        "kasa_yonetimi": "Kasanın %X'i. (Gerekçesi)",
+        "hedef": (Dolar fiyatı),
+        "stop": (Dolar fiyatı)
     }}
     """
     try:
@@ -87,19 +107,17 @@ def ask_ai(ticker, price, trend, vol, news):
 
 # --- ARAYÜZ ---
 st.title("🇺🇸 Sazlık 100: Swing Radar")
-st.caption("Otomatik Haber Botu & Garantici Risk Yönetimi")
 
 col1, col2 = st.columns([1, 3])
 
 with col1:
-    st.subheader("🔍 Tarama")
     ticker = st.text_input("Hisse Kodu", "NVDA").upper()
-    if st.button("Analiz Et", type="primary"):
-        st.session_state['analiz_basladi'] = True
+    if st.button("ANALİZİ BAŞLAT 🚀", type="primary"):
+        st.session_state['run'] = True
 
 with col2:
-    if st.session_state.get('analiz_basladi'):
-        with st.spinner("Piyasa ve Haberler Taranıyor..."):
+    if st.session_state.get('run'):
+        with st.spinner("Piyasa taranıyor..."):
             price, trend, vol = get_technical_status(ticker)
             news_context = get_bot_news(ticker)
             
@@ -107,26 +125,45 @@ with col2:
                 ai_data = ask_ai(ticker, price, trend, vol, news_context)
                 
                 if ai_data:
-                    # KART TASARIMI
+                    # RENK AYARLAMASI
+                    karar = ai_data['karar'].upper()
+                    if "AL" in karar:
+                        bg_color = "#1b5e20" # Koyu Yeşil
+                        border = "2px solid #00e676"
+                        icon = "💎"
+                    elif "SAT" in karar:
+                        bg_color = "#b71c1c" # Koyu Kırmızı
+                        border = "2px solid #ff5252"
+                        icon = "🔻"
+                    else: # İZLE
+                        bg_color = "#0d47a1" # Koyu Mavi
+                        border = "2px solid #2979ff"
+                        icon = "👀"
+
+                    # HTML KARTININ OLUŞTURULMASI
                     st.markdown(f"""
-                    <div class="sinyal-box">
-                        <h2>💎 KARAR: {ai_data['karar']}</h2>
-                        <p><b>Güven Skoru:</b> %{ai_data['guven_skoru']} | <b>Risk:</b> {trend}</p>
-                        <p>📝 <b>Analiz:</b> {ai_data['analiz']}</p>
-                        <hr>
-                        <div class="kasa-box">
+                    <div class="card" style="background-color: {bg_color}; border: {border};">
+                        <div class="card-header">
+                            {icon} {ai_data['karar']}
+                            <span style="margin-left: auto; font-size: 16px; opacity: 0.8;">Güven: %{ai_data['guven_skoru']}</span>
+                        </div>
+                        <p style="font-size: 16px;">{ai_data['analiz']}</p>
+                        
+                        <div class="kasa-badge">
                             💰 <b>Kasa Yönetimi:</b> {ai_data['kasa_yonetimi']}
                         </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span style="color: #ff4b4b;">🛑 <b>STOP:</b> ${ai_data['stop']}</span>
-                            <span style="color: #00c853;">🎯 <b>HEDEF:</b> ${ai_data['hedef']}</span>
+                        
+                        <div class="metric-row">
+                            <span style="color: #ff8a80;">🛑 STOP: ${ai_data['stop']}</span>
+                            <span>🏷️ Giriş: ${price:.2f}</span>
+                            <span style="color: #b9f6ca;">🎯 HEDEF: ${ai_data['hedef']}</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
                     
                     with st.expander("Botun Yakaladığı Haberler"):
-                        st.text(news_context)
+                        st.info(news_context)
                 else:
-                    st.error("AI Yanıt Vermedi.")
+                    st.error("AI Bağlantı Hatası")
             else:
-                st.error("Hisse Bulunamadı.")
+                st.error("Hisse Bulunamadı")
