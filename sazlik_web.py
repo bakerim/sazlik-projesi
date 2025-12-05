@@ -33,7 +33,7 @@ WATCHLIST = [
 ]
 WATCHLIST.sort()
 
-# --- CSS TASARIMI (Renkler Aynı) ---
+# --- CSS TASARIMI ---
 st.markdown("""
 <style>
     .card {
@@ -60,7 +60,6 @@ st.markdown("""
         justify-content: space-around;
         font-weight: bold;
     }
-
     .stat-label { font-size: 11px; color: #ccc; text-transform: uppercase; }
     .stat-val { font-size: 16px; font-weight: bold; }
     
@@ -108,9 +107,9 @@ def score_opportunity(ticker, tech_data, news_list):
     HABERLER: {news_text}
     
     GÖREV: GÜVEN PUANI ver ve tüm finansal oranları hesapla.
-    - TREND NEGATİF İSE: Puanı otomatikman 50'nin altına düşür.
-    - RİSK/KAZANÇ (R/R) ORANI: Stop kaybı riskine karşılık hedef kar oranı. (Örn: 1:3).
-    - KASA YÖNETİMİ: Kalan fırsatları kaçırmamak için riski düşük tut (%3-%10 arası öner).
+    - TREND NEGATİF İSE: Puan kesinlikle 50'nin altında olsun.
+    - RİSK/KAZANÇ (R/R) ORANI: Risk ettiğin $1'a karşılık ne kadar kazanmayı hedeflediğini hesapla. (Örn: 1:3).
+    - KASA YÖNETİMİ: Kasanın %X'ini (küçük bir yüzdesini) öner.
     
     ÇIKTI (JSON):
     {{
@@ -130,6 +129,39 @@ def score_opportunity(ticker, tech_data, news_list):
         text = response.text.replace('```json', '').replace('```', '')
         return json.loads(text)
     except: return None
+
+# --- HTML KART GÖSTERİM FONKSİYONU ---
+def display_card(res):
+    puan = res['puan']
+    
+    if puan >= 90: c, i = "tier-s", "💎"
+    elif puan >= 75: c, i = "tier-a", "🔥"
+    elif puan >= 60: c, i = "tier-b", "⚠️"
+    else: c, i = "tier-fail", "⛔"
+
+    html_card = f"""
+    <div class="card {c}">
+        <div class="card-header">
+            {i} {res['ticker']} <div class="score-badge">{puan}</div>
+        </div>
+        <div class="analysis-text">{res['analiz']}</div>
+        
+        <div class="risk-row">
+            <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
+            <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
+        </div>
+        
+        <div class="strategy-grid">
+            <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
+            <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
+            <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
+            <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
+        </div>
+    </div>
+    """
+    st.markdown(html_card, unsafe_allow_html=True)
+    with st.expander(f"Haber Detayları ({res['ticker']})"):
+        st.text("\n".join(res['news'][:3]))
 
 # --- ARAYÜZ ---
 st.title("🏆 Sazlık: Garantici Baba")
@@ -152,6 +184,7 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
             if not tech: continue
             
             ai = score_opportunity(ticker, tech, news_dict[ticker])
+            
             if ai:
                 ai['ticker'] = ticker
                 ai['news'] = news_dict[ticker]
@@ -160,32 +193,11 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
         status.empty(); bar.empty()
         results.sort(key=lambda x: x['puan'], reverse=True)
         
-        if not results: st.info("Kriterlere uyan hisse çıkmadı.")
+        if not results:
+            st.info("Kriterlere uyan hisse çıkmadı.")
         else:
             for res in results:
-                puan = res['puan']
-                if puan >= 90: c, i = "tier-s", "💎"
-                elif puan >= 75: c, i = "tier-a", "🔥"
-                elif puan >= 60: c, i = "tier-b", "⚠️"
-                else: c, i = "tier-fail", "⛔"
-                
-                st.markdown(f"""
-                <div class="card {c}">
-                    <div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
-                    <div class="analysis-text">{res['analiz']}</div>
-                    
-                    <div class="risk-row">
-                        <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
-                        <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
-                    </div>
-
-                    <div class="strategy-grid">
-                        <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
-                        <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
-                        <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
-                        <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
-                    </div>
-                </div>""", unsafe_allow_html=True)
+                display_card(res)
 
 st.markdown("---")
 
@@ -205,31 +217,6 @@ with st.expander("🕵️ MANUEL ANALİZ", expanded=True):
                 res = score_opportunity(selected_ticker, tech, specific_news)
                 
                 if res:
-                    puan = res['puan']
-                    if puan >= 90: c, i = "tier-s", "💎"
-                    elif puan >= 75: c, i = "tier-a", "🔥"
-                    elif puan >= 60: c, i = "tier-b", "⚠️"
-                    else: c, i = "tier-fail", "⛔"
-                    
-                    st.markdown(f"""
-                    <div class="card {c}">
-                        <div class="card-header">{i} {res.get('baslik', 'Analiz Sonucu')} <div class="score-badge">{puan}</div></div>
-                        <div class="analysis-text">{res['analiz']}</div>
-                        
-                        <div class="risk-row">
-                            <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
-                            <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
-                        </div>
-                        
-                        <div class="strategy-grid">
-                            <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
-                            <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
-                            <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
-                            <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
-                        </div>
-                    </div>""", unsafe_allow_html=True)
-                    
-                    if specific_news:
-                        st.info("Bot Haberleri:\n" + "\n".join(specific_news[:2]))
-                    else:
-                        st.warning("Bot bu hisse için özel bir haber yakalamamış.")
+                    res['ticker'] = selected_ticker
+                    res['news'] = specific_news
+                    display_card(res)
