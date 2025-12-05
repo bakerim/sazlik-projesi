@@ -5,6 +5,7 @@ import google.generativeai as genai
 import requests
 import json
 from datetime import datetime
+import streamlit.components.v1 as components # YENİ IMPORT!
 
 st.set_page_config(page_title="Sazlık Pro: Garantici Baba", page_icon="💰", layout="wide")
 
@@ -33,7 +34,8 @@ WATCHLIST = [
 ]
 WATCHLIST.sort()
 
-# --- CSS TASARIMI (GİRİNTİSİZ VE TEMİZ) ---
+# --- CSS TASARIMI ---
+# CSS'i ayrı bir st.markdown bloğunda tutuyoruz ki HTML koduyla karışmasın.
 st.markdown("""
 <style>
     .card {
@@ -84,7 +86,7 @@ def get_technical_filter(ticker):
     except: return None
 
 def get_news_leads():
-    url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
+    url = "[https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json](https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json)"
     try:
         data = requests.get(url).json()
         leads = {}
@@ -139,7 +141,7 @@ def display_card(res):
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
-    # HTML blokunu en soldan başlattık (Streamlit hatasını önlemek için)
+    # st.components.v1.html ile render garantisi veriyoruz.
     html_card = f"""
 <div class="card {c}">
     <div class="card-header">
@@ -160,7 +162,8 @@ def display_card(res):
     </div>
 </div>
 """
-    st.markdown(html_card, unsafe_allow_html=True)
+    # HTML içeriği doğrudan yansıtılır (Yüksekliği ayarlayarak kaymayı önleriz)
+    components.html(html_card, height=350)
     with st.expander(f"Haber Detayları ({res['ticker']})"):
         st.text("\n".join(res['news'][:3]))
 
