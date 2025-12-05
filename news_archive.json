@@ -1,8 +1,15 @@
 [
-  {
-    "date": "2024-12-01",
-    "ticker": "TKFEN",
-    "content": "Katar projesi ihalesi kazanıldı.",
-    "ai_sentiment": "Pozitif"
-  }
+    {
+        "date": "2024-12-01",
+        "ticker": "TKFEN",
+        "content": "Katar projesi ihalesi kazan\u0131ld\u0131.",
+        "ai_sentiment": "Pozitif"
+    },
+    {
+        "date": "2024-12-05",
+        "ticker": "NVDA",
+        "content": "BA\u015eLIK BULUNAMADI",
+        "link": "Link Yok",
+        "ai_sentiment": "Test Verisi"
+    }
 ]
