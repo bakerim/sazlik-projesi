@@ -16,10 +16,9 @@ except:
     st.error("API Anahtarı Yok! Streamlit Secrets ayarlarını yapmalısın.")
     st.stop()
 
-# --- CSS TASARIMI (PUANA GÖRE RENKLER) ---
+# --- CSS TASARIMI ---
 st.markdown("""
 <style>
-    /* Kartların Genel Yapısı */
     .card {
         padding: 20px;
         border-radius: 15px;
@@ -30,7 +29,6 @@ st.markdown("""
     }
     .card:hover { transform: scale(1.02); }
     
-    /* Puan Rozeti */
     .score-badge {
         background: rgba(255,255,255,0.2);
         padding: 5px 15px;
@@ -40,11 +38,9 @@ st.markdown("""
         float: right;
     }
     
-    /* İçerik Düzeni */
     .card-header { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
     .analysis-text { font-size: 15px; opacity: 0.9; margin-bottom: 15px; min-height: 60px; }
     
-    /* Strateji Kutusu */
     .strategy-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -58,19 +54,15 @@ st.markdown("""
     .stat-val { font-size: 16px; font-weight: bold; }
     
     /* Renk Sınıfları */
-    .tier-s { background: linear-gradient(135deg, #1b5e20 0%, #00e676 100%); border: 2px solid #00e676; } /* 90+ */
-    .tier-a { background: linear-gradient(135deg, #0d47a1 0%, #2979ff 100%); border: 2px solid #2979ff; } /* 75-89 */
-    .tier-b { background: linear-gradient(135deg, #bf360c 0%, #ff6d00 100%); border: 2px solid #ff6d00; } /* 60-74 */
+    .tier-s { background: linear-gradient(135deg, #1b5e20 0%, #00e676 100%); border: 2px solid #00e676; }
+    .tier-a { background: linear-gradient(135deg, #0d47a1 0%, #2979ff 100%); border: 2px solid #2979ff; }
+    .tier-b { background: linear-gradient(135deg, #bf360c 0%, #ff6d00 100%); border: 2px solid #ff6d00; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- FONKSİYONLAR ---
 
 def get_technical_filter(ticker):
-    """
-    Sadece Yükseliş trendindekileri alalım. 
-    Düşüştekiler 'Sıralamaya' bile girmesin, zaman kaybı.
-    """
     try:
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1mo")
@@ -79,7 +71,8 @@ def get_technical_filter(ticker):
         price = hist['Close'].iloc[-1]
         sma20 = hist['Close'].rolling(20).mean().iloc[-1]
         
-        if price < sma20: return None # Trend Kötü
+        # Trend kontrolü
+        if price < sma20: return None 
         
         return {"price": price}
     except: return None
@@ -97,38 +90,105 @@ def get_news_leads():
     except: return {}
 
 def score_opportunity(ticker, tech_data, news_list):
-    """
-    AI artık 'Uygun mu?' diye sormuyor, 'Kaç Puan?' diye soruyor.
-    """
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
     news_text = "\n".join(news_list[:3])
     
     prompt = f"""
     SEN "GARANTİCİ BABA" LAKAPLI TRADER'SIN.
-    
     HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} (Teknik: YÜKSELİŞ Trendi)
-    HABERLER:
-    {news_text}
+    HABERLER: {news_text}
     
-    GÖREV: Bu swing trade fırsatına 0 ile 100 arası bir GÜVEN PUANI ver.
-    
-    PUANLAMA MANTIĞI:
-    - 90-100: "Gözü Kapalı Alınır" (Haber çok iyi + Trend güçlü)
-    - 75-89: "Güzel Fırsat" (Risk düşük, potansiyel var)
-    - 60-74: "Riskli ama Denenebilir" (Stoplu takip şart)
-    - 0-59: "Bulaşma" (Pas geç)
+    GÖREV: Swing trade fırsatına 0-100 arası GÜVEN PUANI ver.
     
     ÇIKTI (JSON):
     {{
         "puan": (Sayı),
-        "baslik": "Kısa Çarpıcı Başlık (Örn: ROKET HAZIRLIĞI)",
+        "baslik": "Kısa Başlık (Örn: ROKET HAZIRLIĞI)",
         "analiz": "Neden bu puanı verdin? (Maks 2 cümle)",
         "giris": {tech_data['price']:.2f},
-        "hedef": (Makul kar al),
+        "hedef": (Kar al),
         "stop": (Stop noktası),
         "vade": "X Gün"
     }}
     """
     try:
         response = model.generate_content(prompt)
-        text = response.text.replace('
+        # --- DÜZELTİLEN SATIR BURASI ---
+        text = response.text.replace('```json', '').replace('```', '')
+        # -------------------------------
+        return json.loads(text)
+    except: return None
+
+# --- ARAYÜZ ---
+st.title("🏆 Sazlık: Fırsat Sıralaması")
+st.markdown("---")
+
+if st.button("LİDERLİK TABLOSUNU OLUŞTUR 📊", type="primary"):
+    
+    news_dict = get_news_leads()
+    
+    if not news_dict:
+        st.warning("Bot henüz veri toplamamış.")
+    else:
+        status_text = st.empty()
+        bar = st.progress(0)
+        
+        tickers = list(news_dict.keys())
+        scanned_results = []
+        
+        for i, ticker in enumerate(tickers):
+            status_text.text(f"Analiz ediliyor: {ticker}...")
+            bar.progress((i + 1) / len(tickers))
+            
+            tech = get_technical_filter(ticker)
+            if not tech: continue
+            
+            ai_res = score_opportunity(ticker, tech, news_dict[ticker])
+            
+            # 60 Puan Barajı
+            if ai_res and ai_res['puan'] >= 60:
+                ai_res['ticker'] = ticker
+                ai_res['news'] = news_dict[ticker]
+                scanned_results.append(ai_res)
+        
+        status_text.empty()
+        bar.empty()
+        
+        # SIRALAMA
+        scanned_results.sort(key=lambda x: x['puan'], reverse=True)
+        
+        if not scanned_results:
+            st.info("Trendi pozitif olup geçer not (60+) alan hisse çıkmadı.")
+        else:
+            st.success(f"Toplam {len(scanned_results)} fırsat bulundu!")
+            
+            for res in scanned_results:
+                puan = res['puan']
+                if puan >= 90:
+                    css_class = "tier-s"
+                    icon = "💎"
+                elif puan >= 75:
+                    css_class = "tier-a"
+                    icon = "🔥"
+                else:
+                    css_class = "tier-b"
+                    icon = "⚠️"
+                
+                st.markdown(f"""
+                <div class="card {css_class}">
+                    <div class="card-header">
+                        {icon} {res['ticker']}: {res['baslik']}
+                        <div class="score-badge">PUAN: {puan}</div>
+                    </div>
+                    <div class="analysis-text">{res['analiz']}</div>
+                    <div class="strategy-grid">
+                        <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
+                        <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
+                        <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
+                        <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander(f"Haber Detayları"):
+                    st.text("\n".join(res['news'][:3]))
