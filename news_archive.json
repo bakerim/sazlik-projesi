@@ -1,9 +1,395 @@
 [
     {
-        "date": "2024-12-01",
-        "ticker": "TKFEN",
-        "content": "Katar projesi ihalesi kazan\u0131ld\u0131.",
-        "ai_sentiment": "Pozitif"
+        "date": "2025-12-05",
+        "ticker": "NVDA",
+        "content": "Nvidia one of the most 'consequential companies' in history, CEO says",
+        "link": "https://finance.yahoo.com/video/nvidia-one-most-consequential-companies-130007390.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "NVDA",
+        "content": "3 Best Tech Stocks to Buy in December",
+        "link": "https://finance.yahoo.com/news/3-best-tech-stocks-buy-163100159.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "TSLA",
+        "content": "Tesla launches cheaper Standard EVs in Europe to blunt sales drop, Musk backlash",
+        "link": "https://finance.yahoo.com/news/tesla-launches-cheaper-standard-evs-in-europe-to-blunt-sales-drop-musk-backlash-164639812.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "TSLA",
+        "content": "Energy storage industry set aggressive goals for 2025 \u2014\u00a0and already crushed them",
+        "link": "https://finance.yahoo.com/news/energy-storage-industry-set-aggressive-152528843.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "Netflix to acquire Warner Bros., more executive departures at Apple",
+        "link": "https://finance.yahoo.com/video/netflix-acquire-warner-bros-more-153827877.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "Apple Reaches All-Time High This Week -- Proves It's Still in AI Race",
+        "link": "https://finance.yahoo.com/news/apple-reaches-time-high-week-151055016.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "Apple Warns Users in 84 Countries of New Cyber Threat Activity",
+        "link": "https://finance.yahoo.com/news/apple-warns-users-84-countries-151549613.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "India weighs greater phone-location surveillance; tech giants protest",
+        "link": "https://finance.yahoo.com/video/india-weighs-greater-phone-location-144206007.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "ChatGPT Thinks Apple Stock Price Will Close At This Level By The End of 2025",
+        "link": "https://finance.yahoo.com/news/chatgpt-thinks-apple-stock-price-142124171.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "Did Rachel Reeves mislead the public before the budget? How readers voted",
+        "link": "https://finance.yahoo.com/news/rachel-reeves-obr-budget-poll-141614113.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AAPL",
+        "content": "After Neuralink, Max Hodak is building something stranger",
+        "link": "https://finance.yahoo.com/news/neuralink-max-hodak-building-something-125647706.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "How Recent AI And Cloud Developments Are Rewriting The Microsoft Investment Story",
+        "link": "https://finance.yahoo.com/news/recent-ai-cloud-developments-rewriting-150712183.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "OpenAI CEO Sam Altman Just Delivered Incredible News to Alphabet (Google) Investors",
+        "link": "https://finance.yahoo.com/news/openai-ceo-sam-altman-just-145100217.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "IREN Limited Soars 371% in 6 Months: Buy, Sell or Hold the Stock?",
+        "link": "https://finance.yahoo.com/news/iren-limited-soars-371-6-143500869.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "Will Nebius' $5B CapEx Spike Weigh on Its 2025 EBITDA Targets?",
+        "link": "https://finance.yahoo.com/news/nebius-5b-capex-spike-weigh-140200529.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "Will the Federal Market Entry Enhance CoreWeave's Competitive Lead?",
+        "link": "https://finance.yahoo.com/news/federal-market-entry-enhance-coreweaves-134900451.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSFT",
+        "content": "This Week In Cloud AI - Centrilogic Achieves Elite Microsoft AI Cloud Partner Status",
+        "link": "https://finance.yahoo.com/news/week-cloud-ai-centrilogic-achieves-123749634.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "GOOGL",
+        "content": "AI trade's 'momentum shift' is fueled by these catalysts",
+        "link": "https://finance.yahoo.com/video/ai-trades-momentum-shift-fueled-120019544.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "GOOGL",
+        "content": "A Startup Backed By Mark Cuban Tried To Make 'Buy American' A Shopping Habit. No One Cared, And The Team Had To Pivot",
+        "link": "https://finance.yahoo.com/news/startup-backed-mark-cuban-tried-164549172.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "GOOGL",
+        "content": "3 Best Tech Stocks to Buy in December",
+        "link": "https://finance.yahoo.com/news/3-best-tech-stocks-buy-163100159.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "Netflix\u2013Warner Bros. deal: 6 things to keep an eye on",
+        "link": "https://finance.yahoo.com/video/netflix-warner-bros-deal-6-151518275.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "A Startup Backed By Mark Cuban Tried To Make 'Buy American' A Shopping Habit. No One Cared, And The Team Had To Pivot",
+        "link": "https://finance.yahoo.com/news/startup-backed-mark-cuban-tried-164549172.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "2 Monster Stocks to Hold for the Next 5 Years",
+        "link": "https://finance.yahoo.com/news/2-monster-stocks-hold-next-155100510.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "Instant View: Netflix to buy Warner Bros Discovery's studios, streaming unit for $72 billion",
+        "link": "https://finance.yahoo.com/news/instant-view-netflix-buy-warner-150326415.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "ChatGPT Thinks Alphabet Stock Price Will Close At This Level By The End Of 2025",
+        "link": "https://finance.yahoo.com/news/chatgpt-thinks-alphabet-stock-price-142620746.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "How To Put $100 In Your Retirement Fund Each Month With EastGroup Properties Stock",
+        "link": "https://finance.yahoo.com/news/put-100-retirement-fund-month-130052028.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "This AI Cloud Specialist Is Poised for a Decade of Explosive Growth",
+        "link": "https://finance.yahoo.com/news/ai-cloud-specialist-poised-decade-124500320.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "Amazon slashes seller fees in bid to compete with Shein, Temu",
+        "link": "https://finance.yahoo.com/news/amazon-slashes-seller-fees-bid-121039934.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "AMZN",
+        "content": "Update: Market Chatter: Amazon's Italian Unit Pays $209 Million Compensation to End Probe Into Tax, Labor Practices",
+        "link": "https://finance.yahoo.com/news/market-chatter-amazon-apos-italian-112049840.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "META",
+        "content": "Meta, Ulta Beauty, Humana: Top analyst calls today",
+        "link": "https://finance.yahoo.com/video/meta-ulta-beauty-humana-top-155440179.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "META",
+        "content": "A Startup Backed By Mark Cuban Tried To Make 'Buy American' A Shopping Habit. No One Cared, And The Team Had To Pivot",
+        "link": "https://finance.yahoo.com/news/startup-backed-mark-cuban-tried-164549172.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "COIN",
+        "content": "ChatGPT Thinks Bitcoin Will Close At This Level By The End of 2025",
+        "link": "https://finance.yahoo.com/news/chatgpt-thinks-bitcoin-close-level-142855509.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "COIN",
+        "content": "Cloudflare outage disrupts Coinbase, Kraken and major exchanges",
+        "link": "https://finance.yahoo.com/news/cloudflare-outage-disrupts-coinbase-kraken-131817213.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MSTR",
+        "content": "Analyst cuts 60% price target for popular Bitcoin stock",
+        "link": "https://finance.yahoo.com/news/analyst-cuts-60-price-target-153851982.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "BC-Most Active Stocks",
+        "link": "https://finance.yahoo.com/news/bc-most-active-stocks-153017410.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "ChatGPT Thinks Bitcoin Will Close At This Level By The End of 2025",
+        "link": "https://finance.yahoo.com/news/chatgpt-thinks-bitcoin-close-level-142855509.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "S&P Futures Gain With All Eyes on Key U.S. PCE Inflation Data",
+        "link": "https://finance.yahoo.com/news/p-futures-gain-eyes-key-111126614.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "US Stock Market Today: S&P 500 Futures Edge Higher on Imminent Fed Rate Cut Bets",
+        "link": "https://finance.yahoo.com/news/us-stock-market-today-p-101403583.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "Update: Market Chatter: Intel to Keep Networking, Communications Unit Following Strategic Review",
+        "link": "https://finance.yahoo.com/news/market-chatter-intel-keep-networking-092933201.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "INTC",
+        "content": "Cadence Design Systems, Inc. (CDNS): A Bull Case Theory",
+        "link": "https://finance.yahoo.com/news/cadence-design-systems-inc-cdns-024826796.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "NVDA",
+        "content": "How Nvidia is outperforming AI competition with a lower valuation",
+        "link": "https://finance.yahoo.com/video/nvidia-outperforming-ai-competition-lower-215000994.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "NVDA",
+        "content": "UiPath stock skyrockets: What to know about AI player's big quarter",
+        "link": "https://finance.yahoo.com/video/uipath-stock-skyrockets-know-ai-182031515.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "AAPL",
+        "content": "Meta stock climbs on report company will make major cuts to metaverse efforts",
+        "link": "https://finance.yahoo.com/news/meta-stock-climbs-on-report-company-will-make-major-cuts-to-metaverse-efforts-150054338.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "AAPL",
+        "content": "BTIG thinks Apple stock is poised to drop, PepsiCo nears settlement",
+        "link": "https://finance.yahoo.com/video/btig-thinks-apple-stock-poised-204301445.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "MSFT",
+        "content": "Nvidia\u2019s chips face new competition from Google, but the company's not about to lose its edge",
+        "link": "https://finance.yahoo.com/news/nvidias-chips-face-new-competition-from-google-but-the-companys-not-about-to-lose-its-edge-164809828.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "GOOGL",
+        "content": "Why AI infrastructure is 'unprecedented' compared to cloud buildout",
+        "link": "https://finance.yahoo.com/video/why-ai-infrastructure-unprecedented-compared-205846933.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "GOOGL",
+        "content": "Google is playing 'both sides' of AI race: Top Mag 7 picks",
+        "link": "https://finance.yahoo.com/video/google-playing-both-sides-ai-173000475.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "AMZN",
+        "content": "Amazon vs. Alphabet vs. Meta: This analyst's top AI pick",
+        "link": "https://finance.yahoo.com/video/amazon-vs-alphabet-vs-meta-183000750.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "META",
+        "content": "Stock market today: Dow, S&P 500, Nasdaq end little changed as Wall Street's Fed rate cut conviction runs high",
+        "link": "https://finance.yahoo.com/news/live/stock-market-today-dow-sp-500-nasdaq-end-little-changed-as-wall-streets-fed-rate-cut-conviction-runs-high-210046639.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "META",
+        "content": "Google can grab AI trade in a 'winner take most' scenario",
+        "link": "https://finance.yahoo.com/video/google-grab-ai-trade-winner-193000578.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "META",
+        "content": "Meta has prioritized 'novel utility' of AI chatbots over Metaverse",
+        "link": "https://finance.yahoo.com/video/meta-prioritized-novel-utility-ai-174537264.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "META",
+        "content": "Google is playing 'both sides' of AI race: Top Mag 7 picks",
+        "link": "https://finance.yahoo.com/video/google-playing-both-sides-ai-173000475.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "AMD",
+        "content": "Nvidia\u2019s chips face new competition from Google, but the company's not about to lose its edge",
+        "link": "https://finance.yahoo.com/news/nvidias-chips-face-new-competition-from-google-but-the-companys-not-about-to-lose-its-edge-164809828.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "COIN",
+        "content": "Why more retirees may be warming up to crypto",
+        "link": "https://finance.yahoo.com/news/why-more-retirees-may-be-warming-up-to-crypto-170017655.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "INTC",
+        "content": "Google is playing 'both sides' of AI race: Top Mag 7 picks",
+        "link": "https://finance.yahoo.com/video/google-playing-both-sides-ai-173000475.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-04",
+        "ticker": "INTC",
+        "content": "US Equity Indexes Mixed Following Divergent Labor Market Data",
+        "link": "https://finance.yahoo.com/news/us-equity-indexes-mixed-following-220840068.html",
+        "ai_sentiment": "Analiz Bekliyor"
     },
     {
         "date": "2024-12-05",
@@ -11,5 +397,11 @@
         "content": "BA\u015eLIK BULUNAMADI",
         "link": "Link Yok",
         "ai_sentiment": "Test Verisi"
+    },
+    {
+        "date": "2024-12-01",
+        "ticker": "TKFEN",
+        "content": "Katar projesi ihalesi kazan\u0131ld\u0131.",
+        "ai_sentiment": "Pozitif"
     }
 ]
