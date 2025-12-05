@@ -5,149 +5,128 @@ import google.generativeai as genai
 import requests
 import json
 
-# --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık Pro: US Swing", page_icon="🇺🇸", layout="wide")
+st.set_page_config(page_title="Sazlık Pro: 100", page_icon="🇺🇸", layout="wide")
 
-# --- API ANAHTARI ---
+# --- API ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=api_key)
-except Exception:
-    st.error("⚠️ API Anahtarı yok! Secrets ayarlarını kontrol et.")
+except:
+    st.error("API Anahtarı Yok!")
     st.stop()
 
-# --- 1. MODÜL: ABD TEKNİK ANALİZİ ($) ---
+# --- CSS İLE GÖRSEL GÜZELLEŞTİRME ---
+st.markdown("""
+<style>
+    .kasa-box {
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #1e2130;
+        border-left: 5px solid #ffd700;
+        margin-bottom: 10px;
+    }
+    .sinyal-box {
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #0e1117;
+        border: 1px solid #30333d;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- FONKSİYONLAR ---
 def get_technical_status(ticker):
     try:
-        # ABD Borsası için .IS EKLEMİYORUZ (Direkt AAPL, TSLA)
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1mo")
+        if hist.empty: return None, "Yok", 0
         
-        if hist.empty:
-            return None, "Veri Yok", 0
-            
         price = hist['Close'].iloc[-1]
         sma20 = hist['Close'].rolling(20).mean().iloc[-1]
+        daily_range = (hist['High'] - hist['Low']).mean()
+        volatility = (daily_range / price) * 100
         
-        # Volatilite Hesabı
-        daily_change = (hist['High'] - hist['Low']).mean()
-        volatility_pct = (daily_change / price) * 100
-        
-        # Trend
-        if price > sma20 * 1.01:
-            trend = "YÜKSELİŞ (Bullish) 🟢"
-        elif price < sma20 * 0.99:
-            trend = "DÜŞÜŞ (Bearish) 🔴"
-        else:
-            trend = "YATAY (Neutral) 🟡"
-            
-        return price, trend, volatility_pct
-    except Exception as e:
-        return None, f"Hata: {str(e)}", 0
+        trend = "YÜKSELİŞ (Bullish) 🟢" if price > sma20 else "DÜŞÜŞ (Bearish) 🔴"
+        return price, trend, volatility
+    except: return None, "Hata", 0
 
-# --- 2. MODÜL: OTOMATİK HAFIZA (Botun Topladığı Veriler) ---
-def get_past_context(ticker):
-    # Senin botunun doldurduğu gerçek dosya
+def get_bot_news(ticker):
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
-    
     try:
-        response = requests.get(url)
-        if response.status_code != 200:
-            return "⚠️ Bot dosyasına ulaşılamadı."
-            
-        data = response.json()
-        
-        # İlgili hissenin haberlerini süz
-        found_news = []
-        for item in data:
-            if item.get('ticker') == ticker:
-                # Tarih ve Başlık
-                found_news.append(f"- [{item['date']}] {item['content']}")
-        
-        if found_news:
-            # En güncel 5 haberi al
-            return "\n".join(found_news[:5])
-        else:
-            return f"ℹ️ {ticker} için botun yakaladığı bir haber henüz yok."
-    except:
-        return "Veri okuma hatası."
+        data = requests.get(url).json()
+        news = [f"- [{i['date']}] {i['content']}" for i in data if i.get('ticker') == ticker]
+        return "\n".join(news[:3]) if news else "Bot henüz bu hisse için haber yakalamadı."
+    except: return "Veri Hatası"
 
-# --- 3. MODÜL: HEDGE FUND AI (Gemini 2.0) ---
-def ask_trader_ai(ticker, price, trend, volatility, context, news_text):
+def ask_ai(ticker, price, trend, vol, news):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    
     prompt = f"""
-    SEN TECRÜBELİ BİR ABD BORSA TRADER'ISIN.
+    SEN BİR PORTFÖY YÖNETİCİSİSİN. RİSK ALMAYI SEVMEYEN "GARANTİCİ" BİR TARZIN VAR.
     
-    ANALİZ VERİLERİ:
-    1. HİSSE: {ticker} (Şu an: ${price:.2f})
-    2. TREND: {trend}
-    3. VOLATİLİTE: %{volatility:.2f}
-    4. BOT İSTİHBARATI (Hafıza): 
-    {context}
+    VARLIK: {ticker} | FİYAT: ${price:.2f} | TREND: {trend} | VOLATİLİTE: %{vol:.2f}
+    HABERLER: {news}
     
-    5. ODAK HABER: 
-    "{news_text}"
-
-    GÖREV:
-    Kısa vadeli (1-5 Gün) swing trade analizi yap.
+    GÖREV: Swing Trade analizi yap.
     
-    ÇIKTI FORMATI:
-    ### 📊 TİCARET PLANI
-    * **Karar:** (GÜÇLÜ AL / İZLE / SAT)
-    * **Giriş:** ${price:.2f}
-    * **Hedef (TP):** (Trende uygun hedef)
-    * **Stop (SL):** (Mantıklı zarar kes)
-    * **Vade:** (Gün sayısı)
-    
-    ### 🧠 ANALİZ
-    (Kısa ve net yorum)
+    ÇIKTIYI JSON FORMATINDA VER:
+    {{
+        "karar": "AL (LONG) veya SAT (SHORT) veya İZLE",
+        "guven_skoru": (0-100 arası sayı),
+        "analiz": "Kısa ve net yorum (maks 2 cümle)",
+        "kasa_yonetimi": "Kasanın %X'i ile girilmeli. (Risk düşükse %10, yüksekse %5)",
+        "giris": {price:.2f},
+        "hedef": (Trende göre %3-%8 yukarısı),
+        "stop": (Destek altı, %2-%4 aşağısı)
+    }}
     """
-    
     try:
         response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"AI Hatası: {str(e)}"
+        text = response.text.replace('```json', '').replace('```', '')
+        return json.loads(text)
+    except: return None
 
 # --- ARAYÜZ ---
-st.title("🇺🇸 Sazlık Pro: Wall Street Edition")
-st.caption("ABD Borsası Otomatik Analiz Sistemi")
+st.title("🇺🇸 Sazlık 100: Swing Radar")
+st.caption("Otomatik Haber Botu & Garantici Risk Yönetimi")
 
-col1, col2 = st.columns([1, 2])
+col1, col2 = st.columns([1, 3])
 
 with col1:
-    st.subheader("İşlem Masası")
-    ticker = st.text_input("Sembol (Ticker)", "NVDA").upper()
-    btn = st.button("Sinyal Üret ⚡", type="primary")
+    st.subheader("🔍 Tarama")
+    ticker = st.text_input("Hisse Kodu", "NVDA").upper()
+    if st.button("Analiz Et", type="primary"):
+        st.session_state['analiz_basladi'] = True
 
 with col2:
-    if btn:
-        with st.spinner("Piyasa verileri taranıyor..."):
-            # 1. Teknik
+    if st.session_state.get('analiz_basladi'):
+        with st.spinner("Piyasa ve Haberler Taranıyor..."):
             price, trend, vol = get_technical_status(ticker)
+            news_context = get_bot_news(ticker)
             
             if price:
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Fiyat", f"${price:.2f}")
-                c2.metric("Trend", trend)
-                c3.metric("Volatilite", f"%{vol:.2f}")
+                ai_data = ask_ai(ticker, price, trend, vol, news_context)
                 
-                # 2. Hafıza
-                context = get_past_context(ticker)
-                
-                # Bot haber bulduysa onu kullan, bulamadıysa genel analiz yap
-                main_news = "Genel teknik görünüm ve piyasa durumu analizi."
-                if "haber henüz yok" not in context and "Hata" not in context:
-                    main_news = context.split('\n')[0] # En güncel haberi al
-                    st.info(f"📌 Analiz Edilen Haber: {main_news}")
-                
-                with st.expander("📂 Botun Topladığı Veriler"):
-                    st.text(context)
-                
-                # 3. AI Kararı
-                result = ask_trader_ai(ticker, price, trend, vol, context, main_news)
-                
-                st.markdown(result)
+                if ai_data:
+                    # KART TASARIMI
+                    st.markdown(f"""
+                    <div class="sinyal-box">
+                        <h2>💎 KARAR: {ai_data['karar']}</h2>
+                        <p><b>Güven Skoru:</b> %{ai_data['guven_skoru']} | <b>Risk:</b> {trend}</p>
+                        <p>📝 <b>Analiz:</b> {ai_data['analiz']}</p>
+                        <hr>
+                        <div class="kasa-box">
+                            💰 <b>Kasa Yönetimi:</b> {ai_data['kasa_yonetimi']}
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #ff4b4b;">🛑 <b>STOP:</b> ${ai_data['stop']}</span>
+                            <span style="color: #00c853;">🎯 <b>HEDEF:</b> ${ai_data['hedef']}</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with st.expander("Botun Yakaladığı Haberler"):
+                        st.text(news_context)
+                else:
+                    st.error("AI Yanıt Vermedi.")
             else:
-                st.error("Hisse bulunamadı. Lütfen 'NVDA', 'TSLA' gibi ABD kodları girin.")
+                st.error("Hisse Bulunamadı.")
