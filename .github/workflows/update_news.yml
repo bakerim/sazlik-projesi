@@ -1,0 +1,40 @@
+name: Haber Avcısı Botu
+
+# Ne zaman çalışsın?
+on:
+  schedule:
+    # Her 4 saatte bir çalış (Saat başlarında)
+    - cron: '0 */4 * * *'
+  # İstersen butona basınca da çalışsın (Manuel Tetikleme)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Depoyu Çek (Checkout)
+      uses: actions/checkout@v4
+
+    - name: Python Kurulumu
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Kütüphaneleri Yükle
+      run: |
+        pip install yfinance pandas requests
+
+    - name: Botu Çalıştır (Veri Topla)
+      run: python news_bot.py
+
+    - name: Değişiklikleri Kaydet (Commit & Push)
+      run: |
+        git config --global user.name 'Sazlık Bot'
+        git config --global user.email 'bot@sazlik.com'
+        git add news_archive.json
+        # Eğer değişiklik varsa commit et, yoksa hata verme
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Bot: Yeni haberler eklendi" && git push)
