@@ -5,7 +5,6 @@ import google.generativeai as genai
 import requests
 import json
 from datetime import datetime
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Sazlık Pro: Şüpheci Mod", page_icon="🛡️", layout="wide")
 
@@ -102,39 +101,27 @@ def score_opportunity(ticker, tech_data, news_list):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
     news_text = "\n".join(news_list[:3]) if news_list else "Haber yok."
     
-    # --- YENİ ŞÜPHECİ PROMPT ---
+    # --- ŞÜPHECİ PROMPT ---
     prompt = f"""
-    SEN "GARANTİCİ BABA" LAKAPLI, AŞIRI ŞÜPHECİ VE RİSK SEVMEYEN BİR TRADER'SIN.
-    AMACIN: Sadece %100 emin olduğun, haber destekli, trendi doğru hisseleri seçmek.
+    SEN "GARANTİCİ BABA" LAKAPLI, ŞÜPHECİ BİR TRADER'SIN.
+    HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | TREND: {tech_data['trend']}
+    HABERLER: {news_text}
     
-    HİSSE: {ticker} 
-    FİYAT: ${tech_data['price']:.2f} 
-    TREND: {tech_data['trend']} (Eğer NEGATİF ise puanı öldür).
-    HABERLER: 
-    {news_text}
+    KURALLAR:
+    1. Haber metninde "{ticker}" yoksa veya alakasızsa PUANI SIFIRLA.
+    2. Trend NEGATİF ise puanı 45'in altına çek.
+    3. RİSK/KAZANÇ (R/R) oranını hesapla (Örn: 1:3).
     
-    ADIM 1: HABER KONTROLÜ (ÇOK ÖNEMLİ)
-    - Haber metinlerinde "{ticker}" sembolü veya ŞİRKETİN İSMİ doğrudan geçiyor mu?
-    - Haberler genel sektör haberi mi yoksa BU şirkete mi özel?
-    - EĞER HABER ALAKASIZSA veya BAŞKA ŞİRKETTEN BAHSEDİYORSA -> PUANI DİREKT "30" YAP VE ANALİZİ BİTİR.
-    
-    ADIM 2: TREND KONTROLÜ
-    - Trend NEGATİF ise -> PUAN MAKSİMUM "45" OLABİLİR. Asla AL önerme.
-    
-    ADIM 3: RİSK/KAZANÇ (R/R)
-    - Stop Loss seviyesini yakın, Hedef seviyesini trende uygun seç.
-    - Eğer Hedef/Risk oranı 1:2'nin altındaysa (Örn: 1:1.5) PUANI DÜŞÜR.
-    
-    ÇIKTI (JSON FORMATINDA):
+    ÇIKTI (JSON):
     {{
         "puan": (0-100 arası sayı),
-        "baslik": "Durumu özetleyen 3-4 kelime (Örn: ALAKASIZ HABER veya GÜÇLÜ TREND)",
-        "analiz": "Neden bu puanı verdin? Haber alakalı mı? Trend nasıl? (Dürüst ve sert ol)",
+        "baslik": "Kısa Başlık",
+        "analiz": "Analiz yorumu",
         "giris": {tech_data['price']:.2f},
-        "hedef": (Kar al seviyesi),
-        "stop": (Stop seviyesi),
+        "hedef": (Hedef),
+        "stop": (Stop),
         "vade": "X Gün",
-        "rr_orani": "1:X (Örn: 1:2.5)",
+        "rr_orani": "1:X",
         "kasa_yuzdesi": "%X"
     }}
     """
@@ -144,25 +131,33 @@ def score_opportunity(ticker, tech_data, news_list):
         return json.loads(text)
     except: return None
 
-# --- HTML KART GÖSTERİM FONKSİYONU ---
+# --- KART GÖSTERİMİ (DÜZELTİLMİŞ) ---
 def display_card(res):
     puan = res['puan']
     
-    # Puan skalasını biraz daha yukarı çektik
     if puan >= 90: c, i = "tier-s", "💎"
-    elif puan >= 80: c, i = "tier-a", "🔥" # Mavi için 80+
+    elif puan >= 80: c, i = "tier-a", "🔥"
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
+    # HTML KODUNU DUVARA YAPIŞTIRDIK (Boşluk yok!)
     html_card = f"""
 <div class="card {c}">
 <div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
 <div class="analysis-text"><b>{res['baslik']}</b><br>{res['analiz']}</div>
-<div class="risk-row"><span>R/R: <b style="color:#FFF;">{res['rr_orani']}</b></span><span>Kasa: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span></div>
-<div class="strategy-grid"><div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div><div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div><div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div><div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div></div>
+<div class="risk-row">
+<span>R/R: <b style="color:#FFF;">{res['rr_orani']}</b></span>
+<span>Kasa: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
+</div>
+<div class="strategy-grid">
+<div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
+<div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
+<div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
+<div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
+</div>
 </div>
 """
-    components.html(html_card, height=380) # Yüksekliği biraz artırdık
+    st.markdown(html_card, unsafe_allow_html=True)
     
     if res.get('news'):
         with st.expander(f"Haber Detayları ({res['ticker']})"):
@@ -172,7 +167,7 @@ def display_card(res):
 st.title("🛡️ Sazlık: Şüpheci Mod")
 st.markdown("---")
 
-# 1. BÖLÜM: OTOMATİK TARAMA
+# 1. BÖLÜM: OTOMATİK
 if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
     news_dict = get_news_leads()
     
