@@ -5,6 +5,7 @@ import google.generativeai as genai
 import requests
 import json
 from datetime import datetime
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Sazlık Pro: Şüpheci Mod", page_icon="🛡️", layout="wide")
 
@@ -86,7 +87,8 @@ def get_technical_filter(ticker):
 def get_news_leads():
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=5) # Timeout'u kısalttık
+        if response.status_code != 200: return {}
         data = response.json()
         leads = {}
         for item in data:
@@ -97,11 +99,20 @@ def get_news_leads():
         return leads
     except: return {}
 
+# YENİ FONKSİYON: Arşivde yoksa Canlı Çek
+def fetch_live_news_fallback(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        news = stock.news
+        if not news: return []
+        # Sadece başlıkları al
+        return [f"- {n['title']}" for n in news[:3]]
+    except: return []
+
 def score_opportunity(ticker, tech_data, news_list):
     model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    news_text = "\n".join(news_list[:3]) if news_list else "Haber yok."
+    news_text = "\n".join(news_list[:3]) if news_list else "Haber bulunamadı."
     
-    # --- ŞÜPHECİ PROMPT ---
     prompt = f"""
     SEN "GARANTİCİ BABA" LAKAPLI, ŞÜPHECİ BİR TRADER'SIN.
     HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | TREND: {tech_data['trend']}
@@ -131,7 +142,7 @@ def score_opportunity(ticker, tech_data, news_list):
         return json.loads(text)
     except: return None
 
-# --- KART GÖSTERİMİ (DÜZELTİLMİŞ) ---
+# --- KART GÖSTERİMİ ---
 def display_card(res):
     puan = res['puan']
     
@@ -140,7 +151,6 @@ def display_card(res):
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
-    # HTML KODUNU DUVARA YAPIŞTIRDIK (Boşluk yok!)
     html_card = f"""
 <div class="card {c}">
 <div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
@@ -157,7 +167,7 @@ def display_card(res):
 </div>
 </div>
 """
-    st.markdown(html_card, unsafe_allow_html=True)
+    components.html(html_card, height=380)
     
     if res.get('news'):
         with st.expander(f"Haber Detayları ({res['ticker']})"):
@@ -172,7 +182,7 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
     news_dict = get_news_leads()
     
     if not news_dict: 
-        st.warning("Veri çekilemedi. GitHub Actions'ı kontrol edin.")
+        st.warning("Bot henüz veri toplamamış veya erişilemiyor. (Manuel analiz çalışır)")
     else:
         status = st.empty()
         bar = st.progress(0)
@@ -186,7 +196,6 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
             if not tech: continue
             
             ai = score_opportunity(ticker, tech, news_dict[ticker])
-            
             if ai:
                 ai['ticker'] = ticker
                 ai['news'] = news_dict[ticker]
@@ -203,21 +212,38 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
 
 st.markdown("---")
 
-# 2. BÖLÜM: TEKLİ SEÇİM
-with st.expander("🕵️ MANUEL ANALİZ", expanded=True):
+# 2. BÖLÜM: TEKLİ SEÇİM (CANLI YEDEKLEME İLE GÜÇLENDİRİLDİ)
+with st.expander("🕵️ MANUEL ANALİZ (Kesintisiz Mod)", expanded=True):
     selected_ticker = st.selectbox("Hisse Seçiniz:", WATCHLIST)
     
     if st.button(f"{selected_ticker} ANALİZ ET 🔍"):
-        with st.spinner(f"{selected_ticker} inceleniyor..."):
+        with st.spinner(f"{selected_ticker} için veriler toplanıyor..."):
+            
+            # ADIM 1: Önce Botun hafızasına bak
             all_news = get_news_leads()
             specific_news = all_news.get(selected_ticker, [])
+            
+            # ADIM 2: Eğer Botta yoksa, CANLI ÇEK (Yedek Plan)
+            is_live = False
+            if not specific_news:
+                specific_news = fetch_live_news_fallback(selected_ticker)
+                is_live = True
+            
+            # ADIM 3: Teknik Veri
             tech = get_technical_filter(selected_ticker)
             
             if not tech:
-                st.error("Hisse verisi çekilemedi.")
+                st.error("Hisse verisi çekilemedi (Yahoo Finance hatası).")
             else:
+                # ADIM 4: Analiz Yap
                 res = score_opportunity(selected_ticker, tech, specific_news)
                 if res:
                     res['ticker'] = selected_ticker
                     res['news'] = specific_news
+                    
+                    if is_live:
+                        st.caption(f"⚡ Not: Bu hisse bot arşivinde yoktu, veriler canlı çekildi.")
+                        
                     display_card(res)
+                else:
+                    st.error("Analiz oluşturulamadı.")
