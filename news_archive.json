@@ -1,5 +1,131 @@
 [
     {
+        "date": "2025-12-06",
+        "ticker": "NVDA",
+        "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
+        "link": "https://finance.yahoo.com/news/prediction-nvidia-become-10-trillion-013500234.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "NVDA",
+        "content": "Jim Cramer Names One Of His 'Absolute Favorite' Stocks",
+        "link": "https://finance.yahoo.com/news/jim-cramer-names-one-absolute-013040478.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "NVDA",
+        "content": "Nvidia CEO Says Nuclear Is AI's Future \u2014 Oklo, NuScale Ready To Roar Back?",
+        "link": "https://finance.yahoo.com/news/nvidia-ceo-says-nuclear-ais-003008952.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "TSLA",
+        "content": "Jim Cramer Names One Of His 'Absolute Favorite' Stocks",
+        "link": "https://finance.yahoo.com/news/jim-cramer-names-one-absolute-013040478.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "AAPL",
+        "content": "Why Intel Stock Jumped Today",
+        "link": "https://finance.yahoo.com/news/why-intel-stock-jumped-today-004936240.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "MSFT",
+        "content": "ELAM: Markets inch higher",
+        "link": "https://finance.yahoo.com/news/elam-markets-inch-higher-010300512.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "AMZN",
+        "content": "The Future of Finance? Google Is Bringing Betting Odds Directly To Your Screen, Sparking Calls For 'Addiction Warnings'",
+        "link": "https://finance.yahoo.com/news/future-finance-google-bringing-betting-000053005.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "META",
+        "content": "The Future of Finance? Google Is Bringing Betting Odds Directly To Your Screen, Sparking Calls For 'Addiction Warnings'",
+        "link": "https://finance.yahoo.com/news/future-finance-google-bringing-betting-000053005.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "NFLX",
+        "content": "Exclusive-How Netflix won Hollywood's biggest prize, Warner Bros Discovery",
+        "link": "https://finance.yahoo.com/news/exclusive-netflix-won-hollywoods-biggest-005148889.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "INTC",
+        "content": "Why Intel Stock Jumped Today",
+        "link": "https://finance.yahoo.com/news/why-intel-stock-jumped-today-004936240.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "INTC",
+        "content": "Intel (INTC) Exceeds Market Returns: Some Facts to Consider",
+        "link": "https://finance.yahoo.com/news/intel-intc-exceeds-market-returns-224503246.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "ARM",
+        "content": "Arm Holdings (NasdaqGS:ARM) Valuation Check After South Korea Chip Design School Deal",
+        "link": "https://finance.yahoo.com/news/arm-holdings-nasdaqgs-arm-valuation-231210080.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "ORCL",
+        "content": "Fed's rate decision, Oracle & Broadcom earnings: What to Watch",
+        "link": "https://finance.yahoo.com/video/feds-rate-decision-oracle-broadcom-000000470.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "ADBE",
+        "content": "Fed's rate decision, Oracle & Broadcom earnings: What to Watch",
+        "link": "https://finance.yahoo.com/video/feds-rate-decision-oracle-broadcom-000000470.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "V",
+        "content": "Visa (V) Laps the Stock Market: Here's Why",
+        "link": "https://finance.yahoo.com/news/visa-v-laps-stock-market-224504364.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "CVX",
+        "content": "3 No-Brainer Dividend Stocks to Buy Right Now",
+        "link": "https://finance.yahoo.com/news/3-no-brainer-dividend-stocks-233900573.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "COST",
+        "content": "Fed's rate decision, Oracle & Broadcom earnings: What to Watch",
+        "link": "https://finance.yahoo.com/video/feds-rate-decision-oracle-broadcom-000000470.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "TGT",
+        "content": "3 No-Brainer Dividend Stocks to Buy Right Now",
+        "link": "https://finance.yahoo.com/news/3-no-brainer-dividend-stocks-233900573.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-05",
         "ticker": "NVDA",
         "content": "Nvidia one of the most 'consequential companies' in history, CEO says",
