@@ -406,6 +406,48 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-06",
+        "ticker": "AAPL",
+        "content": "What the heck is going on at Apple?",
+        "link": "https://finance.yahoo.com/news/heck-going-apple-080059341.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "META",
+        "content": "What the heck is going on at Apple?",
+        "link": "https://finance.yahoo.com/news/heck-going-apple-080059341.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "NFLX",
+        "content": "Netflix Makes a Blockbuster Deal for Warner Bros. But Is It a Win for Investors?",
+        "link": "https://finance.yahoo.com/news/netflix-makes-blockbuster-deal-warner-091000806.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "MSTR",
+        "content": "Strategy CEO Says $1.44B Cash Reserve Aims to Calm Bitcoin-Slump Fears",
+        "link": "https://finance.yahoo.com/news/strategy-ceo-says-1-44b-082819714.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "MSTR",
+        "content": "Strive Urges MSCI to Scrap Proposal Excluding Major BTC Holders",
+        "link": "https://finance.yahoo.com/news/strive-urges-msci-scrap-proposal-082322572.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "PFE",
+        "content": "Can Pfizer\u2019s Recent Recovery Signal a Long Term Value Opportunity in 2025?",
+        "link": "https://finance.yahoo.com/news/pfizer-recent-recovery-signal-long-090938972.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-05",
         "ticker": "NVDA",
         "content": "Nvidia one of the most 'consequential companies' in history, CEO says",
