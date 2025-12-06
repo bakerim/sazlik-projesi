@@ -6,19 +6,20 @@ from datetime import datetime
 
 # --- 🔥 SAZLIK 100: DEV LİSTE ---
 WATCHLIST = [
-    # TEKNOLOJİ & AI
     'NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'AMD', 'INTC',
     'PLTR', 'AI', 'SMCI', 'ARM', 'PATH', 'SNOW', 'CRWD', 'PANW', 'ORCL', 'ADBE',
-    # KRİPTO & FINTECH
     'COIN', 'MSTR', 'MARA', 'RIOT', 'HOOD', 'PYPL', 'SQ', 'V', 'MA', 'JPM',
-    # ENERJİ & EV
     'RIVN', 'LCID', 'NIO', 'FSLR', 'ENPH', 'XOM', 'CVX',
-    # PERAKENDE & DİĞER
     'WMT', 'COST', 'TGT', 'DIS', 'BA', 'LMT', 'GE', 'PFE', 'LLY', 'NVO',
-    # ÇİN & GELİŞMEKTE OLANLAR
-    'BABA', 'PDD', 'BIDU', 'JD'
-    # (Listeyi çok uzatıp API'yi yormamak için en hacimli 50 tanesini koydum, istersen artırırız)
+    'BABA', 'PDD', 'BIDU', 'JD', 'CSCO', 'TXN', 'AVGO', 'MU', 'LRCX', 'AMAT',
+    'DDOG', 'ZS', 'NET', 'MDB', 'TEAM', 'U', 'DKNG', 'ROKU', 'SHOP',
+    'CLSK', 'HUT', 'BITF', 'XPEV', 'LI', 'SEDG', 'PLUG', 'FCEL',
+    'BAC', 'WFC', 'C', 'GS', 'MS', 'BLK', 'AXP',
+    'HD', 'LOW', 'NKE', 'LULU', 'SBUX', 'MCD', 'KO',
+    'MRNA', 'BNTX', 'VRTX', 'REGN', 'GILD', 'AMGN', 'ISRG',
+    'RTX', 'CAT', 'DE', 'HON', 'UNP', 'UPS', 'FDX', 'CMCSA', 'TMUS', 'VZ', 'T', 'F', 'GM', 'UBER', 'ABNB', 'DASH'
 ]
+WATCHLIST.sort() # Alfabetik sıralama (Logları okumak kolay olsun)
 
 ARCHIVE_FILE = 'news_archive.json'
 
@@ -36,11 +37,12 @@ def save_archive(data):
         json.dump(data, f, indent=4)
 
 def parse_news_data(news_item):
-    """Yahoo veri çözümleyici"""
+    """Yahoo'nun karmaşık veri yapısını çözen fonksiyon"""
     title = None
     link = None
     date_str = datetime.now().strftime('%Y-%m-%d')
 
+    # Başlık ve Link Bulma (Farklı yapıları dener)
     if 'title' in news_item:
         title = news_item['title']
         link = news_item.get('link')
@@ -52,16 +54,23 @@ def parse_news_data(news_item):
     
     if not title: return None
 
+    # Tarih Bulma
     if 'providerPublishTime' in news_item:
         ts = news_item['providerPublishTime']
         date_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+    elif 'content' in news_item and 'pubDate' in news_item['content']:
+        try:
+            date_str = news_item['content']['pubDate'][:10]
+        except: pass
     
     return {"title": title, "link": link, "date": date_str}
 
 def fetch_sweet_spots():
     print(f"🇺🇸 Sazlık 100 Botu Başlatıldı ({len(WATCHLIST)} Hisse)...")
+    print(f"📅 Tarama Aralığı: Son 10 Gün")
     
     archive_data = load_archive()
+    # Parmak izi kümesi oluştur (Hız için)
     existing_fingerprints = {f"{item.get('ticker')}_{item.get('content')}" for item in archive_data}
     
     total_new = 0
@@ -73,7 +82,8 @@ def fetch_sweet_spots():
             news_list = stock.news
             
             if not news_list:
-                print("⚠️ Boş")
+                print("⚠️ Boş (Veri Yok)")
+                time.sleep(1) # Boş olsa bile bekle
                 continue
             
             count = 0
@@ -81,15 +91,17 @@ def fetch_sweet_spots():
                 clean = parse_news_data(raw_news)
                 if not clean: continue
 
-                # Sadece son 24 saatin haberlerini al (Hızlanmak için)
+                # --- 10 GÜN KURALI ---
                 try:
                     news_dt = datetime.strptime(clean['date'], '%Y-%m-%d')
                     days_diff = (datetime.now() - news_dt).days
-                    if days_diff > 3: # 3 Günden eskiyi alma
+                    if days_diff > 10: # 10 Günden eskiyi alma
                         continue
                 except: pass
 
                 fingerprint = f"{ticker}_{clean['title']}"
+                
+                # Eğer bu haber daha önce kaydedilmemişse ekle
                 if fingerprint not in existing_fingerprints:
                     entry = {
                         "date": clean['date'],
@@ -104,19 +116,22 @@ def fetch_sweet_spots():
                     count += 1
             
             if count > 0: print(f"✅ {count} Yeni")
-            else: print("💤")
+            else: print("💤 (Güncel)")
             
-            time.sleep(0.5) # API nezaket beklemesi
+            # --- HIZ AYARI (BAN YEMEMEK İÇİN) ---
+            time.sleep(2) # 2 Saniye bekle (Önceki 0.5 idi, şimdi daha güvenli)
 
-        except Exception:
-            print("❌")
+        except Exception as e:
+            print(f"❌ Hata")
+            time.sleep(2) # Hata alsa bile bekle
 
     if total_new > 0:
+        # Tarihe göre sırala (En yeni en üstte)
         archive_data.sort(key=lambda x: x['date'], reverse=True)
         save_archive(archive_data)
-        print(f"\n💾 Toplam {total_new} haber kaydedildi.")
+        print(f"\n💾 TOPLAM {total_new} YENİ HABER ARŞİVE EKLENDİ.")
     else:
-        print("\n💤 Değişiklik yok.")
+        print("\n💤 Değişiklik yok, veriler güncel.")
 
 if __name__ == "__main__":
     fetch_sweet_spots()
