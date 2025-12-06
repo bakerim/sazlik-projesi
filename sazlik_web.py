@@ -87,7 +87,7 @@ def get_technical_filter(ticker):
 def get_news_leads():
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
     try:
-        response = requests.get(url, timeout=5) # Timeout'u kısalttık
+        response = requests.get(url, timeout=5)
         if response.status_code != 200: return {}
         data = response.json()
         leads = {}
@@ -99,13 +99,11 @@ def get_news_leads():
         return leads
     except: return {}
 
-# YENİ FONKSİYON: Arşivde yoksa Canlı Çek
 def fetch_live_news_fallback(ticker):
     try:
         stock = yf.Ticker(ticker)
         news = stock.news
         if not news: return []
-        # Sadece başlıkları al
         return [f"- {n['title']}" for n in news[:3]]
     except: return []
 
@@ -142,7 +140,7 @@ def score_opportunity(ticker, tech_data, news_list):
         return json.loads(text)
     except: return None
 
-# --- KART GÖSTERİMİ ---
+# --- KART GÖSTERİMİ (TEK SATIR TEKNİĞİ - ASLA BOZULMAZ) ---
 def display_card(res):
     puan = res['puan']
     
@@ -151,23 +149,11 @@ def display_card(res):
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
-    html_card = f"""
-<div class="card {c}">
-<div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
-<div class="analysis-text"><b>{res['baslik']}</b><br>{res['analiz']}</div>
-<div class="risk-row">
-<span>R/R: <b style="color:#FFF;">{res['rr_orani']}</b></span>
-<span>Kasa: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
-</div>
-<div class="strategy-grid">
-<div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
-<div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
-<div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
-<div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
-</div>
-</div>
-"""
-    components.html(html_card, height=380)
+    # AŞAĞIDAKİ SATIR BİLEREK TEK PARÇA HALİNDE YAZILDI. LÜTFEN BÖLMEYİN.
+    # Bu, Streamlit'in HTML'i kod sanmasını %100 engeller.
+    html_card = f"""<div class="card {c}"><div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div><div class="analysis-text"><b>{res['baslik']}</b><br>{res['analiz']}</div><div class="risk-row"><span>R/R: <b style="color:#FFF;">{res['rr_orani']}</b></span><span>Kasa: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span></div><div class="strategy-grid"><div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div><div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div><div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div><div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div></div></div>"""
+    
+    st.markdown(html_card, unsafe_allow_html=True)
     
     if res.get('news'):
         with st.expander(f"Haber Detayları ({res['ticker']})"):
@@ -212,38 +198,30 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
 
 st.markdown("---")
 
-# 2. BÖLÜM: TEKLİ SEÇİM (CANLI YEDEKLEME İLE GÜÇLENDİRİLDİ)
+# 2. BÖLÜM: TEKLİ SEÇİM
 with st.expander("🕵️ MANUEL ANALİZ (Kesintisiz Mod)", expanded=True):
     selected_ticker = st.selectbox("Hisse Seçiniz:", WATCHLIST)
     
     if st.button(f"{selected_ticker} ANALİZ ET 🔍"):
         with st.spinner(f"{selected_ticker} için veriler toplanıyor..."):
-            
-            # ADIM 1: Önce Botun hafızasına bak
             all_news = get_news_leads()
             specific_news = all_news.get(selected_ticker, [])
             
-            # ADIM 2: Eğer Botta yoksa, CANLI ÇEK (Yedek Plan)
             is_live = False
             if not specific_news:
                 specific_news = fetch_live_news_fallback(selected_ticker)
                 is_live = True
             
-            # ADIM 3: Teknik Veri
             tech = get_technical_filter(selected_ticker)
             
             if not tech:
                 st.error("Hisse verisi çekilemedi (Yahoo Finance hatası).")
             else:
-                # ADIM 4: Analiz Yap
                 res = score_opportunity(selected_ticker, tech, specific_news)
                 if res:
                     res['ticker'] = selected_ticker
                     res['news'] = specific_news
-                    
-                    if is_live:
-                        st.caption(f"⚡ Not: Bu hisse bot arşivinde yoktu, veriler canlı çekildi.")
-                        
+                    if is_live: st.caption(f"⚡ Not: Veriler canlı çekildi.")
                     display_card(res)
                 else:
                     st.error("Analiz oluşturulamadı.")
