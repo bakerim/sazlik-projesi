@@ -33,7 +33,7 @@ WATCHLIST = [
 ]
 WATCHLIST.sort()
 
-# --- CSS TASARIMI (GİRİNTİSİZ VE TEMİZ) ---
+# --- CSS TASARIMI ---
 st.markdown("""
 <style>
     .card {
@@ -86,12 +86,14 @@ def get_technical_filter(ticker):
 def get_news_leads():
     url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
     try:
-        data = requests.get(url).json()
+        response = requests.get(url, timeout=10)
+        data = response.json()
         leads = {}
         for item in data:
             ticker = item.get('ticker')
-            if ticker not in leads: leads[ticker] = []
-            leads[ticker].append(f"- {item['content']}")
+            if ticker:
+                if ticker not in leads: leads[ticker] = []
+                leads[ticker].append(f"- {item['content']}")
         return leads
     except: return {}
 
@@ -101,8 +103,6 @@ def score_opportunity(ticker, tech_data, news_list):
     
     prompt = f"""
     SEN "GARANTİCİ BABA" LAKAPLI TRADER'SIN. 
-    KRİTİK GÖREV: Sermayeyi korumak ve Risk/Kazanç oranını hesaplamak.
-    
     HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | TREND: {tech_data['trend']}
     HABERLER: {news_text}
     
@@ -139,39 +139,32 @@ def display_card(res):
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
-    # HTML blokunu en soldan başlattık (Streamlit hatasını önlemek için)
+    # DİKKAT: HTML KODUNU SOLA SIFIR YANAŞTIRDIM.
+    # Bu sayede Streamlit bunun "Kod Bloğu" olduğunu sanmayacak.
     html_card = f"""
 <div class="card {c}">
-    <div class="card-header">
-        {i} {res['ticker']} <div class="score-badge">{puan}</div>
-    </div>
-    <div class="analysis-text">{res['analiz']}</div>
-    
-    <div class="risk-row">
-        <span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span>
-        <span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span>
-    </div>
-    
-    <div class="strategy-grid">
-        <div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div>
-        <div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div>
-        <div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div>
-        <div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div>
-    </div>
+<div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div>
+<div class="analysis-text">{res['analiz']}</div>
+<div class="risk-row"><span>Risk/Kazanç: <b style="color:#FFF;">{res['rr_orani']}</b></span><span>Kasa Payı: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span></div>
+<div class="strategy-grid"><div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div><div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div><div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div><div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div></div>
 </div>
 """
     st.markdown(html_card, unsafe_allow_html=True)
-    with st.expander(f"Haber Detayları ({res['ticker']})"):
-        st.text("\n".join(res['news'][:3]))
+    
+    if res.get('news'):
+        with st.expander(f"Haber Detayları ({res['ticker']})"):
+            st.text("\n".join(res['news'][:3]))
 
 # --- ARAYÜZ ---
 st.title("🏆 Sazlık: Garantici Baba")
 st.markdown("---")
 
-# 1. BÖLÜM: OTOMATİK TARAMA (LİDERLİK TABLOSU)
+# 1. BÖLÜM: OTOMATİK TARAMA
 if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
     news_dict = get_news_leads()
-    if not news_dict: st.warning("Bot henüz veri toplamamış.")
+    
+    if not news_dict: 
+        st.warning("Veri çekilemedi. GitHub Actions'ı kontrol edin.")
     else:
         status = st.empty()
         bar = st.progress(0)
@@ -216,7 +209,6 @@ with st.expander("🕵️ MANUEL ANALİZ", expanded=True):
                 st.error("Hisse verisi çekilemedi.")
             else:
                 res = score_opportunity(selected_ticker, tech, specific_news)
-                
                 if res:
                     res['ticker'] = selected_ticker
                     res['news'] = specific_news
