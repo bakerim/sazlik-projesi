@@ -198,8 +198,8 @@ def score_opportunity(ticker, tech_data, news_list):
 def display_card(res):
     puan = res['puan']
     
-    if puan >= 90: c, i = "tier-s", "💎"
-    elif puan >= 80: c, i = "tier-a", "🔥"
+    if puan >= 85: c, i = "tier-s", "💎"
+    elif puan >= 75: c, i = "tier-a", "🔥"
     elif puan >= 60: c, i = "tier-b", "⚠️"
     else: c, i = "tier-fail", "⛔"
 
@@ -214,11 +214,11 @@ def display_card(res):
             st.text("\n".join(res['news'][:3]))
 
 # --- ARAYÜZ ---
-st.title("🛡️ Sazlık: Şüpheci Mod")
+st.title("🛡️ Sazlık: Garantici Mod")
 st.markdown("---")
 
 # 1. BÖLÜM: OTOMATİK
-if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
+if st.button("Analize Başla", type="primary"):
     news_dict = get_news_leads()
     
     if not news_dict: 
@@ -251,32 +251,3 @@ if st.button("TÜM FIRSATLARI TARA (LİDERLİK TABLOSU) 📊", type="primary"):
                 display_card(res)
 
 st.markdown("---")
-
-# 2. BÖLÜM: TEKLİ SEÇİM
-with st.expander("🕵️ MANUEL ANALİZ (Kesintisiz Mod)", expanded=True):
-    selected_ticker = st.selectbox("Hisse Seçiniz:", WATCHLIST)
-    
-    if st.button(f"{selected_ticker} ANALİZ ET 🔍"):
-        with st.spinner(f"{selected_ticker} için veriler toplanıyor..."):
-            all_news = get_news_leads()
-            specific_news = all_news.get(selected_ticker, [])
-            
-            is_live = False
-            if not specific_news:
-                specific_news = fetch_live_news_fallback(selected_ticker)
-                is_live = True
-            
-            tech = get_technical_filter(selected_ticker)
-            
-            if not tech:
-                st.error("Hisse verisi çekilemedi (Yahoo Finance hatası).")
-            else:
-                res = score_opportunity(selected_ticker, tech, specific_news)
-                if res:
-                    res['ticker'] = selected_ticker
-                    res['news'] = specific_news
-                    if is_live: st.caption(f"⚡ Not: Veriler canlı çekildi.")
-                    display_card(res)
-                else:
-                    st.error("Analiz oluşturulamadı.")
-
