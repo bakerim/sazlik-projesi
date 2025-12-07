@@ -805,6 +805,97 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-07",
+        "ticker": "AMAT",
+        "content": "Has Applied Materials Stock Run Too Far After Its 63.5% 2025 Surge?",
+        "link": "https://finance.yahoo.com/news/applied-materials-stock-run-too-151011818.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AMD",
+        "content": "OpenAI goes from stock market savior to burden as AI risks mount",
+        "link": "https://finance.yahoo.com/news/openai-goes-stock-market-savior-140007549.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "CMCSA",
+        "content": "'Lowest-probability outcome': Netflix's $72 billion deal for Warner Bros. Discovery stuns Wall Street",
+        "link": "https://finance.yahoo.com/news/lowest-probability-outcome-netflixs-72-billion-deal-for-warner-bros-discovery-stuns-wall-street-153038741.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "COIN",
+        "content": "Coinbase starts onboarding users again in India, plans for fiat on-ramp next year",
+        "link": "https://finance.yahoo.com/news/coinbase-starts-onboarding-users-again-160000337.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "COST",
+        "content": "Kroger CEO has a harsh solution to rising prices in stores",
+        "link": "https://finance.yahoo.com/news/kroger-ceo-harsh-solution-rising-160700030.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "CRWD",
+        "content": "As Growth Accelerates, Is It Time to Buy CrowdStrike Stock?",
+        "link": "https://finance.yahoo.com/news/growth-accelerates-time-buy-crowdstrike-160500039.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "GOOGL",
+        "content": "'Lowest-probability outcome': Netflix's $72 billion deal for Warner Bros. Discovery stuns Wall Street",
+        "link": "https://finance.yahoo.com/news/lowest-probability-outcome-netflixs-72-billion-deal-for-warner-bros-discovery-stuns-wall-street-153038741.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "GOOGL",
+        "content": "OpenAI goes from stock market savior to burden as AI risks mount",
+        "link": "https://finance.yahoo.com/news/openai-goes-stock-market-savior-140007549.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NFLX",
+        "content": "'Lowest-probability outcome': Netflix's $72 billion deal for Warner Bros. Discovery stuns Wall Street",
+        "link": "https://finance.yahoo.com/news/lowest-probability-outcome-netflixs-72-billion-deal-for-warner-bros-discovery-stuns-wall-street-153038741.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "Prediction: Nvidia Stock Is Going to Soar Past $300 in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-nvidia-stock-going-soar-153500481.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "ORCL",
+        "content": "OpenAI goes from stock market savior to burden as AI risks mount",
+        "link": "https://finance.yahoo.com/news/openai-goes-stock-market-savior-140007549.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "WMT",
+        "content": "Kroger CEO has a harsh solution to rising prices in stores",
+        "link": "https://finance.yahoo.com/news/kroger-ceo-harsh-solution-rising-160700030.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "XOM",
+        "content": "Better Buy for 2026: ExxonMobil or Chevron?",
+        "link": "https://finance.yahoo.com/news/better-buy-2026-exxonmobil-chevron-162500862.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-06",
         "ticker": "NVDA",
         "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
@@ -2468,6 +2559,20 @@
         "ticker": "DIS",
         "content": "Former Amazon Studios boss warns the Netflix-Warner Bros. deal will make Hollywood \u2018a system that circles a single sun\u2019",
         "link": "https://finance.yahoo.com/news/former-amazon-studios-boss-warns-173039633.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "AMZN",
+        "content": "Fidelity pros reveal top AI stocks for 2026 (it's not just Nvidia)",
+        "link": "https://finance.yahoo.com/news/fidelity-managers-reveal-top-ai-202731078.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "MSFT",
+        "content": "Fidelity pros reveal top AI stocks for 2026 (it's not just Nvidia)",
+        "link": "https://finance.yahoo.com/news/fidelity-managers-reveal-top-ai-202731078.html",
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
