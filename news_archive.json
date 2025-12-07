@@ -1,5 +1,103 @@
 [
     {
+        "date": "2025-12-07",
+        "ticker": "AAPL",
+        "content": "1 Unstoppable Stock to Buy Before It Joins Nvidia, Apple, Microsoft, and Alphabet in the $3 Trillion Club",
+        "link": "https://finance.yahoo.com/news/1-unstoppable-stock-buy-joins-005000128.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "ADBE",
+        "content": "How Workiva\u2019s New AI Product Chief and Activist Pressure Could Impact Workiva (WK) Investors",
+        "link": "https://finance.yahoo.com/news/workiva-ai-product-chief-activist-010746765.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AMZN",
+        "content": "1 Unstoppable Stock to Buy Before It Joins Nvidia, Apple, Microsoft, and Alphabet in the $3 Trillion Club",
+        "link": "https://finance.yahoo.com/news/1-unstoppable-stock-buy-joins-005000128.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AVGO",
+        "content": "Up 59%, Should You Buy ASML Right Now?",
+        "link": "https://finance.yahoo.com/news/59-buy-asml-now-013500296.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "COST",
+        "content": "Why Costco Will Win this Holiday Season and in 2026",
+        "link": "https://finance.yahoo.com/news/why-costco-win-holiday-season-014600895.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "GOOGL",
+        "content": "1 Unstoppable Stock to Buy Before It Joins Nvidia, Apple, Microsoft, and Alphabet in the $3 Trillion Club",
+        "link": "https://finance.yahoo.com/news/1-unstoppable-stock-buy-joins-005000128.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "INTC",
+        "content": "Pat Gelsinger wants to save Moore\u2019s Law, with a little help from the Feds",
+        "link": "https://finance.yahoo.com/news/pat-gelsinger-wants-save-moore-001851712.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "JPM",
+        "content": "Looking at the Narrative for JPMorgan After Analyst Upgrades and Rising Expense Pressures",
+        "link": "https://finance.yahoo.com/news/looking-narrative-jpmorgan-analyst-upgrades-021015825.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "MS",
+        "content": "Y Combinator-Backed Model ML Raises Massive $75M To Kill Junior Banker Grunt Work Forever",
+        "link": "https://finance.yahoo.com/news/y-combinator-backed-model-ml-000035386.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "MSFT",
+        "content": "1 Unstoppable Stock to Buy Before It Joins Nvidia, Apple, Microsoft, and Alphabet in the $3 Trillion Club",
+        "link": "https://finance.yahoo.com/news/1-unstoppable-stock-buy-joins-005000128.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "Up 59%, Should You Buy ASML Right Now?",
+        "link": "https://finance.yahoo.com/news/59-buy-asml-now-013500296.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "1 Unstoppable Stock to Buy Before It Joins Nvidia, Apple, Microsoft, and Alphabet in the $3 Trillion Club",
+        "link": "https://finance.yahoo.com/news/1-unstoppable-stock-buy-joins-005000128.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "ORCL",
+        "content": "These 2 Critical Catalysts Drove An Impressive 7% Move in Chainlink This Past Week",
+        "link": "https://finance.yahoo.com/news/2-critical-catalysts-drove-impressive-004452591.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "VRTX",
+        "content": "Down 10%, Should You Buy the Dip on Vertex Pharmaceuticals?",
+        "link": "https://finance.yahoo.com/news/down-10-buy-dip-vertex-003500033.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-06",
         "ticker": "NVDA",
         "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
@@ -1600,6 +1698,20 @@
         "ticker": "TGT",
         "content": "3 Things to Watch With TGT Stock in 2026",
         "link": "https://finance.yahoo.com/news/3-things-watch-tgt-stock-232000974.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "COST",
+        "content": "Costco Executive Members suffer surprising hassle",
+        "link": "https://finance.yahoo.com/news/costco-executive-members-hit-surprising-143300045.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-06",
+        "ticker": "NVDA",
+        "content": "The Best Stocks to Buy With $1,000 Right Now",
+        "link": "https://finance.yahoo.com/news/best-stocks-buy-1-000-235000221.html",
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
