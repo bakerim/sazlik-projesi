@@ -119,7 +119,7 @@ def parse_news_data(news_item):
     return {"title": title, "link": link, "date": date_str}
 
 def fetch_sweet_spots():
-    print(f"🇺🇸 Sazlık 100 Botu Başlatıldı ({len(WATCHLIST)} Hisse)...")
+    print(f"🇺🇸 Sazlık 500 Botu Başlatıldı ({len(WATCHLIST)} Hisse)...")
     print(f"📅 Tarama Aralığı: Son 10 Gün")
     
     archive_data = load_archive()
@@ -172,7 +172,8 @@ def fetch_sweet_spots():
             else: print("💤 (Güncel)")
             
             # --- HIZ AYARI (BAN YEMEMEK İÇİN) ---
-            time.sleep(2) # 2 Saniye bekle (Önceki 0.5 idi, şimdi daha güvenli)
+            bekleme_suresi = random.uniform(3.0, 5.0) 
+            time.sleep(bekleme_suresi)
 
         except Exception as e:
             print(f"❌ Hata")
