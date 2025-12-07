@@ -896,6 +896,48 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-07",
+        "ticker": "ADBE",
+        "content": "Down 27%, Should You Buy Adobe Stock Before Dec. 10?",
+        "link": "https://finance.yahoo.com/news/down-27-buy-adobe-stock-163500556.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AMD",
+        "content": "This Top Chip Stock Could Also Be the Best Way to Play a New Trump Robotics Rally",
+        "link": "https://finance.yahoo.com/news/top-chip-stock-could-best-140002949.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AVGO",
+        "content": "Down 27%, Should You Buy Adobe Stock Before Dec. 10?",
+        "link": "https://finance.yahoo.com/news/down-27-buy-adobe-stock-163500556.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "CVX",
+        "content": "Better Buy for 2026: ExxonMobil or Chevron?",
+        "link": "https://finance.yahoo.com/news/better-buy-2026-exxonmobil-chevron-162500862.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "Down 27%, Should You Buy Adobe Stock Before Dec. 10?",
+        "link": "https://finance.yahoo.com/news/down-27-buy-adobe-stock-163500556.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "XOM",
+        "content": "Exxon Mobil\u2019s 43 Year Dividend Streak Looks Secure Despite Falling Earnings",
+        "link": "https://finance.yahoo.com/news/exxon-mobil-43-dividend-streak-163703656.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-06",
         "ticker": "NVDA",
         "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
@@ -6521,6 +6563,13 @@
         "ticker": "V",
         "content": "Inflation-troubled Americans wants free crypto this Christmas",
         "link": "https://finance.yahoo.com/news/inflation-troubled-american-gen-z-213051816.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-05",
+        "ticker": "MU",
+        "content": "Goldman Sachs shares Micron stock forecast before earnings",
+        "link": "https://finance.yahoo.com/news/goldman-sachs-issues-micron-prediction-164922315.html",
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
