@@ -231,6 +231,20 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-07",
+        "ticker": "MCD",
+        "content": "How New Analyst Views Are Rewriting the Story Behind McDonald's Stock",
+        "link": "https://finance.yahoo.com/news/analyst-views-rewriting-story-behind-070832065.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "SEDG",
+        "content": "Assessing SolarEdge After a 2024 Rebound and Steep Multi Year Share Price Collapse",
+        "link": "https://finance.yahoo.com/news/assessing-solaredge-2024-rebound-steep-070651349.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-06",
         "ticker": "NVDA",
         "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
