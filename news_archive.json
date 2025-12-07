@@ -168,6 +168,69 @@
         "ai_sentiment": "Analiz Bekliyor"
     },
     {
+        "date": "2025-12-07",
+        "ticker": "AAPL",
+        "content": "'Our women's hiking trousers saved our business \u2013 we've sold over 50,000'",
+        "link": "https://finance.yahoo.com/news/acai-outdoorwear-women-leggings-hiking-acai-060015049.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "AAPL",
+        "content": "Prediction: This Will Be the First Tech Company to Split Its Stock in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-first-tech-company-split-055000770.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "GOOGL",
+        "content": "Prediction: 2 Hypergrowth Stocks That Will Run Circles Around Nvidia Through 2030",
+        "link": "https://finance.yahoo.com/news/prediction-2-hypergrowth-stocks-run-062000849.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "GOOGL",
+        "content": "Prediction: This Will Be the First Tech Company to Split Its Stock in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-first-tech-company-split-055000770.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "META",
+        "content": "Prediction: This Will Be the First Tech Company to Split Its Stock in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-first-tech-company-split-055000770.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "MSFT",
+        "content": "Prediction: This Will Be the First Tech Company to Split Its Stock in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-first-tech-company-split-055000770.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "Prediction: 2 Hypergrowth Stocks That Will Run Circles Around Nvidia Through 2030",
+        "link": "https://finance.yahoo.com/news/prediction-2-hypergrowth-stocks-run-062000849.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "NVDA",
+        "content": "Prediction: This Will Be the First Tech Company to Split Its Stock in 2026",
+        "link": "https://finance.yahoo.com/news/prediction-first-tech-company-split-055000770.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
+        "date": "2025-12-07",
+        "ticker": "PDD",
+        "content": "Is It Too Late To Consider PDD After Temu Expansion And Strong Multi Year Share Gains?",
+        "link": "https://finance.yahoo.com/news/too-consider-pdd-temu-expansion-050536906.html",
+        "ai_sentiment": "Analiz Bekliyor"
+    },
+    {
         "date": "2025-12-06",
         "ticker": "NVDA",
         "content": "Prediction: Nvidia Will Become a $10 Trillion Company in 2030",
