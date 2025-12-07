@@ -172,8 +172,14 @@ def fetch_sweet_spots():
             else: print("💤 (Güncel)")
             
             # --- HIZ AYARI (BAN YEMEMEK İÇİN) ---
-            bekleme_suresi = random.uniform(3.0, 5.0) 
-            time.sleep(bekleme_suresi)
+            bekleme_suresi = random.uniform(3.5, 6.5) 
+            time.sleep(bekleme_suresi) 
+        
+    except Exception as e:
+        # Hata aldığınızda daha uzun bekleme süresi
+        print(f"❌ Hata. Bir sonraki denemeye geçiliyor. Sebep: {e}")
+        time.sleep(5) 
+        continue
 
         except Exception as e:
             print(f"❌ Hata")
