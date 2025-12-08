@@ -2,7 +2,19 @@ import yfinance as yf
 import json
 import os
 import time
+import random
 from datetime import datetime
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+# --- NLTK VADER Kurulumu (İlk çalışmada indirir) ---
+try:
+    nltk.data.find('vader_lexicon')
+except LookupError:
+    nltk.download('vader_lexicon')
+
+# Sentiment Motorunu Başlat
+analyzer = SentimentIntensityAnalyzer()
 
 # --- 🔥 SAZLIK 500: DEV LİSTE ---
 WATCHLIST = [
@@ -72,7 +84,6 @@ WATCHLIST = [
     "BKR", "FTI", "NOV", "TDW", "PAGP", "ENLC", "PAA", "WES", "WMB", "KMI",
     "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR"
 ]
-WATCHLIST.sort() # Alfabetik sıralama (Logları okumak kolay olsun)
 
 ARCHIVE_FILE = 'news_archive.json'
 
@@ -89,13 +100,26 @@ def save_archive(data):
     with open(ARCHIVE_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
+def analyze_sentiment(text):
+    """Metni analiz eder ve Duygu Durumunu döndürür."""
+    if not text: return "Nötr 😐", 0
+    
+    # VADER Skorlaması (-1 ile +1 arası)
+    scores = analyzer.polarity_scores(text)
+    compound = scores['compound']
+    
+    if compound >= 0.05:
+        return "Olumlu 🟢", compound
+    elif compound <= -0.05:
+        return "Olumsuz 🔴", compound
+    else:
+        return "Nötr ⚪", compound
+
 def parse_news_data(news_item):
-    """Yahoo'nun karmaşık veri yapısını çözen fonksiyon"""
     title = None
     link = None
     date_str = datetime.now().strftime('%Y-%m-%d')
 
-    # Başlık ve Link Bulma (Farklı yapıları dener)
     if 'title' in news_item:
         title = news_item['title']
         link = news_item.get('link')
@@ -107,36 +131,32 @@ def parse_news_data(news_item):
     
     if not title: return None
 
-    # Tarih Bulma
+    # Tarih Çözümleme
     if 'providerPublishTime' in news_item:
-        ts = news_item['providerPublishTime']
-        date_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
-    elif 'content' in news_item and 'pubDate' in news_item['content']:
-        try:
-            date_str = news_item['content']['pubDate'][:10]
-        except: pass
+        date_str = datetime.fromtimestamp(news_item['providerPublishTime']).strftime('%Y-%m-%d')
     
     return {"title": title, "link": link, "date": date_str}
 
 def fetch_sweet_spots():
-    print(f"🇺🇸 Sazlık 500 Botu Başlatıldı ({len(WATCHLIST)} Hisse)...")
-    print(f"📅 Tarama Aralığı: Son 10 Gün")
+    print(f"🇺🇸 Sazlık Haber Botu + AI Sentiment Başlatılıyor...")
     
     archive_data = load_archive()
-    # Parmak izi kümesi oluştur (Hız için)
     existing_fingerprints = {f"{item.get('ticker')}_{item.get('content')}" for item in archive_data}
     
     total_new = 0
     
+    # Listeyi karıştır (Her seferinde aynı sırayla gidip ban yemeyelim)
+    random.shuffle(WATCHLIST)
+    
     for ticker in WATCHLIST:
-        print(f"🔍 {ticker}...", end=" ", flush=True)
+        print(f"📰 {ticker}...", end=" ", flush=True)
         try:
             stock = yf.Ticker(ticker)
             news_list = stock.news
             
             if not news_list:
-                print("⚠️ Boş (Veri Yok)")
-                time.sleep(1) # Boş olsa bile bekle
+                print("📭", end=" ") # Posta kutusu boş
+                time.sleep(random.uniform(1, 2))
                 continue
             
             count = 0
@@ -144,54 +164,52 @@ def fetch_sweet_spots():
                 clean = parse_news_data(raw_news)
                 if not clean: continue
 
-                # --- 10 GÜN KURALI ---
+                # 10 Gün Kuralı
                 try:
                     news_dt = datetime.strptime(clean['date'], '%Y-%m-%d')
-                    days_diff = (datetime.now() - news_dt).days
-                    if days_diff > 10: # 10 Günden eskiyi alma
-                        continue
+                    if (datetime.now() - news_dt).days > 10: continue
                 except: pass
 
                 fingerprint = f"{ticker}_{clean['title']}"
                 
-                # Eğer bu haber daha önce kaydedilmemişse ekle
                 if fingerprint not in existing_fingerprints:
+                    # --- 🧠 YAPAY ZEKA ANALİZİ BURADA YAPILIYOR ---
+                    sentiment_label, sentiment_score = analyze_sentiment(clean['title'])
+                    
                     entry = {
                         "date": clean['date'],
                         "ticker": ticker,
                         "content": clean['title'],
                         "link": clean['link'],
-                        "ai_sentiment": "Analiz Bekliyor"
+                        "ai_sentiment": sentiment_label, # Dashboard'da görünecek etiket
+                        "sentiment_score": sentiment_score # İlerde hesaplama için sayısal değer
                     }
                     archive_data.append(entry)
                     existing_fingerprints.add(fingerprint)
                     total_new += 1
                     count += 1
             
-            if count > 0: print(f"✅ {count} Yeni")
-            else: print("💤 (Güncel)")
+            if count > 0: print(f"✅ {count} Yeni Haber")
+            else: print("💤")
             
-            # --- HIZ AYARI (BAN YEMEMEK İÇİN) ---
-            bekleme_suresi = random.uniform(3.5, 6.5) 
-            time.sleep(bekleme_suresi) 
-        
-    except Exception as e:
-        # Hata aldığınızda daha uzun bekleme süresi
-        print(f"❌ Hata. Bir sonraki denemeye geçiliyor. Sebep: {e}")
-        time.sleep(5) 
-        continue
+            # Ban Koruması
+            time.sleep(random.uniform(2, 4))
 
         except Exception as e:
-            print(f"❌ Hata")
-            time.sleep(2) # Hata alsa bile bekle
+            print(f"❌")
+            time.sleep(3)
 
+        # Her 10 hissede bir kaydet (Veri kaybını önlemek için)
+        if total_new > 0 and total_new % 5 == 0:
+             save_archive(archive_data)
+
+    # Döngü bitince son kayıt
     if total_new > 0:
-        # Tarihe göre sırala (En yeni en üstte)
         archive_data.sort(key=lambda x: x['date'], reverse=True)
         save_archive(archive_data)
-        print(f"\n💾 TOPLAM {total_new} YENİ HABER ARŞİVE EKLENDİ.")
+        print(f"\n💾 TOPLAM {total_new} YENİ HABER VE ANALİZİ KAYDEDİLDİ.")
     else:
-        print("\n💤 Değişiklik yok, veriler güncel.")
+        print("\n💤 Yeni haber yok.")
 
 if __name__ == "__main__":
     fetch_sweet_spots()
