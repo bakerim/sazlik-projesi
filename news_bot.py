@@ -167,7 +167,7 @@ def fetch_sweet_spots():
                 # 10 Gün Kuralı
                 try:
                     news_dt = datetime.strptime(clean['date'], '%Y-%m-%d')
-                    if (datetime.now() - news_dt).days > 10: continue
+                    if (datetime.now() - news_dt).days > 30: continue
                 except: pass
 
                 fingerprint = f"{ticker}_{clean['title']}"

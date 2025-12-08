@@ -73,103 +73,142 @@ WATCHLIST = [
     "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR"
 ]
 
-# Tekrarları temizle
+# Listeyi temizle ve karıştır (Ban yememek için karışık sıra iyidir)
 WATCHLIST = list(set(WATCHLIST))
+# random.shuffle(WATCHLIST) # İstersen karıştırabilirsin
 
-def calculate_rsi(series, period=14):
-    """Göreceli Güç Endeksi (RSI) Hesaplar"""
-    delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+def calculate_atr(hist, period=14):
+    """Volatiliteyi (ATR) Hesaplar"""
+    high_low = hist['High'] - hist['Low']
+    high_close = (hist['High'] - hist['Close'].shift()).abs()
+    low_close = (hist['Low'] - hist['Close'].shift()).abs()
+    ranges = pd.concat([high_low, high_close, low_close], axis=1)
+    true_range = ranges.max(axis=1)
+    atr = true_range.rolling(window=period).mean()
+    return atr
 
-def get_financial_data(ticker_symbol):
-    """Hem TEMEL hem de TEKNİK verileri çeker."""
+def get_swing_trade_setup(ticker_symbol):
+    """
+    Hisse için 'Akışkan' ve 'Dinamik' R/R Oranı hesaplar.
+    Sabit katsayılar yerine RSI ve Trend Gücünü formüle dahil eder.
+    """
     try:
         stock = yf.Ticker(ticker_symbol)
         
-        # --- TEKNİK (Hızlı) ---
-        hist = stock.history(period="1y")
+        # Son 6 aylık veriyi çek
+        hist = stock.history(period="6mo")
         if hist.empty: return None
         
+        # --- TEKNİK VERİLER ---
         current_price = hist['Close'].iloc[-1]
+        atr_value = calculate_atr(hist).iloc[-1]
+        
+        # Hareketli Ortalamalar
         sma_50 = hist['Close'].rolling(window=50).mean().iloc[-1]
         sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
-        rsi_val = calculate_rsi(hist['Close']).iloc[-1]
         
-        tech_score = 0
-        trend_status = "Nötr"
-        if current_price > sma_200: 
-            tech_score += 20
-            trend_status = "Yükseliş"
-        if current_price > sma_50: tech_score += 10
-        if 30 < rsi_val < 70: tech_score += 10
-        elif rsi_val < 30: tech_score += 15
+        # RSI Hesaplama
+        delta = hist['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi_val = (100 - (100 / (1 + rs))).iloc[-1]
 
-        # --- TEMEL (Yavaş) ---
-        info = stock.info
-        pe_ratio = info.get('forwardPE', 0)
-        debt_equity = info.get('debtToEquity', 0)
-        profit_margins = info.get('profitMargins', 0)
+        # --- DİNAMİK STRATEJİ (AKIŞKAN MATEMATİK) ---
         
-        fund_score = 0
-        if pe_ratio and 0 < pe_ratio < 25: fund_score += 20
-        if debt_equity and debt_equity < 150: fund_score += 15
-        if profit_margins and profit_margins > 0.10: fund_score += 15
+        # 1. STOP LOSS ÇARPANI (Volatiliteye Göre Esner)
+        # Volatilite %2'nin altındaysa stopu daralt (1.8), üstündeyse genişlet (2.2)
+        volatility_pct = (atr_value / current_price) * 100
+        stop_multiplier = 1.8 if volatility_pct < 2.0 else 2.2
+        
+        stop_loss = current_price - (stop_multiplier * atr_value)
+        
+        # 2. HEDEF ÇARPANI (RSI ve Trend Gücüne Göre Değişir)
+        # Baz Çarpan: 3.0
+        # RSI Etkisi: RSI 50'den ne kadar düşükse hedefi o kadar büyüt. (Tersi durumda küçült)
+        # Örn: RSI 30 ise -> (50-30)/10 = +2.0 puan ekle. RSI 70 ise -> -2.0 puan çıkar.
+        rsi_factor = (50 - rsi_val) / 15.0 
+        
+        # Trend Etkisi: Fiyat SMA50'den ne kadar uzaksa (Momentum), hedefi o kadar aç.
+        # Fiyatın SMA50'ye uzaklık yüzdesini katsayı olarak ekle.
+        trend_strength = (current_price - sma_50) / sma_50 
+        trend_factor = trend_strength * 5 # Etkiyi belirginleştirmek için 5 ile çarp
+        
+        # Toplam Hedef Çarpanı (Minimum 1.5 olacak şekilde sınırla)
+        target_multiplier = 3.0 + rsi_factor + trend_factor
+        if target_multiplier < 1.5: target_multiplier = 1.5 # Çok düşmesini engelle
+        
+        target_price = current_price + (target_multiplier * atr_value)
+        
+        # R/R Hesaplama
+        risk = current_price - stop_loss
+        reward = target_price - current_price
+        
+        if risk <= 0: return None
+        rr_ratio = reward / risk
+        
+        # Vade Tahmini
+        if volatility_pct > 3.5: vade = "Kısa (1-3 Gün)"
+        elif volatility_pct > 2.0: vade = "Orta (1-2 Hafta)"
+        else: vade = "Uzun (2-5 Hafta)"
 
-        total_score = tech_score + fund_score
-        
+        # Trend Yönü
+        trend = "Nötr"
+        if current_price > sma_50: trend = "Yükseliş"
+        elif current_price < sma_50: trend = "Düşüş"
+
         return {
-            "Sembol": ticker_symbol,
-            "Fiyat": round(current_price, 2),
-            "Sazlık_Skoru": total_score,
-            "Trend": trend_status,
-            "RSI": round(rsi_val, 2),
-            "F/K": round(pe_ratio, 2) if pe_ratio else 0,
-            "Karar": "GÜÇLÜ ADAY" if total_score > 70 else "İZLE"
+            "SEMBL": ticker_symbol,
+            "GÜNCEL": round(current_price, 2),
+            "GİRİŞ": round(current_price, 2),
+            "HEDEF": round(target_price, 2),
+            "STOP": round(stop_loss, 2),
+            "R/R": round(rr_ratio, 2), # Artık 2.34, 1.82 gibi çıkacak
+            "VADE": vade,
+            "ATR": round(atr_value, 2),
+            "TREND": trend
         }
 
     except Exception as e:
-        # print(f"⚠️ Hata ({ticker_symbol}): {e}") # Konsolu kirletmemesi için kapattım
         return None
 
 def main_analysis():
-    print(f"🚀 Sazlık Motoru Çalışıyor... ({len(WATCHLIST)} Hisse)")
-    print("💾 Veriler her 5 hissede bir 'sazlik_analiz_sonuclari.csv' dosyasına kaydedilecek.\n")
+    print(f"🎯 Sazlık Swing Masası Kuruluyor... ({len(WATCHLIST)} Hisse)")
+    print("💾 Veriler her 5 hissede bir 'sazlik_swing_data.csv' dosyasına kaydedilecek.\n")
     
-    # Eğer önceden dosya varsa, üzerine yazmasın diye kontrol edilebilir ama
-    # şimdilik sıfırdan başlatalım.
     results = []
-    processed_count = 0
+    processed = 0
+    
+    # Daha önce kayıt varsa yükle (İsteğe bağlı, şimdilik sıfırdan başlatalım)
+    # results = load_existing_data() ...
     
     for ticker in WATCHLIST:
-        print(f"⚙️ {ticker}...", end=" ", flush=True)
+        print(f"🔭 {ticker}...", end=" ", flush=True)
         
-        data = get_financial_data(ticker)
+        setup = get_swing_trade_setup(ticker)
         
-        if data:
-            results.append(data)
-            print(f"✅ ({data['Sazlık_Skoru']})", end=" ")
+        if setup:
+            results.append(setup)
+            print(f"✅ R/R: {setup['R/R']} | {setup['TREND']}")
         else:
-            print("❌", end=" ")
+            print("❌ Veri Yok/Hata")
             
-        processed_count += 1
+        processed += 1
         
-        # --- CANLI KAYIT SİSTEMİ (HER 5 HİSSEDE BİR) ---
-        if processed_count % 5 == 0:
+        # --- CANLI KAYIT (Her 5 hissede bir) ---
+        if processed % 5 == 0:
             df = pd.DataFrame(results)
-            df.to_csv("sazlik_analiz_sonuclari.csv", index=False)
-            print(f"💾 [KAYDEDİLDİ]")
+            df.to_csv("sazlik_swing_data.csv", index=False)
+            # print("💾 [KAYDEDİLDİ]", end=" ") 
         
-        # Hız Sınırı (Ban Yememek İçin)
-        time.sleep(random.uniform(1.5, 3.5))
-    
-    # Döngü bitince son kez kaydet
+        # Hız Sınırı (Yahoo Ban Koruması)
+        time.sleep(random.uniform(1.2, 3.0))
+
+    # Döngü bitince son kayıt
     if results:
         df = pd.DataFrame(results)
-        df.to_csv("sazlik_analiz_sonuclari.csv", index=False)
-        print("\n🏁 TÜM ANALİZ TAMAMLANDI.")
+        df.to_csv("sazlik_swing_data.csv", index=False)
+        print("\n🏁 Taramalar Tamamlandı. Veriler 'sazlik_swing_data.csv' dosyasında.")
 
 if __name__ == "__main__":
     main_analysis()
