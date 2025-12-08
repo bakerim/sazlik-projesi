@@ -3,3 +3,5 @@ pandas
 yfinance
 google-generativeai
 requests
+matplotlib
+nltk
