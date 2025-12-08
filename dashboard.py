@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Sazlık Projesi | AI Analyst",
     page_icon="🌾",
     layout="wide",
-    initial_sidebar_state="collapsed" # Yan menüyü kapalı başlat, odak içerikte olsun
+    initial_sidebar_state="collapsed"
 )
 
 # --- CSS (MODERN SUNUM TARZI) ---
@@ -32,10 +32,15 @@ st.markdown("""
     }
     .metric-card {
         background-color: #161b22;
-        padding: 15px;
-        border-radius: 8px;
+        padding: 20px;
+        border-radius: 12px;
         border-left: 5px solid #4CAF50;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        margin-bottom: 10px;
     }
+    .profit-tag { color: #4CAF50; font-size: 0.9em; font-weight: bold; }
+    .loss-tag { color: #ff4b4b; font-size: 0.9em; font-weight: bold; }
+    h2, h3, p { margin: 0; padding: 0; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,25 +67,53 @@ df, news_data = load_data()
 def get_ai_top_picks(dataframe, limit=10):
     if dataframe.empty: return dataframe
     
-    # 1. Puanlama Sistemi Oluştur
-    # R/R oranı ne kadar yüksekse o kadar iyi.
-    # Trend "Yükseliş" ise +10 Puan.
-    # Vade "Kısa" ise (Hızlı kazanç) +5 Puan.
-    
     df_scored = dataframe.copy()
-    df_scored['AI_SCORE'] = df_scored['R/R'] * 10 # Baz puan
-    
-    # Trend Puanı
+    # Puanlama Algoritması
+    df_scored['AI_SCORE'] = df_scored['R/R'] * 10
     df_scored.loc[df_scored['TREND'] == 'Yükseliş', 'AI_SCORE'] += 20
-    
-    # Vade Puanı (Kısa vadeyi severiz)
     df_scored.loc[df_scored['VADE'].str.contains('Kısa'), 'AI_SCORE'] += 5
-    
-    # Risk Filtresi (R/R oranı 1.0'in altındakileri ele)
     df_scored = df_scored[df_scored['R/R'] > 1.0]
     
-    # Sırala ve İlk X'i al
     return df_scored.sort_values(by='AI_SCORE', ascending=False).head(limit)
+
+# --- 🎨 HTML KART OLUŞTURUCU (HATA ÖNLEYİCİ - SOLA YAPIŞIK) ---
+def create_card_html(rank, item):
+    """HTML kodunu temiz bir şekilde oluşturur."""
+    
+    kar_yuzdesi = ((item['HEDEF'] - item['GİRİŞ']) / item['GİRİŞ']) * 100
+    zarar_yuzdesi = ((item['GİRİŞ'] - item['STOP']) / item['GİRİŞ']) * 100
+    
+    # NOT: HTML kodları bilerek en sola yaslanmıştır. 
+    # Streamlit girinti görürse kod bloğu sanıyor.
+    html_content = f"""
+<div class="metric-card">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+<h2 style="margin:0; color:#4CAF50; font-size:24px;">#{rank} {item['SEMBL']}</h2>
+<span style="background:#262730; padding:4px 10px; border-radius:4px; font-size:12px; border:1px solid #444;">{item['TREND']}</span>
+</div>
+<p style="font-size:14px; color:#aaa; margin-bottom:10px;">⏱️ Vade: {item['VADE']}</p>
+<div style="background:#21262d; padding:10px; border-radius:6px; margin-bottom:10px;">
+<span style="color:#8b949e; font-size:12px; text-transform:uppercase;">Hedef Fiyat</span><br>
+<span style="font-size:22px; font-weight:bold; color:#e6edf3;">${item['HEDEF']}</span>
+<span class="profit-tag"> (▲ %{kar_yuzdesi:.2f})</span>
+</div>
+<div style="display:flex; justify-content:space-between; gap:10px;">
+<div style="flex:1; background:#21262d; padding:8px; border-radius:6px;">
+<span style="color:#8b949e; font-size:11px;">GİRİŞ</span><br>
+<strong style="color:#e6edf3;">${item['GİRİŞ']}</strong>
+</div>
+<div style="flex:1; background:#21262d; padding:8px; border-radius:6px;">
+<span style="color:#8b949e; font-size:11px;">STOP</span><br>
+<strong style="color:#e6edf3;">${item['STOP']}</strong> 
+<br><span class="loss-tag" style="font-size:11px;">(▼ %{zarar_yuzdesi:.2f})</span>
+</div>
+</div>
+<div style="margin-top:12px; text-align:center; padding-top:8px; border-top:1px solid #30363d;">
+<small style="color:#8b949e;">Risk/Ödül Oranı: <strong style="color:#fff;">{item['R/R']}</strong></small>
+</div>
+</div>
+"""
+    return html_content
 
 # --- 🖥️ ARAYÜZ ---
 
@@ -98,34 +131,35 @@ with tab1:
     top_picks = get_ai_top_picks(df, limit=10)
     
     if not top_picks.empty:
-        # En İyi 3'ü Kart Olarak Göster (Highlight)
+        # --- KART GÖRÜNÜMÜ (TOP 3) ---
         col1, col2, col3 = st.columns(3)
         top_3 = top_picks.head(3).to_dict('records')
         
         for i, col in enumerate([col1, col2, col3]):
             if i < len(top_3):
                 item = top_3[i]
+                # HTML fonksiyonunu çağırıyoruz
+                card_html = create_card_html(i+1, item)
                 with col:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h2 style="margin:0; color:#4CAF50;">#{i+1} {item['SEMBL']}</h2>
-                        <p style="font-size:14px; color:#aaa;">{item['TREND']} Trendi</p>
-                        <h3 style="margin:5px 0;">Hedef: ${item['HEDEF']}</h3>
-                        <p>Risk/Ödül: <strong>{item['R/R']}</strong></p>
-                        <small>Giriş: ${item['GİRİŞ']} | Stop: ${item['STOP']}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(card_html, unsafe_allow_html=True)
         
         st.markdown("---")
         st.markdown("#### 📋 Listenin Devamı (Detaylı Analiz)")
         
-        # Tabloyu Güzelleştir
-        display_picks = top_picks[["SEMBL", "GÜNCEL", "R/R", "TREND", "VADE", "GİRİŞ", "HEDEF", "STOP"]]
+        # Tablo Gösterimi
+        display_picks = top_picks.copy()
+        display_picks['KAR POT. (%)'] = ((display_picks['HEDEF'] - display_picks['GİRİŞ']) / display_picks['GİRİŞ']) * 100
+        display_picks['RİSK (%)'] = ((display_picks['GİRİŞ'] - display_picks['STOP']) / display_picks['GİRİŞ']) * 100
+        
+        cols_to_show = ["SEMBL", "GÜNCEL", "R/R", "TREND", "KAR POT. (%)", "RİSK (%)", "GİRİŞ", "HEDEF", "STOP"]
         
         st.dataframe(
-            display_picks.style
+            display_picks[cols_to_show].style
             .background_gradient(subset=["R/R"], cmap="Greens")
-            .format({"GÜNCEL": "${:.2f}", "GİRİŞ": "${:.2f}", "HEDEF": "${:.2f}", "STOP": "${:.2f}"}),
+            .format({
+                "GÜNCEL": "${:.2f}", "GİRİŞ": "${:.2f}", "HEDEF": "${:.2f}", "STOP": "${:.2f}",
+                "KAR POT. (%)": "%{:.2f}", "RİSK (%)": "%{:.2f}"
+            }),
             use_container_width=True,
             hide_index=True
         )
@@ -146,7 +180,6 @@ with tab2:
     if not top_picks.empty:
         sim_df = top_picks.copy()
         
-        # Matematiksel Lot Hesabı
         def calc_lot(row):
             risk_per_share = row['GİRİŞ'] - row['STOP']
             if risk_per_share <= 0: return 0
@@ -157,7 +190,6 @@ with tab2:
         sim_df['YATIRIM ($)'] = sim_df['LOT'] * sim_df['GİRİŞ']
         sim_df['POT. KAZANÇ ($)'] = sim_df['LOT'] * (sim_df['HEDEF'] - sim_df['GİRİŞ'])
         
-        # Sadece alınabilir olanlar
         sim_df = sim_df[sim_df['LOT'] > 0]
         
         total_inv = sim_df['YATIRIM ($)'].sum()
@@ -174,12 +206,10 @@ with tab2:
     else:
         st.info("Top 10 listesi boş olduğu için hesaplama yapılamadı.")
 
-# --- TAB 3: TÜM VERİLER (ESKİ KALABALIK LİSTE) ---
+# --- TAB 3: TÜM VERİLER ---
 with tab3:
     st.markdown("### 🔬 Detaylı Veri Havuzu")
-    st.markdown("Algoritmanın taradığı tüm hisselerin ham verileri.")
     
-    # Filtreler
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         search = st.text_input("Hisse Ara (Örn: AAPL)", "")
@@ -197,15 +227,18 @@ with tab3:
     st.markdown("---")
     st.subheader("📰 İlgili Haberler (Son 30 Gün)")
     
-    # Haberleri Göster (Expander içinde gizli, kalabalık yapmasın)
     if news_data:
-        for news in news_data[:20]: # Son 20 haber
-            with st.expander(f"{news['ticker']} - {news['date']} ({news.get('ai_sentiment', 'Nötr')})"):
+        for news in news_data[:20]: 
+            sentiment = news.get('ai_sentiment', 'Nötr')
+            icon = "🟢" if "Olumlu" in sentiment else "🔴" if "Olumsuz" in sentiment else "⚪"
+            
+            with st.expander(f"{icon} {news['ticker']} - {news['date']}"):
                 st.write(news['content'])
+                st.caption(f"Yapay Zeka Yorumu: {sentiment}")
                 st.markdown(f"[Habere Git]({news['link']})")
     else:
         st.write("Arşivlenmiş haber bulunamadı.")
 
 # --- FOOTER ---
 st.markdown("---")
-st.caption("Sazlık Projesi v2.1 | AI Powered Swing Trading System")
+st.caption("Sazlık Projesi v2.4 | AI Powered Swing Trading System")

@@ -155,7 +155,7 @@ def fetch_sweet_spots():
             news_list = stock.news
             
             if not news_list:
-                print("📭", end=" ") # Posta kutusu boş
+                print("📭", end=" ") 
                 time.sleep(random.uniform(1, 2))
                 continue
             
@@ -164,16 +164,21 @@ def fetch_sweet_spots():
                 clean = parse_news_data(raw_news)
                 if not clean: continue
 
-                # 10 Gün Kuralı
+                # --- 30 GÜN KURALI (BURAYI GÜNCELLEDİK) ---
                 try:
+                    # Tarih formatı bazen değişebilir, o yüzden try-except şart
                     news_dt = datetime.strptime(clean['date'], '%Y-%m-%d')
-                    if (datetime.now() - news_dt).days > 30: continue
-                except: pass
+                    days_diff = (datetime.now() - news_dt).days
+                    
+                    if days_diff > 30: # 30 Günden eski haberi alma!
+                        continue
+                except: 
+                    pass # Tarih hesaplanamazsa haberi al (Güvenli taraf)
 
                 fingerprint = f"{ticker}_{clean['title']}"
                 
                 if fingerprint not in existing_fingerprints:
-                    # --- 🧠 YAPAY ZEKA ANALİZİ BURADA YAPILIYOR ---
+                    # Sentiment Analizi
                     sentiment_label, sentiment_score = analyze_sentiment(clean['title'])
                     
                     entry = {
@@ -181,8 +186,8 @@ def fetch_sweet_spots():
                         "ticker": ticker,
                         "content": clean['title'],
                         "link": clean['link'],
-                        "ai_sentiment": sentiment_label, # Dashboard'da görünecek etiket
-                        "sentiment_score": sentiment_score # İlerde hesaplama için sayısal değer
+                        "ai_sentiment": sentiment_label,
+                        "sentiment_score": sentiment_score
                     }
                     archive_data.append(entry)
                     existing_fingerprints.add(fingerprint)
@@ -192,7 +197,6 @@ def fetch_sweet_spots():
             if count > 0: print(f"✅ {count} Yeni Haber")
             else: print("💤")
             
-            # Ban Koruması
             time.sleep(random.uniform(2, 4))
 
         except Exception as e:
