@@ -75,7 +75,7 @@ WATCHLIST = [
 
 # Listeyi temizle ve karıştır (Ban yememek için karışık sıra iyidir)
 WATCHLIST = list(set(WATCHLIST))
-# random.shuffle(WATCHLIST) # İstersen karıştırabilirsin
+random.shuffle(WATCHLIST) 
 
 def calculate_atr(hist, period=14):
     """Volatiliteyi (ATR) Hesaplar"""
@@ -89,13 +89,13 @@ def calculate_atr(hist, period=14):
 
 def get_swing_trade_setup(ticker_symbol):
     """
-    Hisse için 'Akışkan' ve 'Dinamik' R/R Oranı hesaplar.
-    Sabit katsayılar yerine RSI ve Trend Gücünü formüle dahil eder.
+    Hisse için Gerçekçi ve Dinamik R/R Oranına sahip seviyeleri belirler.
+    Güncelleme: Hedef çarpanları düşürülerek daha ulaşılabilir hedefler sağlandı.
     """
     try:
         stock = yf.Ticker(ticker_symbol)
         
-        # Son 6 aylık veriyi çek
+        # Son 6 aylık veriyi çek (Trend analizi için)
         hist = stock.history(period="6mo")
         if hist.empty: return None
         
@@ -114,30 +114,32 @@ def get_swing_trade_setup(ticker_symbol):
         rs = gain / loss
         rsi_val = (100 - (100 / (1 + rs))).iloc[-1]
 
-        # --- DİNAMİK STRATEJİ (AKIŞKAN MATEMATİK) ---
+        # --- DİNAMİK STRATEJİ (KONSERVATİF MOD) ---
         
-        # 1. STOP LOSS ÇARPANI (Volatiliteye Göre Esner)
-        # Volatilite %2'nin altındaysa stopu daralt (1.8), üstündeyse genişlet (2.2)
+        # 1. STOP LOSS HESABI
+        # Volatilite yüksekse stopu biraz daha geniş tut (tuzağa düşmemek için)
         volatility_pct = (atr_value / current_price) * 100
         stop_multiplier = 1.8 if volatility_pct < 2.0 else 2.2
-        
         stop_loss = current_price - (stop_multiplier * atr_value)
         
-        # 2. HEDEF ÇARPANI (RSI ve Trend Gücüne Göre Değişir)
-        # Baz Çarpan: 3.0
-        # RSI Etkisi: RSI 50'den ne kadar düşükse hedefi o kadar büyüt. (Tersi durumda küçült)
-        # Örn: RSI 30 ise -> (50-30)/10 = +2.0 puan ekle. RSI 70 ise -> -2.0 puan çıkar.
-        rsi_factor = (50 - rsi_val) / 15.0 
+        # 2. HEDEF (TAKE PROFIT) HESABI - GÜNCELLENDİ
+        # Baz Çarpan: Eskiden 3.0 idi, şimdi 2.0 (Daha gerçekçi)
+        target_multiplier = 2.0 
         
-        # Trend Etkisi: Fiyat SMA50'den ne kadar uzaksa (Momentum), hedefi o kadar aç.
-        # Fiyatın SMA50'ye uzaklık yüzdesini katsayı olarak ekle.
-        trend_strength = (current_price - sma_50) / sma_50 
-        trend_factor = trend_strength * 5 # Etkiyi belirginleştirmek için 5 ile çarp
-        
-        # Toplam Hedef Çarpanı (Minimum 1.5 olacak şekilde sınırla)
-        target_multiplier = 3.0 + rsi_factor + trend_factor
-        if target_multiplier < 1.5: target_multiplier = 1.5 # Çok düşmesini engelle
-        
+        # RSI ve Trend ile İnce Ayar
+        # RSI Düşükse (35 altı) tepki potansiyeli var -> Hedefi hafif artır (+0.5)
+        if rsi_val < 35:
+            target_multiplier += 0.5
+            
+        # RSI Yüksekse (70 üstü) düzeltme riski var -> Hedefi kıs (-0.5)
+        if rsi_val > 70:
+            target_multiplier -= 0.5
+
+        # Trend Çok Güçlüyse (Golden Cross + Fiyat Üstte) -> Momentum bonusu (+1.0)
+        if current_price > sma_50 and sma_50 > sma_200:
+            target_multiplier += 1.0
+            
+        # Hedef Fiyat
         target_price = current_price + (target_multiplier * atr_value)
         
         # R/R Hesaplama
@@ -147,7 +149,8 @@ def get_swing_trade_setup(ticker_symbol):
         if risk <= 0: return None
         rr_ratio = reward / risk
         
-        # Vade Tahmini
+        # Vade Tahmini (Volatiliteye göre)
+        # Volatilite çok yüksekse hareketler hızlı gerçekleşir (Kısa Vade)
         if volatility_pct > 3.5: vade = "Kısa (1-3 Gün)"
         elif volatility_pct > 2.0: vade = "Orta (1-2 Hafta)"
         else: vade = "Uzun (2-5 Hafta)"
@@ -160,10 +163,10 @@ def get_swing_trade_setup(ticker_symbol):
         return {
             "SEMBL": ticker_symbol,
             "GÜNCEL": round(current_price, 2),
-            "GİRİŞ": round(current_price, 2),
+            "GİRİŞ": round(current_price, 2), # Anlık Fiyat
             "HEDEF": round(target_price, 2),
             "STOP": round(stop_loss, 2),
-            "R/R": round(rr_ratio, 2), # Artık 2.34, 1.82 gibi çıkacak
+            "R/R": round(rr_ratio, 2),
             "VADE": vade,
             "ATR": round(atr_value, 2),
             "TREND": trend
@@ -178,9 +181,6 @@ def main_analysis():
     
     results = []
     processed = 0
-    
-    # Daha önce kayıt varsa yükle (İsteğe bağlı, şimdilik sıfırdan başlatalım)
-    # results = load_existing_data() ...
     
     for ticker in WATCHLIST:
         print(f"🔭 {ticker}...", end=" ", flush=True)
@@ -201,7 +201,7 @@ def main_analysis():
             df.to_csv("sazlik_swing_data.csv", index=False)
             # print("💾 [KAYDEDİLDİ]", end=" ") 
         
-        # Hız Sınırı (Yahoo Ban Koruması)
+        # Hız Sınırı (Yahoo Ban Koruması - Rastgele Bekleme)
         time.sleep(random.uniform(1.2, 3.0))
 
     # Döngü bitince son kayıt
