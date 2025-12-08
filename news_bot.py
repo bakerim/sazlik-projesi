@@ -4,7 +4,7 @@ import os
 import time
 from datetime import datetime
 
-# --- 🔥 SAZLIK 100: DEV LİSTE ---
+# --- 🔥 SAZLIK 500: DEV LİSTE ---
 WATCHLIST = [
  "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
