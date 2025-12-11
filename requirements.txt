@@ -4,4 +4,5 @@ yfinance
 google-generativeai
 requests
 matplotlib
+feedparser
 nltk
