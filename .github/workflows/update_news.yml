@@ -42,11 +42,13 @@ jobs:
         git config --global user.name "Sazlik Bot"
         git config --global user.email "bot@sazlik.com"
         
-        # Eğer dosya varsa ekle
+        # Dosyayı sahneye al
         git add sazlik_signals.csv
         
-        # Değişiklik varsa commit et, yoksa hata verme
+        # Değişiklikleri işle (Commit)
         git commit -m "🤖 Bot Raporu: Yeni Sinyaller Eklendi" || echo "Değişiklik yok"
         
-        # GitHub'a gönder
-        git push
+        # --- KRİTİK DÜZELTME BURADA ---
+        # Önce GitHub'daki son değişiklikleri çek (Rebase ile), sonra gönder
+        git pull --rebase origin main
+        git push origin main
