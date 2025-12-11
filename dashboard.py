@@ -145,22 +145,41 @@ if not df_filtered.empty:
         
         # Her bir sinyali ayrı bir kartta göster
         for index, row in df_filtered.head(5).iterrows():
-            karar_class = 'al-sinyali' if 'AL' in row['Karar'] else 'sat-sinyali' if 'SAT' in row['Karar'] else 'bekle-sinyali'
+            karar_class = 'al-sinyali' if 'AL' in row.get('Karar', '') else 'sat-sinyali' if 'SAT' in row.get('Karar', '') else 'bekle-sinyali'
             
             with st.container():
                 st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
-                st.markdown(f"### <span class='{karar_class}'>🚀 {row['Karar']} Sinyali: {row['Hisse']}</span>", unsafe_allow_html=True)
+                # Karar ve Hisse Kontrolü
+                st.markdown(f"### <span class='{karar_class}'>🚀 {row.get('Karar', 'N/A')} Sinyali: {row.get('Hisse', 'N/A')}</span>", unsafe_allow_html=True)
                 
                 col_a, col_b, col_c, col_d = st.columns(4)
                 
-                col_a.metric("Giriş Fiyatı", f"${row['Fiyat']:.2f}")
-                col_b.metric("🎯 Hedef Fiyat", f"${row['Hedef_Fiyat']:.2f}", row['Kazanc_Potansiyeli'])
-                col_c.metric("🛑 Stop Loss", f"${row['Stop_Loss']:.2f}", row['Risk_Yuzdesi'])
-                col_d.metric("📈 R/Ö Oranı", row['Risk_Odul'])
+                # METRİKLER (Güvenli Erişim için .get() kullanıyoruz)
                 
-                st.caption(f"**Güven Skoru:** {row['Guven_Skoru']}/100 | **RSI:** {row['RSI']:.2f}")
-                st.markdown(f"**Özet:** *{row['Analiz_Ozeti']}*")
-                st.markdown(f"**Haber:** {row['Haber_Baslik']} [Link]({row['Link']})")
+                # Giriş Fiyatı
+                col_a.metric("Giriş Fiyatı", f"${row.get('Fiyat', 0.0):.2f}")
+                
+                # Hedef Fiyat
+                col_b.metric(
+                    "🎯 Hedef Fiyat", 
+                    f"${row.get('Hedef_Fiyat', 0.0):.2f}", 
+                    row.get('Kazanc_Potansiyeli', 'N/A')
+                )
+                
+                # Stop Loss
+                col_c.metric(
+                    "🛑 Stop Loss", 
+                    f"${row.get('Stop_Loss', 0.0):.2f}", 
+                    row.get('Risk_Yuzdesi', 'N/A')
+                )
+                
+                # R/Ö Oranı
+                col_d.metric("📈 R/Ö Oranı", row.get('Risk_Odul', 'N/A'))
+                
+                # Alt Yazılar
+                st.caption(f"**Güven Skoru:** {row.get('Guven_Skoru', 'N/A')}/100 | **RSI:** {row.get('RSI', 'N/A'):.2f}")
+                st.markdown(f"**Özet:** *{row.get('Analiz_Ozeti', 'Analiz Eksik')}*")
+                st.markdown(f"**Haber:** {row.get('Haber_Baslik', 'N/A')} [Link]({row.get('Link', '#')})")
                 st.markdown("</div>", unsafe_allow_html=True)
                 st.markdown("---")
         
