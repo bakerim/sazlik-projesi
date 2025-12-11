@@ -1,44 +1,38 @@
-name: Haber Avcısı Botu
+name: Sazlik Bot Calistir
 
-# Ne zaman çalışsın?
 on:
-  schedule:
-    # Her 2 saatte bir çalış (Saat başlarında)
-    - cron: '2 * * * *'
-  # İstersen butona basınca da çalışsın (Manuel Tetikleme)
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: # Manuel tetikleme butonu
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Depoyu Çek (Checkout)
+    # 1. Adım: Kodlarını GitHub'dan sanal makineye çeker
+    - name: Depoyu Cek (Checkout)
       uses: actions/checkout@v4
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
 
-    - name: Python Kurulumu
-      uses: actions/setup-python@v4
+    # 2. Adım: Python 3.9 kurulumu yapar (Ortamı hazırlar)
+    - name: Python Kurulumu (Setup Python)
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
+        cache: 'pip' # İndirmeleri hızlandırır
 
-    - name: Kütüphaneleri Yükle
+    # 3. Adım: requirements.txt içindekileri yükler
+    - name: Kütüphaneleri Yukle (Install Dependencies)
       run: |
-        pip install yfinance pandas requests
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Garanti olsun diye feedparser'ı elle de zorluyoruz (Gerekirse silersin)
+        pip install feedparser nltk yfinance pandas
 
-    - name: Botu Çalıştır (Veri Topla)
-      run: python news_bot.py
-
-    - name: Değişiklikleri Kaydet (Commit & Push)
+    # 4. Adım: Botu Çalıştırır
+    - name: Botu Calistir (Run Bot)
+      env:
+        # Eğer API Key kullanacaksan buraya ekleyeceğiz ileride
+        SAZLIK_ENV: production
       run: |
-        git config --global user.name 'Sazlık Bot'
-        git config --global user.email 'bot@sazlik.com'
-        git add news_archive.json
-        # Eğer değişiklik varsa commit et, yoksa hata verme
-        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Bot: Yeni haberler eklendi" && git push)
+        python news_bot.py
