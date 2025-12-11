@@ -1,223 +1,174 @@
-import yfinance as yf
-import json
-import os
-import time
-import random
-from datetime import datetime
+import feedparser
 import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import yfinance as yf
+import pandas as pd
+from datetime import datetime
+import os
+import time
 
-# --- NLTK VADER Kurulumu (İlk çalışmada indirir) ---
+# --- 1. AYARLAR VE KURULUMLAR ---
 
-try:
-    nltk.download('punkt')
-    nltk.download('punkt_tab') # Bazen bu da gerekebilir
-    nltk.download('stopwords')
-    nltk.data.find('vader_lexicon')
-except LookupError:
-    nltk.download('vader_lexicon')
+# NLTK Hatasını önlemek için gerekli indirmeler (Otomatik kontrol eder)
+def setup_nltk():
+    resources = ['punkt', 'vader_lexicon', 'stopwords']
+    for res in resources:
+        try:
+            nltk.data.find(f'tokenizers/{res}') if res == 'punkt' else nltk.data.find(f'sentiment/{res}')
+        except LookupError:
+            print(f"NLTK verisi indiriliyor: {res}...")
+            nltk.download(res, quiet=True)
 
-# Sentiment Motorunu Başlat
-analyzer = SentimentIntensityAnalyzer()
+setup_nltk()
 
-# --- 🔥 SAZLIK 500: DEV LİSTE ---
-WATCHLIST = [
- "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
-    "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
-    "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
-    "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "ANSS", "MSCI", "CHTR",
-    
-    # --- FİNANS & FİNANSAL HİZMETLER ---
-    "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPY", "BLK", "SCHW",
-    "C", "AXP", "CB", "MMC", "AON", "CME", "ICE", "PGR", "ALL", "MET",
-    "AIG", "PNC", "USB", "BK", "COF", "DFS", "TRV", "MCO", "CBOE", "RJF",
-    "GPN", "FIS", "ZION", "FITB", "STT", "NDAQ", "RF", "KEY", "CFG", "HBAN",
-    
-    # --- SAĞLIK & İLAÇ ---
-    "JNJ", "LLY", "UNH", "ABBV", "MRK", "PFE", "DHR", "TMO", "MDT", "SYK",
-    "AMGN", "GILD", "BIIB", "VRTX", "BMY", "ISRG", "ABT", "ZTS", "BDX", "BSX",
-    "CI", "CVS", "HUM", "HCA", "ANTM", "LH", "COO", "ALGN", "HOLX", "DVA",
-    "WAT", "RGEN", "IQV", "REGN", "EW", "TECH", "PKI", "DGX", "INCY", "CRL",
-    
-    # --- TEMEL TÜKETİM & DAYANIKLI TÜKETİM (İstikrar) ---
-    "PG", "KO", "PEP", "WMT", "COST", "HD", "MCD", "NKE", "LOW", "TGT",
-    "SBUX", "MDLZ", "CL", "PM", "MO", "KR", "DG", "ADBE", "EL", "KHC",
-    "GIS", "K", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
-    "MAT", "HOG", "GT", "TIF", "TPR", "TTC", "VFC", "HBI", "KSS", "ULTA",
-    
-    # --- ENERJİ & SANAYİ (Köklü Şirketler) ---
-    "XOM", "CVX", "BRK.B", "LMT", "RTX", "BA", "HON", "MMM", "GE", "GD",
-    "CAT", "DE", "EOG", "OXY", "SLB", "COP", "PSX", "MPC", "WMB", "KMI",
-    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR",
-    "ITW", "GWW", "WAB", "IEX", "AAL", "DAL", "UAL", "LUV", "HA", "ALK",
-    
-    # --- EMLAK, KAMU HİZMETLERİ & DİĞER (Çeşitlilik) ---
-    "DUK", "NEE", "SO", "EXC", "AEP", "SRE", "WEC", "D", "ED", "XEL",
-    "VNQ", "SPG", "PLD", "EQIX", "AMT", "CCI", "HST", "O", "ARE", "PSA",
-    "WY", "BXP", "REG", "VTR", "AVB", "ESR", "EPR", "KIM", "FRT", "APTS",
-    "LUMN", "VIAC", "FOX", "DISCA", "ETSY", "EBAY", "ATVI", "EA", "TTWO", "ZG"
+# Duygu Analizcisi Başlat
+sia = SentimentIntensityAnalyzer()
 
-    # --- YARI İLETKEN & BULUT BİLİŞİM ---
-    "ASML", "AMAT", "TSM", "MCHP", "TER", "U", "VEEV", "OKTA", "NET", "CRWD", 
-    "DDOG", "ZS", "TEAM", "ADSK", "MSI", "FTV", "WDC", "ZBRA", "SWKS", "QDEL",
+# --- 2. VARLIK HARİTASI (TRACKED STOCKS) ---
+# Haber metnindeki kelimeleri Borsa Kodlarıyla (Ticker) eşleştirir.
+TRACKED_STOCKS = {
+    # Teknoloji Devleri
+    "apple": "AAPL", "microsoft": "MSFT", "google": "GOOGL", "alphabet": "GOOGL",
+    "amazon": "AMZN", "nvidia": "NVDA", "meta": "META", "facebook": "META",
+    "tesla": "TSLA",
+    # Çip ve Donanım
+    "broadcom": "AVGO", "qualcomm": "QCOM", "intel": "INTC", "amd": "AMD",
+    "micron": "MU", "texas instruments": "TXN", "analog devices": "ADI",
+    # Yazılım ve Servisler
+    "adobe": "ADBE", "salesforce": "CRM", "oracle": "ORCL", "ibm": "IBM",
+    "paypal": "PYPL", "netflix": "NFLX",
+    # Diğer
+    "cisco": "CSCO", "at&t": "T", "disney": "DIS"
+}
 
-    # --- YENİLENEBİLİR ENERJİ & EV (Elektrikli Araçlar) ---
-    "FSLY", "PLUG", "ENPH", "SEDG", "RUN", "SPWR", "BLDP", "FCEL", "BE", "SOL",
-    "LI", "NIO", "XPEV", "RIVN", "LCID", "NKLA", "WKHS", "QS", "ARVL", "GOEV",
-
-    # --- FİNANSAL TEKNOLOJİ (FinTech) & Dijital Ödeme ---
-    "SQ", "COIN", "HOOD", "UPST", "AFRM", "SOFI", "MQ", "BILL", "TOST", "PAYA",
-    "DWAC", "BRZE", "AVLR", "DOCU", "SABR", "TTEC", "TWLO", "RNG", "ZM", "COUP",
-    
-    # --- BİYOTEKNOLOJİ & SAĞLIK (Yüksek Büyüme) ---
-    "MRNA", "PFE", "BIIB", "VRTX", "REGN", "GILD", "AMGN", "BMRN", "ALXN", "CTAS",
-    "CORT", "EXEL", "IONS", "XBI", "LABU", "EDIT", "BEAM", "NTLA", "CRSP", "ALLK",
-
-    # --- E-TİCARET & YENİ MEDYA ---
-    "MELI", "ETSY", "ROKU", "PTON", "SPOT", "CHWY", "ZM", "DOCU", "DDOG", "FVRR",
-    "PINS", "SNAP", "TWTR", "WIX", "SHOP", "SE", "BABA", "JD", "BIDU", "PDD",
-
-    # --- ENDÜSTRİ & OTOMASYON (Orta Ölçekli ve Dinamik) ---
-    "ROP", "TT", "Ametek", "FLR", "HUBB", "APH", "ECL", "SHW", "PPG", "FMC",
-    "MOS", "CF", "NUE", "STLD", "ALK", "AAL", "DAL", "LUV", "UAL", "SAVE",
-    "CAR", "RCL", "CCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
-
-    # --- ÇEŞİTLİ DİNAMİK BÜYÜME (Mid-Cap/IPO) ---
-    "RBLX", "UBER", "LYFT", "ABNB", "DOX", "GPN", "FLT", "PRU", "MET", "L",
-    "VLO", "PSX", "MPC", "DVN", "APA", "MRO", "EOG", "OXY", "SLB", "HAL",
-    "BKR", "FTI", "NOV", "TDW", "PAGP", "ENLC", "PAA", "WES", "WMB", "KMI",
-    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR"
+# Takip edilecek Haber Kaynakları (RSS) - US Markets Odaklı
+RSS_URLS = [
+    "https://finance.yahoo.com/news/rssindex",
+    "http://feeds.marketwatch.com/marketwatch/marketpulse",
+    "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664" # CNBC Technology
 ]
 
-ARCHIVE_FILE = 'news_archive.json'
+# Sonuçların Kaydedileceği Dosya
+OUTPUT_FILE = "sazlik_signals.csv"
 
-def load_archive():
-    if os.path.exists(ARCHIVE_FILE):
-        try:
-            with open(ARCHIVE_FILE, 'r') as f:
-                return json.load(f)
-        except:
-            return []
-    return []
+# --- 3. FONKSİYONLAR ---
 
-def save_archive(data):
-    with open(ARCHIVE_FILE, 'w') as f:
-        json.dump(data, f, indent=4)
+def get_market_data(ticker):
+    """
+    Verilen hisse için Yahoo Finance'den anlık fiyat, değişim ve hacim çeker.
+    """
+    try:
+        stock = yf.Ticker(ticker)
+        # Sadece son 1 günün verisi (periyot kısa tutulup hız kazanılır)
+        hist = stock.history(period="1d")
+        
+        if hist.empty:
+            return None
+        
+        current_price = hist['Close'].iloc[-1]
+        open_price = hist['Open'].iloc[-1]
+        volume = hist['Volume'].iloc[-1]
+        
+        # Yüzdelik Değişim Hesabı
+        change_pct = ((current_price - open_price) / open_price) * 100
+        
+        return {
+            "price": round(current_price, 2),
+            "change_pct": round(change_pct, 2),
+            "volume": volume
+        }
+    except Exception as e:
+        # Hata olursa (örn: piyasa kapalıyken veri yoksa) None dön
+        return None
 
 def analyze_sentiment(text):
-    """Metni analiz eder ve Duygu Durumunu döndürür."""
-    if not text: return "Nötr 😐", 0
-    
-    # VADER Skorlaması (-1 ile +1 arası)
-    scores = analyzer.polarity_scores(text)
-    compound = scores['compound']
-    
-    if compound >= 0.05:
-        return "Olumlu 🟢", compound
-    elif compound <= -0.05:
-        return "Olumsuz 🔴", compound
+    """
+    Haber metnine duygu analizi yapar.
+    Skor: -1 (Çok Negatif) ile +1 (Çok Pozitif) arasındadır.
+    """
+    score = sia.polarity_scores(text)
+    return score['compound']
+
+def determine_signal(sentiment, change_pct):
+    """
+    Haber Duygusu + Fiyat Değişimi = Sinyal
+    """
+    # Basit bir mantık: Haber iyi VE Fiyat artıyorsa -> GÜÇLÜ AL
+    if sentiment > 0.5 and change_pct > 0:
+        return "GÜÇLÜ AL (Momentum)"
+    elif sentiment > 0.2 and change_pct > -1:
+        return "AL (Haber Pozitif)"
+    elif sentiment < -0.5 and change_pct < 0:
+        return "GÜÇLÜ SAT (Panik)"
+    elif sentiment < -0.2:
+        return "SAT (Haber Negatif)"
     else:
-        return "Nötr ⚪", compound
+        return "NÖTR / İZLE"
 
-def parse_news_data(news_item):
-    title = None
-    link = None
-    date_str = datetime.now().strftime('%Y-%m-%d')
+# --- 4. ANA ÇALIŞMA DÖNGÜSÜ ---
 
-    if 'title' in news_item:
-        title = news_item['title']
-        link = news_item.get('link')
-    elif 'content' in news_item:
-        content = news_item['content']
-        title = content.get('title')
-        if 'clickThroughUrl' in content:
-            link = content['clickThroughUrl'].get('url')
-    
-    if not title: return None
+def run_news_bot():
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Haber Avcısı Başlatılıyor...")
+    all_signals = []
 
-    # Tarih Çözümleme
-    if 'providerPublishTime' in news_item:
-        date_str = datetime.fromtimestamp(news_item['providerPublishTime']).strftime('%Y-%m-%d')
-    
-    return {"title": title, "link": link, "date": date_str}
-
-def fetch_sweet_spots():
-    print(f"🇺🇸 Sazlık Haber Botu + AI Sentiment Başlatılıyor...")
-    
-    archive_data = load_archive()
-    existing_fingerprints = {f"{item.get('ticker')}_{item.get('content')}" for item in archive_data}
-    
-    total_new = 0
-    
-    # Listeyi karıştır (Her seferinde aynı sırayla gidip ban yemeyelim)
-    random.shuffle(WATCHLIST)
-    
-    for ticker in WATCHLIST:
-        print(f"📰 {ticker}...", end=" ", flush=True)
-        try:
-            stock = yf.Ticker(ticker)
-            news_list = stock.news
+    for url in RSS_URLS:
+        print(f"-> Kaynak taranıyor: {url}")
+        feed = feedparser.parse(url)
+        
+        for entry in feed.entries:
+            title = entry.title
+            summary = entry.summary if 'summary' in entry else title
+            published = entry.published if 'published' in entry else str(datetime.now())
             
-            if not news_list:
-                print("📭", end=" ") 
-                time.sleep(random.uniform(1, 2))
-                continue
+            # 1. Adım: Başlıkta takip ettiğimiz hisse var mı?
+            matched_ticker = None
+            for keyword, ticker in TRACKED_STOCKS.items():
+                if keyword in title.lower():
+                    matched_ticker = ticker
+                    break
             
-            count = 0
-            for raw_news in news_list:
-                clean = parse_news_data(raw_news)
-                if not clean: continue
-
-                # --- 30 GÜN KURALI (BURAYI GÜNCELLEDİK) ---
-                try:
-                    # Tarih formatı bazen değişebilir, o yüzden try-except şart
-                    news_dt = datetime.strptime(clean['date'], '%Y-%m-%d')
-                    days_diff = (datetime.now() - news_dt).days
-                    
-                    if days_diff > 30: # 30 Günden eski haberi alma!
-                        continue
-                except: 
-                    pass # Tarih hesaplanamazsa haberi al (Güvenli taraf)
-
-                fingerprint = f"{ticker}_{clean['title']}"
+            if matched_ticker:
+                print(f"   BULUNDU: {matched_ticker} -> {title[:50]}...")
                 
-                if fingerprint not in existing_fingerprints:
-                    # Sentiment Analizi
-                    sentiment_label, sentiment_score = analyze_sentiment(clean['title'])
+                # 2. Adım: Piyasa Verilerini Çek
+                market_data = get_market_data(matched_ticker)
+                
+                # 3. Adım: Duygu Analizi Yap
+                sentiment_score = analyze_sentiment(title + " " + summary)
+                
+                if market_data:
+                    # 4. Adım: Sinyal Üret
+                    signal = determine_signal(sentiment_score, market_data['change_pct'])
                     
-                    entry = {
-                        "date": clean['date'],
-                        "ticker": ticker,
-                        "content": clean['title'],
-                        "link": clean['link'],
-                        "ai_sentiment": sentiment_label,
-                        "sentiment_score": sentiment_score
+                    signal_data = {
+                        "Tarih": datetime.now().strftime('%Y-%m-%d %H:%M'),
+                        "Hisse": matched_ticker,
+                        "Haber_Baslik": title,
+                        "Duygu_Skoru": sentiment_score,
+                        "Fiyat": market_data['price'],
+                        "Degisim_Yuzde": market_data['change_pct'],
+                        "Hacim": market_data['volume'],
+                        "Sinyal": signal,
+                        "Link": entry.link
                     }
-                    archive_data.append(entry)
-                    existing_fingerprints.add(fingerprint)
-                    total_new += 1
-                    count += 1
+                    all_signals.append(signal_data)
+                    print(f"      ✅ SİNYAL: {signal} | Fiyat: {market_data['price']} ({market_data['change_pct']}%)")
+                else:
+                    print("      ⚠️ Piyasa verisi alınamadı (Piyasa kapalı olabilir).")
+
+    # --- 5. SONUÇLARI KAYDETME ---
+    if all_signals:
+        df = pd.DataFrame(all_signals)
+        
+        # Eğer dosya varsa ekle, yoksa yeni oluştur (mode='a' append)
+        if os.path.exists(OUTPUT_FILE):
+            df.to_csv(OUTPUT_FILE, mode='a', header=False, index=False)
+        else:
+            df.to_csv(OUTPUT_FILE, mode='w', header=True, index=False)
             
-            if count > 0: print(f"✅ {count} Yeni Haber")
-            else: print("💤")
-            
-            time.sleep(random.uniform(2, 4))
-
-        except Exception as e:
-            print(f"❌")
-            time.sleep(3)
-
-        # Her 10 hissede bir kaydet (Veri kaybını önlemek için)
-        if total_new > 0 and total_new % 5 == 0:
-             save_archive(archive_data)
-
-    # Döngü bitince son kayıt
-    if total_new > 0:
-        archive_data.sort(key=lambda x: x['date'], reverse=True)
-        save_archive(archive_data)
-        print(f"\n💾 TOPLAM {total_new} YENİ HABER VE ANALİZİ KAYDEDİLDİ.")
+        print(f"\nToplam {len(all_signals)} yeni sinyal '{OUTPUT_FILE}' dosyasına kaydedildi.")
     else:
-        print("\n💤 Yeni haber yok.")
+        print("\nİlgili hisseler hakkında yeni bir haber bulunamadı.")
 
 if __name__ == "__main__":
-    fetch_sweet_spots()
+    run_news_bot()
