@@ -34,30 +34,27 @@ st.markdown("""
 @st.cache_data(ttl=30)
 def load_data():
     try:
-        # Hata olursa atlaması için error_bad_lines=False ve engine='python' ekliyoruz
-        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python') # Buradaki satır DÜZELTİLDİ
+        # CSV dosyasını güvenli okuma modunda oku
+        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python') 
         
-        # Sütun isimlerini kontrol et (Bazen AI'dan gelen verideki sütunlar karışabilir)
-        required_cols = ['Tarih', 'Hisse', 'Fiyat', 'Karar'] 
-        if not all(col in df.columns for col in required_cols):
-             st.error("CSV formatı bozuk: Gerekli sütunlar eksik.")
-             return pd.DataFrame()
-             
+        # Sütunları temizle ve sayısal formatları düzelt
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
         df = df.sort_values(by='Tarih', ascending=False)
         
-        # ... (Diğer dönüşümlerin aynı kalması önemli)
+        # Sütunları temizle ve sayısal formatları düzelt
         df['RSI'] = pd.to_numeric(df['RSI'], errors='coerce').fillna(0)
         df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0).astype(int)
-
-        return df
+        
+        return df # BAŞARILI DURUM: df'i geri döndür
+        
     except FileNotFoundError:
-        return pd.DataFrame()
+        st.warning("⚠️ CSV dosyası bulunamadı. Botun ilk sinyali bekleniyor.")
+        return pd.DataFrame() # HATA DURUMU 1: Boş tablo döndür
+        
     except Exception as e:
-        # Genel bir hata olursa boş DataFrame dönsün
-        st.error(f"Veri Yükleme Hatası: {e}")
-        return pd.DataFrame()
-
+        # Diğer ParserError, format hataları vb. yakalandığında
+        st.error(f"❌ Veri Formatı Hatası: Lütfen CSV dosyasını kontrol edin. ({e})")
+        return pd.DataFrame() # HATA DURUMU 2: Boş tablo döndür
 # --- 4. KENAR ÇUBUĞU (SIDEBAR) ---
 with st.sidebar:
     st.title("🤖 Sazlık AI Analist")
