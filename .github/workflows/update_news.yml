@@ -48,7 +48,7 @@ jobs:
         # Değişiklikleri işle (Commit)
         git commit -m "🤖 Bot Raporu: Yeni Sinyaller Eklendi" || echo "Değişiklik yok"
         
-        # --- KRİTİK DÜZELTME BURADA ---
+        # --- SİHİRLİ KOMUT BURADA ---
         # Önce GitHub'daki son değişiklikleri çek (Rebase ile), sonra gönder
         git pull --rebase origin main
         git push origin main
