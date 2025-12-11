@@ -27,42 +27,58 @@ st.markdown("""
     .al-sinyali { color: #4CAF50; font-weight: bold; } /* Yeşil */
     .sat-sinyali { color: #F44336; font-weight: bold; } /* Kırmızı */
     .bekle-sinyali { color: #FFC107; font-weight: bold; } /* Sarı */
+    /* Tablo başlıkları */
+    thead tr th:first-child {display:none}
+    tbody th {display:none}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. VERİ YÜKLEME ---
+# --- 3. VERİ YÜKLEME VE HATA YAKALAMA ---
 @st.cache_data(ttl=30)
 def load_data():
+    """CSV dosyasını okur ve hatalara karşı koruma sağlar."""
     try:
-        # CSV dosyasını güvenli okuma modunda oku
-        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python') 
+        # CSV dosyasını güvenli okuma modunda oku (bozuk satırları atlar)
+        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         
         # Sütunları temizle ve sayısal formatları düzelt
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
         df = df.sort_values(by='Tarih', ascending=False)
         
-        # Sütunları temizle ve sayısal formatları düzelt
+        # Sayısal sütunların formatını garanti et
         df['RSI'] = pd.to_numeric(df['RSI'], errors='coerce').fillna(0)
         df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0).astype(int)
         
-        return df # BAŞARILI DURUM: df'i geri döndür
+        return df # Başarılı durum: İşlenmiş df'i geri döndür
         
     except FileNotFoundError:
+        # Dosya yoksa uyarı ver ve boş tablo döndür
         st.warning("⚠️ CSV dosyası bulunamadı. Botun ilk sinyali bekleniyor.")
-        return pd.DataFrame() # HATA DURUMU 1: Boş tablo döndür
+        return pd.DataFrame() 
         
     except Exception as e:
-        # Diğer ParserError, format hataları vb. yakalandığında
+        # Diğer ParserError veya format hataları için
         st.error(f"❌ Veri Formatı Hatası: Lütfen CSV dosyasını kontrol edin. ({e})")
-        return pd.DataFrame() # HATA DURUMU 2: Boş tablo döndür
-# --- 4. KENAR ÇUBUĞU (SIDEBAR) ---
+        return pd.DataFrame() # Hata durumunda boş tablo döndür
+
+# --- 4. KRİTİK VERİ YÜKLEME ÇAĞRISI ---
+# Bu çağrı, NameError'ı engellemek için doğru yerdir.
+df = load_data() 
+
+# Filtrelerin varsayılan değerleri için de boş bir DataFrame yaratılır (df.empty kontrolü için)
+if df.empty:
+    df_filtered = pd.DataFrame()
+else:
+    df_filtered = df.copy()
+
+# --- 5. KENAR ÇUBUĞU (SIDEBAR) ---
 with st.sidebar:
     st.title("🤖 Sazlık AI Analist")
     st.caption("v3.0 - Gemini Destekli Stratejiler")
     st.markdown("---")
     
+    # Filtreler sadece veri varsa gösterilir
     if not df.empty:
-        # Filtreler
         st.subheader("🔍 Filtreleme")
         hisse_listesi = ["Tümü"] + sorted(list(df['Hisse'].unique()))
         secilen_hisse = st.selectbox("Hisse Senedi:", hisse_listesi)
@@ -71,7 +87,6 @@ with st.sidebar:
         secilen_karar = st.selectbox("AI Kararı:", karar_listesi)
         
         # Filtreleme Mantığı
-        df_filtered = df.copy()
         if secilen_hisse != "Tümü":
             df_filtered = df_filtered[df_filtered['Hisse'] == secilen_hisse]
         if secilen_karar != "Tümü":
@@ -84,12 +99,12 @@ with st.sidebar:
             st.rerun()
     else:
         st.warning("Henüz AI sinyali yok. Botun çalışmasını bekleyin.")
-        df_filtered = pd.DataFrame()
 
-# --- 5. ANA EKRAN: GENEL BAKIŞ (TAB 1) ---
+# --- 6. ANA EKRAN ---
 st.header("📊 AI Strateji Paneli")
 
 if not df_filtered.empty:
+    # Sekmeler
     tab1, tab2 = st.tabs(["🚀 Yeni Trade Kurulumları", "📋 Detaylı Sinyal Geçmişi"])
 
     with tab1:
@@ -102,12 +117,16 @@ if not df_filtered.empty:
         max_guven = df_filtered.loc[df_filtered['Guven_Skoru'].idxmax()]
         col1.metric("⭐ En Yüksek Güven", f"{max_guven['Guven_Skoru']}/100", max_guven['Hisse'])
         
-        # En İyi Risk/Ödül
-        risk_odul_series = df_filtered['Risk_Odul'].str.split(':', expand=True).iloc[:, 1]
-        risk_odul_series = pd.to_numeric(risk_odul_series, errors='coerce').fillna(0)
-        best_ro = df_filtered.loc[risk_odul_series.idxmax()]
-        col2.metric("🏆 En İyi Risk/Ödül", best_ro['Risk_Odul'], best_ro['Hisse'])
-        
+        # En İyi Risk/Ödül (Risk/Reward, R/Ö)
+        # Risk_Odul sütunu '1:X.X' formatında olduğu için sayısal değere çevirme
+        try:
+            risk_odul_series = df_filtered['Risk_Odul'].str.split(':', expand=True).iloc[:, 1]
+            risk_odul_series = pd.to_numeric(risk_odul_series, errors='coerce').fillna(0)
+            best_ro = df_filtered.loc[risk_odul_series.idxmax()]
+            col2.metric("🏆 En İyi R/Ö Oranı", best_ro['Risk_Odul'], best_ro['Hisse'])
+        except Exception:
+             col2.metric("🏆 En İyi R/Ö Oranı", "Hesaplanıyor")
+
         # Karar Dağılımı Grafiği
         karar_counts = df_filtered['Karar'].value_counts().reset_index()
         karar_counts.columns = ['Karar', 'Adet']
@@ -125,7 +144,7 @@ if not df_filtered.empty:
         st.subheader("AI Analist Tarafından Önerilen Trade Setuplar:")
         
         # Her bir sinyali ayrı bir kartta göster
-        for index, row in df_filtered.head(5).iterrows(): # Sadece en yeni 5 tanesini kart olarak göster
+        for index, row in df_filtered.head(5).iterrows():
             karar_class = 'al-sinyali' if 'AL' in row['Karar'] else 'sat-sinyali' if 'SAT' in row['Karar'] else 'bekle-sinyali'
             
             with st.container():
@@ -139,7 +158,7 @@ if not df_filtered.empty:
                 col_c.metric("🛑 Stop Loss", f"${row['Stop_Loss']:.2f}", row['Risk_Yuzdesi'])
                 col_d.metric("📈 R/Ö Oranı", row['Risk_Odul'])
                 
-                st.caption(f"**Güven Skoru:** {row['Guven_Skoru']}/100 | **Kasa Yönetimi:** {row['Kasa_Yonetimi']}")
+                st.caption(f"**Güven Skoru:** {row['Guven_Skoru']}/100 | **RSI:** {row['RSI']:.2f}")
                 st.markdown(f"**Özet:** *{row['Analiz_Ozeti']}*")
                 st.markdown(f"**Haber:** {row['Haber_Baslik']} [Link]({row['Link']})")
                 st.markdown("</div>", unsafe_allow_html=True)
