@@ -36,3 +36,17 @@ jobs:
         SAZLIK_ENV: production
       run: |
         python news_bot.py
+    # 5. Adım: Oluşan CSV dosyasını GitHub'a geri yükle (Commit & Push)
+    - name: Verileri Kaydet (Commit & Push)
+      run: |
+        git config --global user.name "Sazlik Bot"
+        git config --global user.email "bot@sazlik.com"
+        
+        # Eğer dosya varsa ekle
+        git add sazlik_signals.csv
+        
+        # Değişiklik varsa commit et, yoksa hata verme
+        git commit -m "🤖 Bot Raporu: Yeni Sinyaller Eklendi" || echo "Değişiklik yok"
+        
+        # GitHub'a gönder
+        git push
