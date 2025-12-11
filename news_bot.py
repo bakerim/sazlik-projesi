@@ -8,7 +8,11 @@ import nltk
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 # --- NLTK VADER Kurulumu (İlk çalışmada indirir) ---
+
 try:
+    nltk.download('punkt')
+    nltk.download('punkt_tab') # Bazen bu da gerekebilir
+    nltk.download('stopwords')
     nltk.data.find('vader_lexicon')
 except LookupError:
     nltk.download('vader_lexicon')
