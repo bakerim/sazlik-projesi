@@ -18,16 +18,17 @@ jobs:
       with:
         fetch-depth: 0
 
+
     - name: Python Kurulumu (Setup Python)
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.12' 
         cache: 'pip'
 
     - name: Kutuphaneleri Yukle (Install Dependencies)
       run: |
         python -m pip install --upgrade pip
-        # Burada pandas_ta ve google-generativeai'yi zorla yüklüyoruz:
+        # Kütüphaneleri garanti yöntemle yüklüyoruz
         pip install feedparser nltk yfinance pandas pandas_ta google-generativeai
 
     - name: Botu Calistir (Run Bot)
