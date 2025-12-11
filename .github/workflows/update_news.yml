@@ -31,6 +31,8 @@ jobs:
         pip install feedparser nltk yfinance pandas
 
     - name: Botu Calistir (Run Bot)
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}  <-- BU SATIR ŞART!
       run: |
         python news_bot.py
 
