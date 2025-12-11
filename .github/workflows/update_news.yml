@@ -32,7 +32,6 @@ jobs:
 
     - name: Botu Calistir (Run Bot)
       env:
-        # Not: Buradaki Türkçe açıklamayı sildim, sadece kod kaldı:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: |
         python news_bot.py
