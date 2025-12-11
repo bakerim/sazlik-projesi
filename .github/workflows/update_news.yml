@@ -4,6 +4,10 @@ on:
   push:
     branches: [ "main" ]
   workflow_dispatch:
+  
+
+  schedule:
+    - cron: '0 14-21 * * 1-5'
 
 jobs:
   build:
