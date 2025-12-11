@@ -34,19 +34,29 @@ st.markdown("""
 @st.cache_data(ttl=30)
 def load_data():
     try:
-        df = pd.read_csv("sazlik_signals.csv")
+        # Hata olursa atlaması için error_bad_lines=False ve engine='python' ekliyoruz
+        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python') # Buradaki satır DÜZELTİLDİ
+        
+        # Sütun isimlerini kontrol et (Bazen AI'dan gelen verideki sütunlar karışabilir)
+        required_cols = ['Tarih', 'Hisse', 'Fiyat', 'Karar'] 
+        if not all(col in df.columns for col in required_cols):
+             st.error("CSV formatı bozuk: Gerekli sütunlar eksik.")
+             return pd.DataFrame()
+             
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
         df = df.sort_values(by='Tarih', ascending=False)
         
-        # Sütunları temizle ve sayısal formatları düzelt
+        # ... (Diğer dönüşümlerin aynı kalması önemli)
         df['RSI'] = pd.to_numeric(df['RSI'], errors='coerce').fillna(0)
         df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0).astype(int)
-        
+
         return df
     except FileNotFoundError:
-        return pd.DataFrame() 
-
-df = load_data()
+        return pd.DataFrame()
+    except Exception as e:
+        # Genel bir hata olursa boş DataFrame dönsün
+        st.error(f"Veri Yükleme Hatası: {e}")
+        return pd.DataFrame()
 
 # --- 4. KENAR ÇUBUĞU (SIDEBAR) ---
 with st.sidebar:
