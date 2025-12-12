@@ -15,7 +15,7 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; }
     
-    /* KART TASARIMI */
+    /* VİTRİN KARTI */
     .top-card {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -25,259 +25,192 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         margin-bottom: 20px;
     }
-    .top-rank {
-        font-size: 12px;
-        color: #58a6ff;
-        font-weight: bold;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 5px;
-    }
-    .top-symbol {
-        font-size: 36px;
-        font-weight: 900;
-        color: #ffffff;
-        line-height: 1.2;
-    }
-    .top-vade {
-        font-size: 14px;
-        color: #8b949e;
-        margin-bottom: 15px;
-        font-style: italic;
-    }
-    .score-container {
-        display: flex;
-        justify-content: center;
-        align-items: baseline;
-        gap: 5px;
-        margin-bottom: 15px;
-    }
-    .top-score {
-        font-size: 48px;
-        font-weight: bold;
-        line-height: 1;
-    }
+    .top-symbol { font-size: 36px; font-weight: 900; color: #ffffff; }
+    .top-score { font-size: 48px; font-weight: bold; line-height: 1; }
+    .top-vade { font-size: 14px; color: #8b949e; margin-bottom: 10px; font-style: italic; }
     
-    /* RENK SINIFLARI */
+    /* DEDEKTİF KARTI (5. SEKME İÇİN ÖZEL) */
+    .detective-card {
+        background-color: #0d1117;
+        border: 2px solid #58a6ff; /* Mavi Çerçeve */
+        border-radius: 15px;
+        padding: 30px;
+        text-align: center;
+    }
+    .detective-label { font-size: 14px; color: #8b949e; letter-spacing: 1px; }
+    .detective-value { font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px; }
+    
+    /* RENKLER */
     .text-green { color: #3fb950 !important; }
     .text-red { color: #f85149 !important; }
-    .text-gray { color: #8b949e !important; }
     
-    /* ROBOT KARTI (GARANTİCİ BABA İÇİN) */
-    .robot-card {
-        border-left: 4px solid #a371f7; /* Mor Çizgi */
-        background-color: #161b22;
-        padding: 15px;
-        margin-bottom: 10px;
-        border-radius: 4px;
-    }
-    
-    /* TABLO DÜZENİ */
     .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. VERİ YÜKLEME VE TEMİZLEME ---
+# --- 3. VERİ YÜKLEME ---
 @st.cache_data(ttl=300)
 def load_data():
     try:
         df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
         
-        # Gerekli sütunlar yoksa oluştur
         required = ['Hisse', 'Fiyat', 'Karar', 'Guven_Skoru', 'Hedef_Fiyat', 'Stop_Loss', 
                     'Vade', 'Kasa_Yonetimi', 'Risk_Yuzdesi', 'Kazanc_Potansiyeli', 'Analiz_Ozeti']
         for col in required:
             if col not in df.columns: df[col] = "-"
             
-        # Her hissenin sadece EN GÜNCEL halini al
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
-        
-        # Sayısal dönüşümler
         df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
-        
         return df
     except:
         return pd.DataFrame()
 
-# Veriyi başlat
 df = pd.DataFrame()
 df = load_data()
 
-# --- YARDIMCI FONKSİYON: NAN TEMİZLEYİCİ ---
 def safe_val(val, prefix=""):
-    """Değer 'nan', 0 veya boşsa '-' döner, değilse değeri döner."""
     try:
-        if pd.isna(val) or str(val).lower() == 'nan' or str(val).strip() == "" or val == 0:
-            return '<span class="text-gray">-</span>'
+        if pd.isna(val) or str(val).lower() in ['nan', '0', '']: return '-'
         return f"{prefix}{val}"
-    except:
-        return '<span class="text-gray">-</span>'
+    except: return '-'
 
 # --- 4. ANA EKRAN ---
 st.title("🌾 Sazlık Pro: Komuta Merkezi")
 st.markdown("---")
 
 if df.empty:
-    st.info("📡 Veri bekleniyor... Bot şu an haberleri tarıyor.")
+    st.info("📡 Veri bekleniyor... Bot şu an çalışıyor.")
     if st.button("Yenile"): st.rerun()
 
 else:
-    # --- VERİLERİ AYIRIŞTIR (AI vs ROBOT) ---
-    # Garantici Baba verileri "Haber Yok" başlığına veya "GARANTİCİ BABA" etiketine sahiptir
+    # VERİ AYRIŞTIRMA
     robot_picks = df[df['Analiz_Ozeti'].str.contains('GARANTİCİ BABA', na=False) | (df['Haber_Baslik'] == "Teknik Tarama (Haber Yok)")]
-    ai_picks = df[~df.index.isin(robot_picks.index)] # Robot olmayanlar AI'dır
+    ai_picks = df[~df.index.isin(robot_picks.index)]
 
-    # --- SEKMELER ---
-    tab1, tab2, tab3, tab4 = st.tabs(["🏆 AI Vitrini (Haber)", "📅 Portföy Planı", "👴 Garantici Baba (Teknik)", "🗃️ Tüm Veriler"])
+    # 5 SEKMELİ YAPI
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🏆 AI Vitrini", 
+        "📅 Portföy Planı", 
+        "👴 Garantici Baba", 
+        "🗃️ Tüm Veriler",
+        "🔎 Hisse Dedektifi"
+    ])
 
-    # =========================================================================
-    # SEKME 1: AI VİTRİNİ
-    # =========================================================================
+    # --- SEKME 1: AI VİTRİNİ ---
     with tab1:
-        st.caption("📰 Sadece hakkında HABER olan ve Yapay Zeka tarafından seçilen hisseler.")
-        
-        # Puanına göre sırala
         top_picks = ai_picks.sort_values('Guven_Skoru_Num', ascending=False)
-        
         if not top_picks.empty:
             col1, col2, col3 = st.columns(3)
             top3 = top_picks.head(3).reset_index()
             
-            # KART OLUŞTURUCU
-            def create_card(row, rank):
-                hedef = safe_val(row.get('Hedef_Fiyat'), "$")
-                kazanc = safe_val(row.get('Kazanc_Potansiyeli'))
-                stop = safe_val(row.get('Stop_Loss'), "$")
-                risk = safe_val(row.get('Risk_Yuzdesi'))
-                vade = safe_val(row.get('Vade'))
+            def create_vitrin_card(row, rank):
                 score = int(row['Guven_Skoru_Num'])
-                score_color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
-                
+                color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
                 html = f"""
                 <div class="top-card">
-                <div class="top-rank">#{rank} NUMARA</div>
-                <div class="top-symbol">{row['Hisse']}</div>
-                <div class="top-vade">{vade}</div>
-                <div class="score-container">
-                <span style="font-size:14px; color:#888;">PUAN:</span>
-                <span class="top-score" style="color:{score_color};">{score}</span>
-                <span style="font-size:16px; color:#888;">/100</span>
-                </div>
-                <hr style="border-color:#30363d; margin:15px 0;">
-                <div style="display:flex; justify-content:space-between; font-size:14px;">
-                <div style="text-align:left;">
-                <div style="color:#888; font-size:11px;">HEDEF</div>
-                <div class="text-green" style="font-weight:bold; font-size:18px;">{hedef}</div>
-                <div class="text-green" style="font-size:12px;">{kazanc}</div>
-                </div>
-                <div style="text-align:right;">
-                <div style="color:#888; font-size:11px;">STOP</div>
-                <div class="text-red" style="font-weight:bold; font-size:18px;">{stop}</div>
-                <div class="text-red" style="font-size:12px;">{risk}</div>
-                </div>
-                </div>
+                    <div style="color:#58a6ff; font-weight:bold; font-size:12px;">#{rank} NUMARA</div>
+                    <div class="top-symbol">{row['Hisse']}</div>
+                    <div class="top-vade">{safe_val(row['Vade'])}</div>
+                    <div style="display:flex; justify-content:center; gap:5px; align-items:baseline;">
+                        <span style="color:#888;">PUAN:</span>
+                        <span class="top-score" style="color:{color};">{score}</span>
+                        <span style="color:#888;">/100</span>
+                    </div>
+                    <hr style="border-color:#30363d; margin:15px 0;">
+                    <div style="display:flex; justify-content:space-between; font-size:14px;">
+                        <div style="text-align:left;">
+                            <div style="color:#888; font-size:11px;">HEDEF</div>
+                            <div class="text-green" style="font-weight:bold; font-size:18px;">{safe_val(row['Hedef_Fiyat'], '$')}</div>
+                            <div class="text-green">{safe_val(row['Kazanc_Potansiyeli'])}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:#888; font-size:11px;">STOP</div>
+                            <div class="text-red" style="font-weight:bold; font-size:18px;">{safe_val(row['Stop_Loss'], '$')}</div>
+                            <div class="text-red">{safe_val(row['Risk_Yuzdesi'])}</div>
+                        </div>
+                    </div>
                 </div>
                 """
                 return html
 
-            # Kartları yerleştir
-            if len(top3) > 0: col1.markdown(create_card(top3.iloc[0], 1), unsafe_allow_html=True)
-            if len(top3) > 1: col2.markdown(create_card(top3.iloc[1], 2), unsafe_allow_html=True)
-            if len(top3) > 2: col3.markdown(create_card(top3.iloc[2], 3), unsafe_allow_html=True)
+            if len(top3) > 0: col1.markdown(create_vitrin_card(top3.iloc[0], 1), unsafe_allow_html=True)
+            if len(top3) > 1: col2.markdown(create_vitrin_card(top3.iloc[1], 2), unsafe_allow_html=True)
+            if len(top3) > 2: col3.markdown(create_vitrin_card(top3.iloc[2], 3), unsafe_allow_html=True)
 
             st.markdown("---")
-
-            # --- ALT TABLO ---
-            st.subheader("📋 AI Detaylı Liste")
-            table_df = top_picks.iloc[3:].copy()
-            if table_df.empty: table_df = top_picks.copy()
-
-            display_df = table_df[[
-                'Guven_Skoru_Num', 'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 
-                'Stop_Loss', 'Kasa_Yonetimi', 'Vade', 'Analiz_Ozeti'
-            ]].copy()
-            
-            display_df = display_df.fillna("-")
-            display_df.columns = ['AI Puanı', 'Sembol', 'Trend', 'Giriş ($)', 'Hedef ($)', 'Stop ($)', 'Kasa %', 'Vade', 'AI Açıklaması']
-
-            st.dataframe(
-                display_df,
-                column_config={
-                    "AI Puanı": st.column_config.ProgressColumn("AI Puanı", format="%d", min_value=0, max_value=100),
-                    "AI Açıklaması": st.column_config.TextColumn("AI Açıklaması", width="large")
-                },
-                hide_index=True,
-                use_container_width=True,
-                height=500
-            )
+            st.subheader("📋 Liste Görünümü")
+            st.dataframe(top_picks[['Guven_Skoru', 'Hisse', 'Vade', 'Hedef_Fiyat', 'Stop_Loss', 'Analiz_Ozeti']], use_container_width=True)
         else:
-            st.info("Şu an gündemde yapay zekanın dikkatini çeken bir haber yok.")
+            st.info("Haber kaynaklı fırsat bulunamadı.")
 
-    # =========================================================================
-    # SEKME 2: PORTFÖY PLANLAYICI
-    # =========================================================================
+    # --- SEKME 2: PORTFÖY ---
     with tab2:
-        st.subheader("📊 Portföy Dağılım Önerisi")
         buy_signals = df[df['Karar'].str.contains('AL', na=False)]
-        
         if not buy_signals.empty:
-            col_p1, col_p2 = st.columns([1, 2])
-            with col_p1:
-                st.info("💡 **Strateji:**\nGrafik, hem AI (Haber) hem Robot (Teknik) kaynaklı 'AL' sinyallerini içerir.")
-            with col_p2:
-                chart = alt.Chart(buy_signals).mark_arc(innerRadius=60).encode(
-                    theta=alt.Theta(field="Guven_Skoru_Num", type="quantitative"),
-                    color=alt.Color(field="Hisse", type="nominal"),
-                    tooltip=["Hisse", "Guven_Skoru_Num", "Kasa_Yonetimi"]
-                ).properties(height=300)
-                st.altair_chart(chart, use_container_width=True)
+            chart = alt.Chart(buy_signals).mark_arc(innerRadius=60).encode(
+                theta=alt.Theta(field="Guven_Skoru_Num", type="quantitative"),
+                color=alt.Color(field="Hisse", type="nominal"),
+                tooltip=["Hisse", "Vade", "Guven_Skoru"]
+            ).properties(height=350)
+            st.altair_chart(chart, use_container_width=True)
+            st.dataframe(buy_signals[['Hisse', 'Vade', 'Kasa_Yonetimi']], use_container_width=True)
         else:
-            st.warning("Şu an 'AL' sinyali yok.")
+            st.warning("'AL' sinyali yok.")
 
-    # =========================================================================
-    # SEKME 3: GARANTİCİ BABA (ROBOT)
-    # =========================================================================
+    # --- SEKME 3: ROBOT ---
     with tab3:
-        st.caption("⚙️ Sadece TEKNİK ANALİZ ile bulunan, haberi olmayan sessiz fırsatlar.")
-        
         if not robot_picks.empty:
-            robot_picks = robot_picks.sort_values('Guven_Skoru_Num', ascending=False)
-            
-            # Robot verileri için sade ve teknik bir tablo
-            st.subheader(f"🔍 Robot {len(robot_picks)} Fırsat Buldu")
-            
-            # Robot tablosu için sütun seçimi (Haber Başlığına gerek yok)
-            robot_display = robot_picks[[
-                'Guven_Skoru_Num', 'Hisse', 'Karar', 'Fiyat', 'RSI', 
-                'Hedef_Fiyat', 'Stop_Loss', 'Analiz_Ozeti'
-            ]].copy()
-            
-            # RSI Sütunu yoksa oluştur (Eski verilerde olmayabilir)
-            if 'RSI' not in robot_display.columns: robot_display['RSI'] = "-"
-            
-            robot_display.columns = ['Skor', 'Sembol', 'Sinyal', 'Fiyat', 'RSI', 'Hedef', 'Stop', 'Robot Analizi']
-            
-            # Analiz özetindeki [GARANTİCİ BABA] etiketini temizleyelim daha şık dursun
-            robot_display['Robot Analizi'] = robot_display['Robot Analizi'].str.replace(r'\[GARANTİCİ BABA\]: ', '', regex=True)
-
-            st.dataframe(
-                robot_display,
-                column_config={
-                    "Skor": st.column_config.ProgressColumn("Skor", format="%d", min_value=0, max_value=100),
-                    "Robot Analizi": st.column_config.TextColumn("Teknik Gerekçe", width="large"),
-                    "Sinyal": st.column_config.TextColumn("Sinyal", width="small")
-                },
-                hide_index=True,
-                use_container_width=True,
-                height=600
-            )
+            st.dataframe(robot_picks[['Guven_Skoru', 'Hisse', 'Vade', 'Hedef_Fiyat', 'Stop_Loss', 'Analiz_Ozeti']], use_container_width=True)
         else:
-            st.info("Garantici Baba henüz tarama yapmadı veya kriterlere uyan (RSI < 30 vb.) hisse bulamadı.")
-            st.markdown("*Bot çalıştıkça bu liste dolacaktır.*")
+            st.info("Robot henüz veri topluyor.")
 
-    # =========================================================================
-    # SEKME 4: HAM VERİLER
-    # =========================================================================
+    # --- SEKME 4: TÜM VERİ ---
     with tab4:
         st.dataframe(df, use_container_width=True)
+
+    # --- SEKME 5: HİSSE DEDEKTİFİ (YENİ) ---
+    with tab5:
+        st.header("🔎 Hisse Dedektifi")
+        
+        # Hisse Seçim Kutusu
+        all_tickers = sorted(df['Hisse'].unique())
+        selected_ticker = st.selectbox("İncelemek İstediğiniz Hisseyi Seçin:", all_tickers)
+        
+        if selected_ticker:
+            # Seçilen hissenin verisini çek
+            row = df[df['Hisse'] == selected_ticker].iloc[0]
+            
+            score = int(row['Guven_Skoru_Num'])
+            score_color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
+            
+            # --- DEDEKTİF KARTI ---
+            col_det1, col_det2 = st.columns([1, 2])
+            
+            with col_det1:
+                st.markdown(f"""
+                <div class="detective-card">
+                    <div style="font-size:40px; font-weight:900; color:white;">{row['Hisse']}</div>
+                    <div style="font-size:16px; color:#888; margin-bottom:20px;">{safe_val(row['Vade'])}</div>
+                    
+                    <div style="font-size:60px; font-weight:bold; color:{score_color}; line-height:1;">{score}</div>
+                    <div style="font-size:12px; color:#888; letter-spacing:2px;">PUAN</div>
+                    
+                    <hr style="border-color:#30363d; margin:20px 0;">
+                    <div style="font-size:24px; font-weight:bold; color:white;">{row['Karar']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_det2:
+                # Metrikler
+                c1, c2, c3 = st.columns(3)
+                c1.markdown(f"<div class='detective-label'>HEDEF FİYAT</div><div class='detective-value text-green'>{safe_val(row['Hedef_Fiyat'], '$')}</div><div style='color:#3fb950'>{safe_val(row['Kazanc_Potansiyeli'])}</div>", unsafe_allow_html=True)
+                c2.markdown(f"<div class='detective-label'>STOP LOSS</div><div class='detective-value text-red'>{safe_val(row['Stop_Loss'], '$')}</div><div style='color:#f85149'>{safe_val(row['Risk_Yuzdesi'])}</div>", unsafe_allow_html=True)
+                c3.markdown(f"<div class='detective-label'>GİRİŞ FİYATI</div><div class='detective-value'>{safe_val(row['Fiyat'], '$')}</div>", unsafe_allow_html=True)
+                
+                st.markdown("---")
+                st.subheader("📝 Analiz Raporu")
+                st.info(row['Analiz_Ozeti'])
+                
+                if row['Link'] and str(row['Link']) != '-':
+                    st.markdown(f"[Haberi Kaynağında Oku 🔗]({row['Link']})")
