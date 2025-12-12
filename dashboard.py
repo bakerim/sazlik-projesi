@@ -1,187 +1,135 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-import time
 
-# --- 1. SAYFA AYARLARI ---
-st.set_page_config(
-    page_title="Sazlık Projesi - Günlük Bülten",
-    page_icon="🌾",
-    layout="wide",
-    initial_sidebar_state="collapsed" # Daha geniş ekran için menüyü kapalı başlatıyoruz
-)
+# --- AYARLAR ---
+st.set_page_config(page_title="Sazlık Pro v4", layout="wide", initial_sidebar_state="collapsed")
 
-# --- 2. PROFESYONEL CSS TASARIMI (BÜLTEN TARZI) ---
+# --- CSS TASARIMI (BÜYÜK RAKAMLAR & RENKLER) ---
 st.markdown("""
 <style>
-    /* Kart Tasarımı */
-    div.css-1r6slb0.e1tzin5v2 {
-        background-color: #0E1117;
-        border: 1px solid #30333F;
-    }
-    .metric-card {
-        background-color: #161b22; /* Koyu Gri/Siyah */
-        border-left: 5px solid #238636; /* Sol tarafta Yeşil Çizgi */
-        border-radius: 5px;
-        padding: 15px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-    .metric-card-sell {
-        background-color: #161b22;
-        border-left: 5px solid #da3633; /* Sol tarafta Kırmızı Çizgi */
-        border-radius: 5px;
-        padding: 15px;
-        margin-bottom: 15px;
-    }
-    .card-title {
-        font-size: 20px;
-        font-weight: bold;
-        color: #ffffff;
-        margin-bottom: 10px;
-    }
-    .card-metric-label {
-        font-size: 12px;
-        color: #8b949e;
-    }
-    .card-metric-value {
-        font-size: 18px;
-        font-weight: bold;
-        color: #e6edf3;
-    }
-    .success-text { color: #3fb950; }
-    .danger-text { color: #f85149; }
+    .big-font { font-size: 24px !important; font-weight: bold; }
+    .med-font { font-size: 18px !important; font-weight: bold; }
+    .small-font { font-size: 14px !important; color: #888; }
     
-    /* Tablo Başlıklarını Gizle/Düzenle */
-    thead tr th:first-child {display:none}
-    tbody th {display:none}
+    /* SKOR RENKLERİ */
+    .score-green { color: #28a745; font-weight: bold; } /* 85-100 */
+    .score-blue { color: #17a2b8; font-weight: bold; }  /* 70-84 */
+    .score-orange { color: #ffc107; font-weight: bold; } /* 60-69 */
+    .score-grey { color: #6c757d; font-weight: bold; }   /* <60 */
+
+    .card-container {
+        background-color: #161b22;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #30363d;
+        margin-bottom: 15px;
+    }
+    .metric-box {
+        background-color: #0d1117;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        border: 1px solid #21262d;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. GÜVENLİ VERİ YÜKLEME ---
-@st.cache_data(ttl=30)
+# --- VERİ YÜKLEME ---
 def load_data():
     try:
-        # Hata korumalı okuma
-        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
-        
-        # Tarih formatı
-        df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-        df = df.sort_values(by='Tarih', ascending=False)
-        
-        # KRİTİK: Eksik sütunları doldur (KeyError önleyici)
-        expected_cols = ['Stop_Loss', 'Hedef_Fiyat', 'Risk_Yuzdesi', 'Kazanc_Potansiyeli', 'Risk_Odul', 'Guven_Skoru']
-        for col in expected_cols:
-            if col not in df.columns:
-                df[col] = 0 # Veya uygun bir varsayılan değer
-        
+        df = pd.read_csv("sazlik_signals.csv")
+        df['Tarih'] = pd.to_datetime(df['Tarih'])
+        # EN ÖNEMLİ KISIM: Her hisse için sadece EN SON analizi al
+        df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         return df
-    except FileNotFoundError:
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Veri okunurken hata: {e}")
+    except:
         return pd.DataFrame()
 
-# Veriyi Yükle
 df = load_data()
 
-# --- 4. ÜST BAŞLIK VE ÖZET ---
-st.title("🌾 Sazlık Projesi: Günlük Bülten")
-st.markdown("Yapay Zeka Destekli Swing Trade Sinyalleri ve Piyasa Analizi")
+# --- RENK BELİRLEME FONKSİYONU ---
+def get_score_class(score):
+    try:
+        s = int(score)
+        if s >= 85: return "score-green" # Yeşil
+        elif s >= 70: return "score-blue"  # Mavi
+        elif s >= 60: return "score-orange" # Turuncu
+        else: return "score-grey"
+    except: return "score-grey"
+
+# --- ARAYÜZ ---
+st.title("🌾 Sazlık Pro: Akıllı Analist")
 st.markdown("---")
 
-# --- 5. ANA EKRAN MANTIĞI ---
-if not df.empty:
-    
-    # --- BÖLÜM 1: YAPAY ZEKA'NIN GÖZÜNE ÇARPANLAR (KARTLAR) ---
-    st.subheader("🤖 Yapay Zeka'nın Gözüne Çarpanlar (Top Picks)")
-    st.caption("Sistem, Güven Skoru ve Risk/Ödül oranına göre en iyi fırsatları öne çıkarır.")
-    
-    # En iyi 3 sinyali seç (Güven Skoruna göre)
-    # Önce sayısal dönüşüm garantisi
-    df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
-    top_picks = df.sort_values(by='Guven_Skoru', ascending=False).head(3)
-    
-    cols = st.columns(3) # 3 Yan yana kart
-    
-    for i, (index, row) in enumerate(top_picks.iterrows()):
-        # Kart rengini karara göre belirle
-        card_class = "metric-card" if "AL" in str(row.get('Karar')) else "metric-card-sell"
-        trend_icon = "🟢" if "AL" in str(row.get('Karar')) else "🔴"
-        col = cols[i % 3]
+if df.empty:
+    st.warning("Henüz veri yok. Botun çalışmasını bekleyin.")
+else:
+    # SEKMELER
+    tab1, tab2 = st.tabs(["🔥 VİTRİN (Öne Çıkanlar)", "📋 TÜM LİSTE (Detaylı)"])
+
+    # --- TAB 1: KART GÖRÜNÜMÜ ---
+    with tab1:
+        # Sadece puanı 60 üstü olanları vitrine koyalım
+        top_picks = df[pd.to_numeric(df['Guven_Skoru'], errors='coerce') >= 60]
         
-        with col:
+        for index, row in top_picks.iterrows():
+            score = row.get('Guven_Skoru', 0)
+            score_cls = get_score_class(score)
+            karar = row.get('Karar', 'N/A')
+            
+            # Kart HTML Yapısı
             st.markdown(f"""
-            <div class="{card_class}">
-                <div class="card-title">{trend_icon} #{i+1} {row.get('Hisse', 'N/A')}</div>
-                <div style="margin-bottom: 10px; font-size: 14px;"><i>{row.get('Karar', '-')}</i></div>
-                <div style="display: flex; justify-content: space-between;">
+            <div class="card-container">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <div class="card-metric-label">HEDEF</div>
-                        <div class="card-metric-value success-text">${row.get('Hedef_Fiyat', 0):.2f}</div>
-                        <div style="font-size: 11px; color: #3fb950;">{row.get('Kazanc_Potansiyeli', '-')}</div>
+                        <span style="font-size:28px; font-weight:bold; color:white;">{row['Hisse']}</span>
+                        <span style="background-color:#21262d; padding:5px 10px; border-radius:15px; margin-left:10px; border:1px solid #30363d;">
+                            {karar}
+                        </span>
                     </div>
-                    <div>
-                        <div class="card-metric-label">GİRİŞ</div>
-                        <div class="card-metric-value">${row.get('Fiyat', 0):.2f}</div>
-                    </div>
-                    <div>
-                        <div class="card-metric-label">STOP</div>
-                        <div class="card-metric-value danger-text">${row.get('Stop_Loss', 0):.2f}</div>
-                        <div style="font-size: 11px; color: #f85149;">{row.get('Risk_Yuzdesi', '-')}</div>
+                    <div style="text-align:right;">
+                        <span class="{score_cls}" style="font-size:32px;">{score}</span>
+                        <br><span style="font-size:12px; color:#888;">GÜVEN SKORU</span>
                     </div>
                 </div>
-                <hr style="border-color: #30333F; margin: 10px 0;">
-                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #8b949e;">
-                    <span>Risk/Ödül: <b>{row.get('Risk_Odul', '-')}</b></span>
-                    <span>Güven: <b>{int(row.get('Guven_Skoru', 0))}/100</b></span>
+                
+                <hr style="border-color:#30363d; margin:15px 0;">
+                
+                <div style="display:flex; justify-content:space-between; text-align:center; gap:10px;">
+                    <div class="metric-box" style="flex:1;">
+                        <div class="small-font">HEDEF FİYAT</div>
+                        <div class="med-font" style="color:#28a745;">${row.get('Hedef_Fiyat', 0)}</div>
+                        <div style="font-size:12px; color:#28a745;">{row.get('Kazanc_Potansiyeli', '-')}</div>
+                    </div>
+                    <div class="metric-box" style="flex:1;">
+                        <div class="small-font">STOP LOSS</div>
+                        <div class="med-font" style="color:#dc3545;">${row.get('Stop_Loss', 0)}</div>
+                        <div style="font-size:12px; color:#dc3545;">{row.get('Risk_Yuzdesi', '-')}</div>
+                    </div>
+                    <div class="metric-box" style="flex:1;">
+                        <div class="small-font">VADE</div>
+                        <div class="med-font" style="color:#e1e4e8;">{row.get('Vade', '-')}</div>
+                    </div>
+                    <div class="metric-box" style="flex:1;">
+                        <div class="small-font">KASA</div>
+                        <div class="med-font" style="color:#17a2b8;">{row.get('Kasa_Yonetimi', '-')}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top:15px; color:#c9d1d9; font-style:italic;">
+                    " {row.get('Analiz_Ozeti', '')} "
+                </div>
+                <div style="margin-top:10px; font-size:12px; text-align:right;">
+                    <a href="{row.get('Link', '#')}" target="_blank" style="color:#58a6ff;">Haber Kaynağı 🔗</a>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-    # --- BÖLÜM 2: DETAYLI LİSTE (Tablo Görünümü) ---
-    st.markdown("### 📋 Listenin Devamı (Detaylı Analiz)")
-    
-    # Tablo için temiz veri
-    display_df = df[[
-        'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 
-        'Risk_Odul', 'Guven_Skoru', 'Analiz_Ozeti', 'Haber_Baslik'
-    ]].copy()
-    
-    # Tablo Renklendirme Fonksiyonu
-    def color_coding(val):
-        color = '#ffffff' # Varsayılan beyaz
-        if 'AL' in str(val): color = '#3fb950' # Yeşil
-        elif 'SAT' in str(val): color = '#f85149' # Kırmızı
-        elif 'BEKLE' in str(val): color = '#e3b341' # Sarı
-        return f'color: {color}; font-weight: bold'
-
-    st.dataframe(
-        display_df.style.applymap(color_coding, subset=['Karar'])
-        .format({
-            "Fiyat": "${:.2f}", 
-            "Hedef_Fiyat": "${:.2f}", 
-            "Stop_Loss": "${:.2f}",
-            "Guven_Skoru": "{:.0f}"
-        }),
-        use_container_width=True,
-        height=500
-    )
-    
-    # Yenileme Butonu
-    if st.button("🔄 Verileri Yenile"):
-        st.rerun()
-
-else:
-    # Veri yoksa gösterilecek şık uyarı
-    st.info("📡 Veri bekleniyor... Bot piyasayı tarıyor.")
-    if st.button("Şimdi Kontrol Et"):
-        st.rerun()
-
-# --- 6. SIDEBAR (FİLTRELER) ---
-with st.sidebar:
-    st.header("🔍 Filtreleme")
-    if not df.empty:
-        hisse_sec = st.selectbox("Hisse Seç:", ["Tümü"] + list(df['Hisse'].unique()))
-        if hisse_sec != "Tümü":
-            st.warning(f"Sadece {hisse_sec} gösteriliyor (Yukarıdaki tablo filtrelenmedi, sadece kartlar güncellenecek)")
+    # --- TAB 2: TÜM LİSTE (Tablo) ---
+    with tab2:
+        st.dataframe(
+            df[['Tarih', 'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 'Guven_Skoru', 'Vade', 'Analiz_Ozeti']],
+            use_container_width=True,
+            height=600
+        )
