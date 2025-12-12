@@ -6,21 +6,66 @@ import time
 from datetime import datetime
 
 # --- AYARLAR ---
-# Test edilecek hisseler (Hem teknoloji hem defansif karışık)
 TEST_TICKERS = [
-    "AAPL", "TSLA", "NVDA", "AMD", "AMZN", "GOOGL", "META", 
-    "JPM", "KO", "XOM", "PFE", "T", "F", "INTC", "PLTR"
+# TEKNOLOJİ DEVLERİ
+    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
+    "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
+    "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
+    "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "ANSS", "MSCI", "CHTR",
+    
+    # FİNANS
+    "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPY", "BLK", "SCHW",
+    "C", "AXP", "CB", "MMC", "AON", "CME", "ICE", "PGR", "ALL", "MET",
+    "AIG", "PNC", "USB", "BK", "COF", "TRV", "MCO", "CBOE", "RJF",
+    "GPN", "FIS", "ZION", "FITB", "STT", "NDAQ", "RF", "KEY", "CFG", "HBAN",
+    
+    # SAĞLIK
+    "JNJ", "LLY", "UNH", "ABBV", "MRK", "PFE", "DHR", "TMO", "MDT", "SYK",
+    "GILD", "BIIB", "VRTX", "BMY", "ISRG", "ABT", "ZTS", "BDX", "BSX",
+    "CI", "CVS", "HUM", "HCA", "ELV", "LH", "COO", "ALGN", "HOLX", "DVA",
+    "WAT", "RGEN", "IQV", "REGN", "EW", "TECH", "RVTY", "DGX", "INCY", "CRL",
+    
+    # TÜKETİM
+    "PG", "KO", "PEP", "WMT", "COST", "HD", "MCD", "NKE", "LOW", "TGT",
+    "SBUX", "MDLZ", "CL", "PM", "MO", "KR", "DG", "EL", "KHC",
+    "GIS", "K", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
+    "MAT", "HOG", "GT", "TPR", "TTC", "VFC", "HBI", "KSS", "ULTA",
+    
+    # SANAYİ & ENERJİ
+    "XOM", "CVX", "BRK.B", "LMT", "RTX", "BA", "HON", "MMM", "GE", "GD",
+    "CAT", "DE", "EOG", "OXY", "SLB", "COP", "PSX", "MPC", "WMB", "KMI",
+    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR",
+    "ITW", "GWW", "WAB", "AAL", "DAL", "UAL", "LUV", "ALK",
+    
+    # DİĞER
+    "DUK", "NEE", "SO", "EXC", "AEP", "SRE", "WEC", "D", "ED", "XEL",
+    "VNQ", "SPG", "PLD", "EQIX", "AMT", "CCI", "HST", "O", "ARE", "PSA",
+    "WY", "BXP", "REG", "VTR", "AVB", "ESR", "EPR", "KIM", "FRT",
+    "LUMN", "PARA", "FOX", "WBD", "ETSY", "EBAY", "EA", "TTWO", "ZG",
+    
+    # YENİ NESİL & BÜYÜME
+    "ASML", "AMAT", "TSM", "MCHP", "TER", "U", "VEEV", "OKTA", "NET", "CRWD", 
+    "DDOG", "ZS", "TEAM", "ADSK", "MSI", "FTV", "WDC", "ZBRA", "SWKS", "QDEL",
+    "FSLY", "PLUG", "ENPH", "SEDG", "RUN", "SPWR", "BLDP", "FCEL", "BE", "SOL",
+    "LI", "NIO", "XPEV", "RIVN", "LCID", "NKLA", "QS", "GOEV",
+    "SQ", "COIN", "HOOD", "UPST", "AFRM", "SOFI", "MQ", "BILL", "TOST", "PAYA",
+    "MRNA", "BMRN", "CTAS", "EXEL", "IONS", "XBI", "EDIT", "BEAM", "NTLA", "CRSP",
+    "MELI", "ROKU", "PTON", "SPOT", "CHWY", "ZM", "DOCU", "FVRR",
+    "PINS", "SNAP", "WIX", "SHOP", "SE", "BABA", "JD", "BIDU", "PDD",
+    "ROP", "TT", "FLR", "HUBB", "APH", "ECL", "SHW", "PPG", "FMC",
+    "MOS", "CF", "NUE", "STLD", "SAVE", "CAR", "RCL", "CCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
+    "RBLX", "UBER", "LYFT", "ABNB", "DOX", "FLT", "PRU", "VLO", "DVN", "APA", "MRO", "HAL",
+    "BKR", "FTI", "NOV", "TDW", "PAGP", "ENLC", "PAA", "WES"
 ]
 
-BASLANGIC_BAKIYE = 10000  # 10.000$ ile başlıyoruz
+BASLANGIC_BAKIYE = 10000  # Her işleme 10.000$ ile giriyoruz
 STOP_LOSS = 0.05          # %5 Zarar Kes
-TAKE_PROFIT = 0.15        # %15 Kar Al (Trendi sürmek için biraz geniş tuttuk)
-TEST_SURESI_YIL = 2       # Son 2 yılı test et
+TAKE_PROFIT = 0.15        # %15 Kar Al
+TEST_SURESI_YIL = 2       # Son 2 yıl
+KOMISYON_ISLEM_BASI = 1.5 # İşlem başı 1.5$ (Alırken 1.5, Satarken 1.5)
 
 def skor_hesapla(row):
-    """Garantici Baba Algoritmasının Birebir Aynısı"""
     score = 50
-    
     rsi = row['RSI_14']
     close = row['Close']
     sma50 = row['SMA_50']
@@ -28,134 +73,119 @@ def skor_hesapla(row):
     
     if pd.isna(rsi) or pd.isna(sma200): return 0
 
-    # 1. RSI
     if rsi < 30: score += 25
     elif rsi < 40: score += 10
     elif rsi > 70: score -= 20
     
-    # 2. Trend (SMA 200)
     if close > sma200: score += 15
     else: score -= 10
         
-    # 3. Golden Cross
     if sma50 > sma200: score += 10
-    
-    # 4. Momentum (Fiyat vs SMA50)
     if close > sma50: score += 5
-        
     return score
 
 def backtest_motoru(ticker):
     print(f"⏳ {ticker} simüle ediliyor...", end=" ")
     
-    # Veri Çekme
     try:
         df = yf.download(ticker, period=f"{TEST_SURESI_YIL}y", interval="1d", progress=False)
         if len(df) < 200: 
             print("❌ Yetersiz Veri")
-            return None
+            return None, 0
     except:
         print("❌ Veri Hatası")
-        return None
+        return None, 0
 
-    # Veriyi Temizle (Multi-index sorununu çöz)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
-    # İndikatörler
     df.ta.rsi(length=14, append=True)
     df.ta.sma(length=50, append=True)
     df.ta.sma(length=200, append=True)
     
-    # Simülasyon Değişkenleri
     pozisyon = False
     giris_fiyati = 0
     giris_tarihi = None
-    bakiye = BASLANGIC_BAKIYE
+    hisse_adedi = 0
     islem_gecmisi = []
+    toplam_komisyon_hisse = 0
     
-    # GÜN GÜN İLERLE
-    # İlk 200 gün indikatörlerin oturması için atlanır
     for i in range(200, len(df)):
         gun = df.index[i]
         row = df.iloc[i]
-        
         fiyat = float(row['Close'])
         yuksek = float(row['High'])
         dusuk = float(row['Low'])
-        
-        # Puan Hesapla
         puan = skor_hesapla(row)
         
-        # --- ÇIKIŞ STRATEJİSİ ---
+        # --- ÇIKIŞ ---
         if pozisyon:
-            kar_orani = (fiyat - giris_fiyati) / giris_fiyati
-            
             sebeb = ""
             cikis_fiyati = 0
             
-            # 1. Stop Loss
+            # Stop veya Kar Al Kontrolü
             if dusuk <= giris_fiyati * (1 - STOP_LOSS):
                 cikis_fiyati = giris_fiyati * (1 - STOP_LOSS)
                 sebeb = "STOP LOSS"
-            # 2. Take Profit
             elif yuksek >= giris_fiyati * (1 + TAKE_PROFIT):
                 cikis_fiyati = giris_fiyati * (1 + TAKE_PROFIT)
                 sebeb = "KAR AL"
-            # 3. Trend Bozuldu (Puan Düştü)
             elif puan <= 40: 
                 cikis_fiyati = fiyat
                 sebeb = "TEKNİK BOZULMA"
             
             if sebeb:
-                kar_tutar = (cikis_fiyati - giris_fiyati) * (bakiye / giris_fiyati) # Basit hesap
-                # Bakiyeyi güncelle (Bileşik getiri simülasyonu için)
-                # bakiye = bakiye * (cikis_fiyati / giris_fiyati) 
+                # Hesaplama: (Satış Geliri - Komisyon) - (Alış Maliyeti + Komisyon)
+                satis_geliri = (hisse_adedi * cikis_fiyati)
+                alis_maliyeti = (hisse_adedi * giris_fiyati)
                 
-                gercek_kar_yuzde = ((cikis_fiyati - giris_fiyati) / giris_fiyati) * 100
+                brut_kar = satis_geliri - alis_maliyeti
+                # Toplam 3$ Komisyon (1.5 Giriş + 1.5 Çıkış)
+                odenen_komisyon = (KOMISYON_ISLEM_BASI * 2) 
+                net_kar = brut_kar - odenen_komisyon
+                
+                net_yuzde = (net_kar / alis_maliyeti) * 100
+                toplam_komisyon_hisse += odenen_komisyon
                 
                 islem_gecmisi.append({
                     'Hisse': ticker,
                     'Alış': giris_tarihi.date(),
                     'Satış': gun.date(),
-                    'Giriş': round(giris_fiyati, 2),
-                    'Çıkış': round(cikis_fiyati, 2),
-                    'Kar %': round(gercek_kar_yuzde, 2),
+                    'Net Kar $': round(net_kar, 2),
+                    'Kar %': round(net_yuzde, 2),
+                    'Komisyon': odenen_komisyon,
                     'Sebep': sebeb
                 })
                 pozisyon = False
                 continue
 
-        # --- GİRİŞ STRATEJİSİ ---
+        # --- GİRİŞ ---
         if not pozisyon:
-            # Puan 60 üstüyse AL
             if puan >= 60:
                 pozisyon = True
                 giris_fiyati = fiyat
                 giris_tarihi = gun
-    
-    # Hisse Getirisi (Buy & Hold)
-    ilk_fiyat = df['Close'].iloc[200]
-    son_fiyat = df['Close'].iloc[-1]
-    bh_getiri = ((son_fiyat - ilk_fiyat) / ilk_fiyat) * 100
-    
-    print(f"✅ Bitti ({len(islem_gecmisi)} İşlem)")
-    return islem_gecmisi, bh_getiri
+                # 10.000$ ile kaç adet alınır?
+                hisse_adedi = BASLANGIC_BAKIYE / giris_fiyati
+                
+                # Giriş Komisyonunu burada kaydetmiyoruz, çıkışta toplu düşüyoruz
+                
+    print(f"✅ ({len(islem_gecmisi)} İşlem)")
+    return islem_gecmisi, toplam_komisyon_hisse
 
 def main():
     print("\n" + "="*60)
-    print(f"🛡️  GARANTİCİ BABA - BACKTEST RAPORU ({TEST_SURESI_YIL} YIL)")
+    print(f"🛡️  GARANTİCİ BABA - KOMİSYONLU BACKTEST (${KOMISYON_ISLEM_BASI}/işlem)")
     print("="*60)
     
     tum_islemler = []
-    bh_kiyaslama = {}
+    toplam_odenen_komisyon = 0
     
     for hisse in TEST_TICKERS:
-        sonuc = backtest_motoru(hisse)
-        if sonuc:
-            islemler, bh_getiri = sonuc
+        islemler, komisyon = backtest_motoru(hisse)
+        if islemler:
             tum_islemler.extend(islemler)
-            bh_kiyaslama[hisse] = bh_getiri
+            toplam_odenen_komisyon += komisyon
             
     if not tum_islemler:
         print("❌ Hiç işlem yapılmadı.")
@@ -170,25 +200,27 @@ def main():
     
     win_rate = (len(karli) / toplam_islem) * 100
     avg_return = df_res['Kar %'].mean()
-    total_return = df_res['Kar %'].sum() # Basit kümülatif
+    total_net_profit = df_res['Net Kar $'].sum()
     
     print("\n" + "-"*30)
-    print("📊 GENEL PERFORMANS")
+    print("📊 GENEL PERFORMANS RAPORU")
     print("-"*30)
     print(f"Toplam İşlem     : {toplam_islem}")
     print(f"Başarı Oranı     : %{win_rate:.1f}")
-    print(f"Ortalama Getiri  : %{avg_return:.2f} (İşlem Başı)")
-    print(f"Toplam Getiri    : %{total_return:.2f} (Basit Toplam)")
+    print(f"Ortalama Getiri  : %{avg_return:.2f} (Net)")
+    print(f"Toplam Net Kar   : ${total_net_profit:.2f}")
+    print("-" * 30)
+    print(f"💸 TOPLAM KOMİSYON : ${toplam_odenen_komisyon:.2f}")
+    print("-" * 30)
     
-    print("\n🏆 EN İYİ 3 İŞLEM:")
-    print(df_res.sort_values('Kar %', ascending=False).head(3)[['Hisse', 'Alış', 'Kar %', 'Sebep']].to_string(index=False))
+    print("\n🏆 EN İYİ 3 İŞLEM (NET):")
+    print(df_res.sort_values('Kar %', ascending=False).head(3)[['Hisse', 'Alış', 'Kar %', 'Net Kar $']].to_string(index=False))
     
-    print("\n💀 EN KÖTÜ 3 İŞLEM:")
-    print(df_res.sort_values('Kar %', ascending=True).head(3)[['Hisse', 'Alış', 'Kar %', 'Sebep']].to_string(index=False))
+    print("\n💀 EN KÖTÜ 3 İŞLEM (NET):")
+    print(df_res.sort_values('Kar %', ascending=True).head(3)[['Hisse', 'Alış', 'Kar %', 'Net Kar $']].to_string(index=False))
     
-    # Kaydet
     df_res.to_csv("backtest_sonuc.csv", index=False)
-    print("\n💾 Detaylı döküm 'backtest_sonuc.csv' dosyasına kaydedildi.")
+    print("\n💾 Detaylar 'backtest_sonuc.csv' dosyasına kaydedildi.")
 
 if __name__ == "__main__":
     main()
