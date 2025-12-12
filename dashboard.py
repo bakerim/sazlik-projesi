@@ -35,18 +35,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- VERİ YÜKLEME ---
+# --- GÜVENLİ VERİ YÜKLEME ---
 def load_data():
     try:
-        df = pd.read_csv("sazlik_signals.csv")
-        df['Tarih'] = pd.to_datetime(df['Tarih'])
-        # EN ÖNEMLİ KISIM: Her hisse için sadece EN SON analizi al
+        # Hata korumalı okuma
+        df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
+        
+        # Tarih formatı
+        df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
+        df = df.sort_values(by='Tarih', ascending=False)
+        
+        # --- KRİTİK DÜZELTME BURADA ---
+        # Eksik sütunları (Vade gibi) kontrol et ve yoksa oluştur
+        expected_cols = [
+            'Stop_Loss', 'Hedef_Fiyat', 'Risk_Yuzdesi', 'Kazanc_Potansiyeli', 
+            'Risk_Odul', 'Guven_Skoru', 'Vade', 'Analiz_Ozeti'
+        ]
+        
+        for col in expected_cols:
+            if col not in df.columns:
+                # Sütun yoksa varsayılan değer ata
+                df[col] = 0 if 'Fiyat' in col or 'Skor' in col else "-"
+        
+        # Her hisse için sadece EN SON analizi al (Tekrarı Önle)
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
+        
         return df
-    except:
+    except FileNotFoundError:
         return pd.DataFrame()
-
-df = load_data()
+    except Exception as e:
+        st.error(f"Veri okunurken hata: {e}")
+        return pd.DataFrame()
 
 # --- RENK BELİRLEME FONKSİYONU ---
 def get_score_class(score):
