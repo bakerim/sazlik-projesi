@@ -6,14 +6,13 @@ import google.generativeai as genai
 import os
 import time
 import json
-import random # Rastgelelik için eklendi
+import random
 from datetime import datetime
 from config import TRACKED_STOCKS, RSS_URLS, OUTPUT_FILE, WATCHLIST_TICKERS
 
 # --- AYARLAR ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# API Key kontrolü (Yoksa sadece Robot çalışsın diye hata vermiyoruz, uyarıyoruz)
 if API_KEY:
     genai.configure(api_key=API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
@@ -22,85 +21,71 @@ else:
 
 # --- GARANTİCİ BABA ALGORİTMASI (ROBOT) ---
 def garantici_baba_analiz(ticker):
-    """
-    Haberden bağımsız, tamamen teknik verilere dayalı puanlama yapar.
-    """
     try:
         stock = yf.Ticker(ticker)
-        # Veri çekme (Daha hızlı olması için periodu optimize ettik)
         df = stock.history(period="1y") 
         if len(df) < 200: return None 
         
         current_price = df['Close'].iloc[-1]
         
-        # --- TEKNİK İNDİKATÖRLER ---
+        # İndikatörler
         df.ta.rsi(length=14, append=True)
         df.ta.sma(length=50, append=True)
         df.ta.sma(length=200, append=True)
         
-        # Son değerler
         rsi = df['RSI_14'].iloc[-1]
         sma50 = df['SMA_50'].iloc[-1]
         sma200 = df['SMA_200'].iloc[-1]
         
-        # NaN kontrolü
-        if pd.isna(rsi) or pd.isna(sma50) or pd.isna(sma200): return None
+        if pd.isna(rsi) or pd.isna(sma50): return None
 
-        # --- PUANLAMA MANTIĞI (0-100) ---
-        score = 50 # Nötr
+        # Puanlama
+        score = 50
         ozet_list = []
+        vade_tahmini = "Belirsiz"
         
-        # 1. RSI (Tepki Alımı Fırsatı)
+        # RSI ve Vade Mantığı
         if rsi < 30:
             score += 25
             ozet_list.append(f"RSI Dipte ({rsi:.0f})")
+            vade_tahmini = "Kısa Vade (3-5 Gün)" # Tepki çabuk gelir
         elif rsi < 40:
             score += 10
             ozet_list.append("RSI Ucuz")
+            vade_tahmini = "1-2 Hafta"
         elif rsi > 70:
             score -= 20
             ozet_list.append(f"RSI Tepede ({rsi:.0f})")
+            vade_tahmini = "Gün İçi (Düzeltme)"
             
-        # 2. TREND (SMA 200)
+        # Trend
         if current_price > sma200:
             score += 15
             ozet_list.append("Trend Pozitif")
+            if vade_tahmini == "Belirsiz": vade_tahmini = "Orta Vade (1 Ay+)"
         else:
             score -= 10
             ozet_list.append("Trend Negatif")
-            
-        # 3. GOLDEN CROSS
-        if sma50 > sma200:
-            score += 10
         
-        # 4. FİYAT KONUMU
-        if current_price > sma50:
-            score += 5
-        
-        # --- KARAR ---
+        # Karar
         karar = "BEKLE"
         if score >= 75: karar = "GÜÇLÜ AL"
-        elif score >= 60: karar = "AL" # Eşik 65'ten 60'a indi
+        elif score >= 60: karar = "AL"
         elif score <= 30: karar = "SAT"
-        
-        # Robot Raporu
-        analiz_metni = " | ".join(ozet_list)
-        analiz_metni = f"[GARANTİCİ BABA]: {analiz_metni}"
         
         return {
             "karar": karar,
             "guven_skoru": score,
-            "analiz_ozeti": analiz_metni,
+            "analiz_ozeti": f"[GARANTİCİ BABA]: {' | '.join(ozet_list)}",
             "fiyat": round(current_price, 2),
             "rsi": round(rsi, 2),
             "hedef_fiyat": round(current_price * 1.05, 2),
             "stop_loss": round(current_price * 0.95, 2),
-            "kazanc_pot": "%5 (Teknik)",
-            "risk_yuzde": "%-5 (Teknik)",
-            "vade": "Teknik Tepki"
+            "kazanc_pot": "%5",
+            "risk_yuzde": "%-5",
+            "vade": vade_tahmini # Artık dolu gelecek
         }
-        
-    except Exception as e:
+    except:
         return None
 
 # --- GEMINI AI SORGUSU ---
@@ -109,10 +94,13 @@ def ask_gemini_consolidated(ticker, news_list, tech_data):
     
     news_text = "\n".join([f"- {n}" for n in news_list])
     prompt = f"""
-    Sen acımasız bir Hedge Fon Yöneticisisin.
+    Sen Hedge Fon Yöneticisisin.
     HİSSE: {ticker}, FİYAT: {tech_data['price']}, RSI: {tech_data['rsi']}
     HABERLER: {news_text}
-    SADECE JSON VER:
+    
+    GÖREV: VADE bilgisini mutlaka ver (örn: '1-3 Gün', '2 Hafta', '1 Ay'). Asla boş bırakma.
+    
+    JSON FORMATI:
     {{
         "karar": "AL/SAT/BEKLE", "hedef_fiyat": sayı, "stop_loss": sayı,
         "kazanc_potansiyeli": "yüzde", "risk_yuzdesi": "yüzde",
@@ -128,18 +116,14 @@ def ask_gemini_consolidated(ticker, news_list, tech_data):
 
 # --- ANA MOTOR ---
 def run_news_bot():
-    print(f"[{datetime.now().strftime('%H:%M')}] 🧠 Sazlık Hibrit Motoru Başlatılıyor...")
+    print(f"[{datetime.now().strftime('%H:%M')}] 🧠 Sazlık Hibrit Motoru (Vade Düzeltmeli)...")
     
     all_signals = []
     processed_tickers = set()
     
-    # ---------------------------------------------------------
-    # 1. AŞAMA: SICAK FIRSATLAR (HABER)
-    # ---------------------------------------------------------
-    print("📡 Aşama 1: Haberler Taranıyor...")
+    # 1. AŞAMA: HABERLER
     stock_news_map = {}
     stock_links_map = {}
-
     try:
         for url in RSS_URLS:
             d = feedparser.parse(url)
@@ -153,13 +137,10 @@ def run_news_bot():
                         if title not in stock_news_map[ticker]:
                             stock_news_map[ticker].append(title)
                         break
-    except Exception as e:
-        print(f"RSS Hatası: {e}")
+    except: pass
 
     for ticker, news_list in stock_news_map.items():
         print(f"   🤖 AI Analiz: {ticker}")
-        
-        # Robot verisini al (Teknik destek için)
         robot_data = garantici_baba_analiz(ticker)
         if not robot_data: continue
             
@@ -174,7 +155,7 @@ def run_news_bot():
                 "Hedef_Fiyat": ai_result.get('hedef_fiyat', 0),
                 "Stop_Loss": ai_result.get('stop_loss', 0),
                 "Guven_Skoru": int(ai_result.get('guven_skoru', 0)),
-                "Vade": ai_result.get('vade', '-'),
+                "Vade": ai_result.get('vade', 'Belirsiz'), # AI'dan geleni al
                 "Kasa_Yonetimi": ai_result.get('kasa_yonetimi', '-'),
                 "Kazanc_Potansiyeli": ai_result.get('kazanc_potansiyeli', '-'),
                 "Risk_Yuzdesi": ai_result.get('risk_yuzdesi', '-'),
@@ -184,28 +165,19 @@ def run_news_bot():
             }
             all_signals.append(signal)
             processed_tickers.add(ticker)
-            time.sleep(1) # API nezaketi
+            time.sleep(1)
 
-    # ---------------------------------------------------------
-    # 2. AŞAMA: GARANTİCİ BABA (RASTGELE AVCI MODU)
-    # ---------------------------------------------------------
+    # 2. AŞAMA: ROBOT (RASTGELE 60 HİSSE)
     print("⚙️ Aşama 2: Garantici Baba Avda...")
-    
-    # LİSTEYİ KARIŞTIR (Her seferinde farklı hisseleri tara)
-    # 50 tane rastgele hisse seçelim. Bu işlem süresini kısaltır ve çeşitlilik sağlar.
     target_list = [t for t in WATCHLIST_TICKERS if t not in processed_tickers]
-    scan_list = random.sample(target_list, min(len(target_list), 60)) # 60 Hisse Tara
-    
-    print(f"   🎲 {len(scan_list)} rastgele hisse seçildi ve taranıyor...")
+    scan_list = random.sample(target_list, min(len(target_list), 60))
 
     for ticker in scan_list:
         try:
             res = garantici_baba_analiz(ticker)
-            
-            # FİLTRE: Sadece Kayda Değer Olanları Al (60 üstü veya 30 altı)
+            # FİLTRE: 60 Üstü veya 30 Altı
             if res and (res['guven_skoru'] >= 60 or res['guven_skoru'] <= 30):
-                print(f"   ✅ FIRSAT BULUNDU: {ticker} (Skor: {res['guven_skoru']})")
-                
+                print(f"   ✅ FIRSAT: {ticker} ({res['vade']})")
                 signal = {
                     "Tarih": datetime.now().strftime('%Y-%m-%d %H:%M'),
                     "Hisse": ticker,
@@ -214,7 +186,7 @@ def run_news_bot():
                     "Hedef_Fiyat": res['hedef_fiyat'],
                     "Stop_Loss": res['stop_loss'],
                     "Guven_Skoru": res['guven_skoru'],
-                    "Vade": res['vade'],
+                    "Vade": res['vade'], # Robotun ürettiği vade
                     "Kasa_Yonetimi": "%5 (Robot)",
                     "Kazanc_Potansiyeli": res['kazanc_pot'],
                     "Risk_Yuzdesi": res['risk_yuzde'],
@@ -223,13 +195,9 @@ def run_news_bot():
                     "Link": f"https://finance.yahoo.com/quote/{ticker}"
                 }
                 all_signals.append(signal)
-                
-        except Exception as e:
-            continue
+        except: continue
 
-    # ---------------------------------------------------------
     # KAYDET
-    # ---------------------------------------------------------
     if all_signals:
         df = pd.DataFrame(all_signals)
         cols = ["Tarih", "Hisse", "Karar", "Fiyat", "Hedef_Fiyat", "Stop_Loss", 
@@ -246,14 +214,12 @@ def run_news_bot():
                 combined_df = pd.concat([df, old_df])
                 combined_df = combined_df.drop_duplicates(subset=['Hisse'], keep='first')
                 combined_df.to_csv(OUTPUT_FILE, index=False)
-            except:
-                df.to_csv(OUTPUT_FILE, index=False)
+            except: df.to_csv(OUTPUT_FILE, index=False)
         else:
             df.to_csv(OUTPUT_FILE, index=False)
-            
-        print(f"✅ Toplam {len(all_signals)} analiz kaydedildi.")
+        print(f"✅ {len(all_signals)} analiz kaydedildi.")
     else:
-        print("💤 Piyasalar çok sessiz, kayda değer bir şey çıkmadı.")
+        print("💤 Veri yok.")
 
 if __name__ == "__main__":
     run_news_bot()
