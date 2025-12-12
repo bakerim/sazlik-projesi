@@ -9,187 +9,146 @@ import json
 from datetime import datetime
 from config import TRACKED_STOCKS, RSS_URLS, OUTPUT_FILE
 
-# --- 1. AYARLAR VE API KURULUMU ---
-
-# GitHub Secrets'tan API Key'i al
+# --- AYARLAR ---
 API_KEY = os.environ.get("GEMINI_API_KEY")
-
 if not API_KEY:
-    print("❌ HATA: GEMINI_API_KEY bulunamadı! Lütfen GitHub Secrets ayarlarını kontrol et.")
+    print("❌ HATA: GEMINI_API_KEY bulunamadı!")
     exit()
 
-# Gemini'yi Yapılandır
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash') # Hız ve maliyet için Flash modeli ideal
+model = genai.GenerativeModel('gemini-2.0-flash')
 
-# --- 2. TEKNİK ANALİZ MOTORU ---
-
+# --- TEKNİK ANALİZ ---
 def get_technical_data(ticker):
-    """
-    Hisse için detaylı teknik verileri çeker ve hesaplar.
-    """
     try:
         stock = yf.Ticker(ticker)
-        # Teknik analiz için en az 6 aylık veri çekelim (SMA200 için)
         df = stock.history(period="6mo")
+        if len(df) < 50: return None
         
-        if len(df) < 50: # Veri çok azsa analiz yapılamaz
-            return None
-            
         current_price = df['Close'].iloc[-1]
+        df.ta.rsi(length=14, append=True)
+        df.ta.sma(length=50, append=True)
         
-        # --- İNDİKATÖRLERİN HESAPLANMASI ---
-        # RSI (14)
-        df['RSI'] = ta.rsi(df['Close'], length=14)
-        
-        # SMA (Hareketli Ortalamalar)
-        df['SMA_50'] = ta.sma(df['Close'], length=50)
-        df['SMA_200'] = ta.sma(df['Close'], length=200)
-        
-        # Trend Durumu
-        trend = "NÖTR"
-        if current_price > df['SMA_50'].iloc[-1]:
-            trend = "YÜKSELİŞ (SMA50 Üstü)"
-        else:
-            trend = "DÜŞÜŞ (SMA50 Altı)"
-            
         return {
             "price": round(current_price, 2),
-            "volume": df['Volume'].iloc[-1],
             "change_pct": round(((current_price - df['Open'].iloc[-1]) / df['Open'].iloc[-1]) * 100, 2),
-            "rsi": round(df['RSI'].iloc[-1], 2),
-            "trend": trend,
-            "sma_50": round(df['SMA_50'].iloc[-1], 2) if not pd.isna(df['SMA_50'].iloc[-1]) else 0
+            "rsi": round(df['RSI_14'].iloc[-1], 2),
+            "trend": "YÜKSELİŞ" if current_price > df['SMA_50'].iloc[-1] else "DÜŞÜŞ",
+            "sma_50": round(df['SMA_50'].iloc[-1], 2)
         }
-    except Exception as e:
-        print(f"Veri hatası ({ticker}): {e}")
+    except:
         return None
 
-# --- 3. GEMINI AI ANALİSTİ ---
-
-def ask_gemini_analyst(ticker, news_title, tech_data):
-    """
-    Tüm verileri Gemini'ye gönderir ve JSON formatında trade stratejisi ister.
-    """
+# --- AI ANALİST ---
+def ask_gemini_consolidated(ticker, news_list, tech_data):
+    # Haberleri birleştir
+    news_text = "\n".join([f"- {n}" for n in news_list])
     
     prompt = f"""
-    Sen uzman bir Algoritmik Swing Trader ve Risk Yöneticisisin. Aşağıdaki verileri analiz et ve bir trade kurulumu (setup) hazırla.
+    Sen acımasız ve garantici bir Hedge Fon Yöneticisisin. Aşağıdaki hisse için TOPLU bir analiz yap.
     
-    **GİRİŞ VERİLERİ:**
-    - HİSSE: {ticker}
-    - GÜNCEL FİYAT: {tech_data['price']} $
-    - GÜNLÜK DEĞİŞİM: %{tech_data['change_pct']}
-    - RSI (14): {tech_data['rsi']}
-    - TREND DURUMU: {tech_data['trend']}
-    - HABER BAŞLIĞI: "{news_title}"
+    HİSSE: {ticker}
+    TEKNİK DURUM: Fiyat: {tech_data['price']}$, Değişim: %{tech_data['change_pct']}, RSI: {tech_data['rsi']}, Trend: {tech_data['trend']}
     
-    **GÖREV:**
-    Bu haberi ve teknik verileri harmanla. Haberin fiyata etkisini, RSI durumunu (aşırı alım/satım) ve trendi düşün.
-    Bana SADECE aşağıdaki JSON formatında yanıt ver (Yorum veya markdown ekleme, sadece saf JSON):
+    SON HABERLER:
+    {news_text}
     
+    GÖREV: Haberleri ve teknik verileri harmanla. Puanlama yaparken CİMRİ ol. Her şeye yüksek puan verme.
+    SADECE aşağıdaki JSON formatında yanıt ver:
     {{
-        "karar": "AL" veya "SAT" veya "BEKLE",
-        "hedef_fiyat": (Fiyat hedefi, örn: 155.50),
-        "hedef_yuzde": (Mevcut fiyata göre kar potansiyeli, örn: "%5.2"),
-        "stop_loss": (Zarar kes fiyatı, örn: 138.00),
-        "stop_yuzde": (Zarar riski, örn: "%-2.1"),
-        "kasa_yonetimi": (Portföyün yüzde kaçı girilmeli, örn: "%5"),
-        "risk_odul_orani": (Örn: "1:2.5"),
-        "guven_skoru": (0-100 arası bir sayı),
-        "analiz_ozeti": (Tek cümlelik, vurucu analiz. Örn: 'Haber pozitif ve RSI uygun, tepki yükselişi bekleniyor.')
+        "karar": "GÜÇLÜ AL", "AL", "BEKLE", "SAT" veya "GÜÇLÜ SAT",
+        "hedef_fiyat": (sayı),
+        "stop_loss": (sayı),
+        "kazanc_potansiyeli": (örn: "%12"),
+        "risk_yuzdesi": (örn: "%-4"),
+        "vade": (Tahmini elde tutma süresi, örn: "3-5 Gün", "2 Hafta"),
+        "kasa_yonetimi": (Portföyün % kaçı, örn: "%5"),
+        "guven_skoru": (0-100 arası sayı, 85 üstü çok nadir olsun),
+        "analiz_ozeti": (Tek cümlelik net yorum)
     }}
     """
-    
     try:
         response = model.generate_content(prompt)
-        # Gelen yanıtı temizle (Bazen markdown ```json ... ``` ekleyebiliyor)
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
-    except Exception as e:
-        print(f"Gemini Hatası: {e}")
+        return json.loads(response.text.replace("```json", "").replace("```", "").strip())
+    except:
         return None
 
-# --- 4. ANA ÇALIŞMA DÖNGÜSÜ ---
-
+# --- ANA MOTOR ---
 def run_news_bot():
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] 🧠 AI Analist Başlatılıyor (Gemini 2.0 Flash)...")
-    all_signals = []
-    processed_titles = set() # Aynı haberi tekrar tekrar analiz etmemek için
+    print(f"[{datetime.now().strftime('%H:%M')}] 🧠 Haberler Toplanıyor...")
+    
+    # 1. ADIM: Haberleri Hisse Bazında Grupla
+    stock_news_map = {} # { 'AAPL': ['Haber 1', 'Haber 2'], 'NVDA': ['Haber 1'] }
+    stock_links_map = {}
 
     for url in RSS_URLS:
-        print(f"-> Kaynak taranıyor: {url}")
-        feed = feedparser.parse(url)
-        
-        # Son 5 habere bakalım (API kotasını korumak için)
-        for entry in feed.entries[:5]: 
+        d = feedparser.parse(url)
+        for entry in d.entries[:5]: # Her kaynaktan son 5 haber
             title = entry.title
-            
-            # Başlıkta takip ettiğimiz hisse var mı?
-            matched_ticker = None
             for keyword, ticker in TRACKED_STOCKS.items():
                 if keyword in title.lower():
-                    matched_ticker = ticker
+                    if ticker not in stock_news_map:
+                        stock_news_map[ticker] = []
+                        stock_links_map[ticker] = entry.link
+                    # Aynı haberi tekrar ekleme
+                    if title not in stock_news_map[ticker]:
+                        stock_news_map[ticker].append(title)
                     break
+    
+    print(f"📊 Toplam {len(stock_news_map)} farklı hisse için haber bulundu.")
+    
+    all_signals = []
+    
+    # 2. ADIM: Her Hisse İçin TEK Analiz Yap
+    for ticker, news_list in stock_news_map.items():
+        print(f"   🔍 Analiz: {ticker} ({len(news_list)} Haber)...")
+        
+        tech_data = get_technical_data(ticker)
+        if not tech_data: continue
             
-            if matched_ticker and title not in processed_titles:
-                print(f"   BULUNDU: {matched_ticker} -> {title[:40]}...")
-                processed_titles.add(title)
-                
-                # 1. Teknik Veriyi Çek
-                tech_data = get_technical_data(matched_ticker)
-                
-                if tech_data:
-                    # 2. Gemini'ye Sor (Analiz)
-                    print("      ⏳ Gemini Analiz Ediyor...")
-                    ai_analysis = ask_gemini_analyst(matched_ticker, title, tech_data)
-                    
-                    if ai_analysis:
-                        # 3. Verileri Birleştir ve Kaydet
-                        signal_data = {
-                            "Tarih": datetime.now().strftime('%Y-%m-%d %H:%M'),
-                            "Hisse": matched_ticker,
-                            "Fiyat": tech_data['price'],
-                            "RSI": tech_data['rsi'],
-                            "Karar": ai_analysis.get('karar', '-'),
-                            "Hedef_Fiyat": ai_analysis.get('hedef_fiyat', 0),
-                            "Kazanc_Potansiyeli": ai_analysis.get('hedef_yuzde', '-'),
-                            "Stop_Loss": ai_analysis.get('stop_loss', 0),
-                            "Risk_Yuzdesi": ai_analysis.get('stop_yuzde', '-'),
-                            "Kasa_Yonetimi": ai_analysis.get('kasa_yonetimi', '-'),
-                            "Risk_Odul": ai_analysis.get('risk_odul_orani', '-'),
-                            "Guven_Skoru": ai_analysis.get('guven_skoru', 0),
-                            "Analiz_Ozeti": ai_analysis.get('analiz_ozeti', '-'),
-                            "Haber_Baslik": title,
-                            "Link": entry.link
-                        }
-                        
-                        all_signals.append(signal_data)
-                        print(f"      ✅ AI SİNYALİ: {ai_analysis['karar']} | Skor: {ai_analysis['guven_skoru']} | {ai_analysis['analiz_ozeti']}")
-                        
-                        # API Rate Limit'e takılmamak için kısa bekleme
-                        time.sleep(2) 
-                    else:
-                        print("      ⚠️ AI yanıt veremedi.")
-                else:
-                    print("      ⚠️ Teknik veri alınamadı.")
+        ai_result = ask_gemini_consolidated(ticker, news_list, tech_data)
+        
+        if ai_result:
+            signal = {
+                "Tarih": datetime.now().strftime('%Y-%m-%d %H:%M'),
+                "Hisse": ticker,
+                "Fiyat": tech_data['price'],
+                "Karar": ai_result.get('karar', 'BEKLE'),
+                "Hedef_Fiyat": ai_result.get('hedef_fiyat', 0),
+                "Stop_Loss": ai_result.get('stop_loss', 0),
+                "Kazanc_Potansiyeli": ai_result.get('kazanc_potansiyeli', '-'),
+                "Risk_Yuzdesi": ai_result.get('risk_yuzdesi', '-'),
+                "Vade": ai_result.get('vade', 'Belirsiz'),
+                "Kasa_Yonetimi": ai_result.get('kasa_yonetimi', '-'),
+                "Guven_Skoru": int(ai_result.get('guven_skoru', 0)),
+                "Analiz_Ozeti": ai_result.get('analiz_ozeti', '-'),
+                "Haber_Baslik": news_list[0], # İlk haberi referans alalım
+                "Link": stock_links_map[ticker]
+            }
+            all_signals.append(signal)
+            time.sleep(2)
 
-    # --- 5. SONUÇLARI KAYDET ---
+    # 3. ADIM: Kaydet
     if all_signals:
         df = pd.DataFrame(all_signals)
-        # Sütun sırasını düzenle
-        cols = ["Tarih", "Hisse", "Karar", "Fiyat", "Hedef_Fiyat", "Stop_Loss", "Guven_Skoru", "Kazanc_Potansiyeli", "RSI", "Analiz_Ozeti", "Kasa_Yonetimi", "Risk_Odul", "Haber_Baslik", "Link"]
-        # Eğer veri içinde eksik sütun varsa hata vermemesi için kontrol
-        available_cols = [c for c in cols if c in df.columns]
-        df = df[available_cols]
-
+        # Sütunları garantiye al
+        cols = ["Tarih", "Hisse", "Karar", "Fiyat", "Hedef_Fiyat", "Stop_Loss", 
+                "Guven_Skoru", "Vade", "Kasa_Yonetimi", "Kazanc_Potansiyeli", 
+                "Risk_Yuzdesi", "Analiz_Ozeti", "Haber_Baslik", "Link"]
+        
+        # Dosya varsa oku, eski verilerle birleştir ama AYNI GÜNKÜ DUPLICATE'leri temizle
         if os.path.exists(OUTPUT_FILE):
-            df.to_csv(OUTPUT_FILE, mode='a', header=False, index=False)
+            old_df = pd.read_csv(OUTPUT_FILE)
+            combined_df = pd.concat([df, old_df])
+            # Aynı hisse için en güncel analizi tut
+            combined_df = combined_df.drop_duplicates(subset=['Hisse', 'Tarih'], keep='first')
+            combined_df.to_csv(OUTPUT_FILE, index=False)
         else:
-            df.to_csv(OUTPUT_FILE, mode='w', header=True, index=False)
+            df.to_csv(OUTPUT_FILE, index=False)
             
-        print(f"\nToplam {len(all_signals)} yeni AI stratejisi kaydedildi.")
+        print(f"✅ {len(all_signals)} analiz güncellendi.")
     else:
-        print("\nİşlem yapılacak yeni bir fırsat bulunamadı.")
+        print("💤 İşlenecek yeni veri yok.")
 
 if __name__ == "__main__":
     run_news_bot()
