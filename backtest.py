@@ -1,6 +1,6 @@
 import yfinance as yf
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta_classic as ta # DEĞİŞİKLİK: Yeni kütüphane ismi
 import numpy as np
 import time
 from datetime import datetime
@@ -62,14 +62,18 @@ BASLANGIC_BAKIYE = 10000  # Her işleme 10.000$ ile giriyoruz
 STOP_LOSS = 0.05          # %5 Zarar Kes
 TAKE_PROFIT = 0.15        # %15 Kar Al
 TEST_SURESI_YIL = 2       # Son 2 yıl
-KOMISYON_ISLEM_BASI = 1.5 # İşlem başı 1.5$ (Alırken 1.5, Satarken 1.5)
+KOMISYON_ISLEM_BASI = 1.5 # İşlem başı 1.5$
 
 def skor_hesapla(row):
     score = 50
-    rsi = row['RSI_14']
-    close = row['Close']
-    sma50 = row['SMA_50']
-    sma200 = row['SMA_200']
+    # Güvenli veri çekme
+    try:
+        rsi = float(row['RSI_14'])
+        close = float(row['Close'])
+        sma50 = float(row['SMA_50'])
+        sma200 = float(row['SMA_200'])
+    except:
+        return 0
     
     if pd.isna(rsi) or pd.isna(sma200): return 0
 
@@ -99,6 +103,7 @@ def backtest_motoru(ticker):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
+    # İndikatörler (pandas-ta-classic kullanımı aynıdır)
     df.ta.rsi(length=14, append=True)
     df.ta.sma(length=50, append=True)
     df.ta.sma(length=200, append=True)
@@ -113,9 +118,15 @@ def backtest_motoru(ticker):
     for i in range(200, len(df)):
         gun = df.index[i]
         row = df.iloc[i]
-        fiyat = float(row['Close'])
-        yuksek = float(row['High'])
-        dusuk = float(row['Low'])
+        
+        # Güvenli değer alma
+        try:
+            fiyat = float(row['Close'])
+            yuksek = float(row['High'])
+            dusuk = float(row['Low'])
+        except:
+            continue
+            
         puan = skor_hesapla(row)
         
         # --- ÇIKIŞ ---
@@ -123,7 +134,6 @@ def backtest_motoru(ticker):
             sebeb = ""
             cikis_fiyati = 0
             
-            # Stop veya Kar Al Kontrolü
             if dusuk <= giris_fiyati * (1 - STOP_LOSS):
                 cikis_fiyati = giris_fiyati * (1 - STOP_LOSS)
                 sebeb = "STOP LOSS"
@@ -135,15 +145,11 @@ def backtest_motoru(ticker):
                 sebeb = "TEKNİK BOZULMA"
             
             if sebeb:
-                # Hesaplama: (Satış Geliri - Komisyon) - (Alış Maliyeti + Komisyon)
                 satis_geliri = (hisse_adedi * cikis_fiyati)
                 alis_maliyeti = (hisse_adedi * giris_fiyati)
-                
                 brut_kar = satis_geliri - alis_maliyeti
-                # Toplam 3$ Komisyon (1.5 Giriş + 1.5 Çıkış)
                 odenen_komisyon = (KOMISYON_ISLEM_BASI * 2) 
                 net_kar = brut_kar - odenen_komisyon
-                
                 net_yuzde = (net_kar / alis_maliyeti) * 100
                 toplam_komisyon_hisse += odenen_komisyon
                 
@@ -153,7 +159,6 @@ def backtest_motoru(ticker):
                     'Satış': gun.date(),
                     'Net Kar $': round(net_kar, 2),
                     'Kar %': round(net_yuzde, 2),
-                    'Komisyon': odenen_komisyon,
                     'Sebep': sebeb
                 })
                 pozisyon = False
@@ -165,10 +170,7 @@ def backtest_motoru(ticker):
                 pozisyon = True
                 giris_fiyati = fiyat
                 giris_tarihi = gun
-                # 10.000$ ile kaç adet alınır?
                 hisse_adedi = BASLANGIC_BAKIYE / giris_fiyati
-                
-                # Giriş Komisyonunu burada kaydetmiyoruz, çıkışta toplu düşüyoruz
                 
     print(f"✅ ({len(islem_gecmisi)} İşlem)")
     return islem_gecmisi, toplam_komisyon_hisse
@@ -193,10 +195,8 @@ def main():
 
     df_res = pd.DataFrame(tum_islemler)
     
-    # --- İSTATİSTİKLER ---
     toplam_islem = len(df_res)
     karli = df_res[df_res['Kar %'] > 0]
-    zararli = df_res[df_res['Kar %'] <= 0]
     
     win_rate = (len(karli) / toplam_islem) * 100
     avg_return = df_res['Kar %'].mean()
@@ -218,9 +218,6 @@ def main():
     
     print("\n💀 EN KÖTÜ 3 İŞLEM (NET):")
     print(df_res.sort_values('Kar %', ascending=True).head(3)[['Hisse', 'Alış', 'Kar %', 'Net Kar $']].to_string(index=False))
-    
-    df_res.to_csv("backtest_sonuc.csv", index=False)
-    print("\n💾 Detaylar 'backtest_sonuc.csv' dosyasına kaydedildi.")
 
 if __name__ == "__main__":
     main()
