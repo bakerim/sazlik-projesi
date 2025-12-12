@@ -1,5 +1,3 @@
-# config.py
-
 # --- 1. SİSTEM AYARLARI ---
 RSS_URLS = [
     "https://finance.yahoo.com/news/rssindex",
