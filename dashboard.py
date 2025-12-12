@@ -1,22 +1,27 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import time
 
-# --- AYARLAR ---
-st.set_page_config(page_title="Sazlık Pro v4", layout="wide", initial_sidebar_state="collapsed")
+# --- 1. SAYFA AYARLARI ---
+st.set_page_config(
+    page_title="Sazlık Projesi - Günlük Bülten",
+    page_icon="🌾",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- CSS TASARIMI (BÜYÜK RAKAMLAR & RENKLER) ---
+# --- 2. PROFESYONEL CSS TASARIMI ---
 st.markdown("""
 <style>
     .big-font { font-size: 24px !important; font-weight: bold; }
     .med-font { font-size: 18px !important; font-weight: bold; }
     .small-font { font-size: 14px !important; color: #888; }
     
-    /* SKOR RENKLERİ */
-    .score-green { color: #28a745; font-weight: bold; } /* 85-100 */
-    .score-blue { color: #17a2b8; font-weight: bold; }  /* 70-84 */
-    .score-orange { color: #ffc107; font-weight: bold; } /* 60-69 */
-    .score-grey { color: #6c757d; font-weight: bold; }   /* <60 */
+    .score-green { color: #28a745; font-weight: bold; }
+    .score-blue { color: #17a2b8; font-weight: bold; }
+    .score-orange { color: #ffc107; font-weight: bold; }
+    .score-grey { color: #6c757d; font-weight: bold; }
 
     .card-container {
         background-color: #161b22;
@@ -35,65 +40,76 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- GÜVENLİ VERİ YÜKLEME ---
+# --- 3. VERİ YÜKLEME (HATASIZ) ---
+@st.cache_data(ttl=300) # 5 dakikada bir önbellek temizle
 def load_data():
     try:
-        # Hata korumalı okuma
+        # CSV dosyasını güvenli modda oku
         df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         
-        # Tarih formatı
+        # Tarih formatını düzelt
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-        df = df.sort_values(by='Tarih', ascending=False)
         
-        # --- KRİTİK DÜZELTME BURADA ---
-        # Eksik sütunları (Vade gibi) kontrol et ve yoksa oluştur
-        expected_cols = [
-            'Stop_Loss', 'Hedef_Fiyat', 'Risk_Yuzdesi', 'Kazanc_Potansiyeli', 
-            'Risk_Odul', 'Guven_Skoru', 'Vade', 'Analiz_Ozeti'
+        # Sütunları kontrol et ve eksikleri tamamla (KeyError önlemi)
+        required_cols = [
+            'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 
+            'Guven_Skoru', 'Vade', 'Analiz_Ozeti', 'Kazanc_Potansiyeli', 
+            'Risk_Yuzdesi', 'Kasa_Yonetimi', 'Link'
         ]
         
-        for col in expected_cols:
+        for col in required_cols:
             if col not in df.columns:
-                # Sütun yoksa varsayılan değer ata
                 df[col] = 0 if 'Fiyat' in col or 'Skor' in col else "-"
-        
-        # Her hisse için sadece EN SON analizi al (Tekrarı Önle)
+
+        # Her hisse için sadece EN GÜNCEL analizi al
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         
         return df
-    except FileNotFoundError:
-        return pd.DataFrame()
     except Exception as e:
-        st.error(f"Veri okunurken hata: {e}")
+        # Hata olursa logla ama boş tablo dön (Çökmeyi engeller)
         return pd.DataFrame()
 
-# --- RENK BELİRLEME FONKSİYONU ---
+# --- KRİTİK NOKTA: DEĞİŞKENİ BAŞLAT ---
+# NameError hatasını önleyen satır burasıdır.
+df = pd.DataFrame() # Önce boş olarak tanımla
+df = load_data()    # Sonra veriyi yüklemeye çalış
+
+# --- RENK BELİRLEME ---
 def get_score_class(score):
     try:
         s = int(score)
-        if s >= 85: return "score-green" # Yeşil
-        elif s >= 70: return "score-blue"  # Mavi
-        elif s >= 60: return "score-orange" # Turuncu
+        if s >= 85: return "score-green"
+        elif s >= 70: return "score-blue"
+        elif s >= 60: return "score-orange"
         else: return "score-grey"
     except: return "score-grey"
 
-# --- ARAYÜZ ---
+# --- 4. ARAYÜZ (VİTRİN) ---
 st.title("🌾 Sazlık Pro: Akıllı Analist")
 st.markdown("---")
 
+# Veri Kontrolü (NameError burada çıkıyordu, artık çıkmaz)
 if df.empty:
-    st.warning("Henüz veri yok. Botun çalışmasını bekleyin.")
+    st.info("📡 Veri bekleniyor... Botun çalışmasını bekleyin veya CSV dosyasını kontrol edin.")
+    if st.button("Tekrar Dene"):
+        st.rerun()
 else:
     # SEKMELER
     tab1, tab2 = st.tabs(["🔥 VİTRİN (Öne Çıkanlar)", "📋 TÜM LİSTE (Detaylı)"])
 
     # --- TAB 1: KART GÖRÜNÜMÜ ---
     with tab1:
-        # Sadece puanı 60 üstü olanları vitrine koyalım
-        top_picks = df[pd.to_numeric(df['Guven_Skoru'], errors='coerce') >= 60]
+        # Güven Skoru sayısal değilse 0 kabul et
+        df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
+        
+        # Sadece puanı 60 ve üzeri olanları göster
+        top_picks = df[df['Guven_Skoru_Num'] >= 60]
+        
+        if top_picks.empty:
+            st.warning("Şu an yüksek güvenli (60+) fırsat bulunamadı.")
         
         for index, row in top_picks.iterrows():
-            score = row.get('Guven_Skoru', 0)
+            score = int(row['Guven_Skoru_Num'])
             score_cls = get_score_class(score)
             karar = row.get('Karar', 'N/A')
             
@@ -147,8 +163,13 @@ else:
 
     # --- TAB 2: TÜM LİSTE (Tablo) ---
     with tab2:
+        # Tabloda gösterilecek sütunlar
+        display_cols = ['Tarih', 'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 'Guven_Skoru', 'Vade', 'Analiz_Ozeti']
+        # Sütunların varlığını kontrol et
+        valid_cols = [c for c in display_cols if c in df.columns]
+        
         st.dataframe(
-            df[['Tarih', 'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 'Guven_Skoru', 'Vade', 'Analiz_Ozeti']],
+            df[valid_cols],
             use_container_width=True,
             height=600
         )
