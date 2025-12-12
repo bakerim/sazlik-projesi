@@ -1,211 +1,187 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-import numpy as np
-from datetime import datetime
 import time
 
-# --- 1. SAYFA KONFİGÜRASYONU ---
+# --- 1. SAYFA AYARLARI ---
 st.set_page_config(
-    page_title="Sazlık Projesi - AI Trade Terminali",
-    page_icon="🤖",
+    page_title="Sazlık Projesi - Günlük Bülten",
+    page_icon="🌾",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed" # Daha geniş ekran için menüyü kapalı başlatıyoruz
 )
 
-# --- 2. STİL VE RENKLER ---
+# --- 2. PROFESYONEL CSS TASARIMI (BÜLTEN TARZI) ---
 st.markdown("""
 <style>
-    /* Kırmızı-Yeşil-Sarı renkler için özel stil */
-    .metric-card {
-        background-color: #1E1E1E;
-        border: 1px solid #333;
-        padding: 15px;
-        border-radius: 8px;
-        color: #ddd;
+    /* Kart Tasarımı */
+    div.css-1r6slb0.e1tzin5v2 {
+        background-color: #0E1117;
+        border: 1px solid #30333F;
     }
-    .al-sinyali { color: #4CAF50; font-weight: bold; } /* Yeşil */
-    .sat-sinyali { color: #F44336; font-weight: bold; } /* Kırmızı */
-    .bekle-sinyali { color: #FFC107; font-weight: bold; } /* Sarı */
-    /* Tablo başlıkları */
+    .metric-card {
+        background-color: #161b22; /* Koyu Gri/Siyah */
+        border-left: 5px solid #238636; /* Sol tarafta Yeşil Çizgi */
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    .metric-card-sell {
+        background-color: #161b22;
+        border-left: 5px solid #da3633; /* Sol tarafta Kırmızı Çizgi */
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+    .card-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #ffffff;
+        margin-bottom: 10px;
+    }
+    .card-metric-label {
+        font-size: 12px;
+        color: #8b949e;
+    }
+    .card-metric-value {
+        font-size: 18px;
+        font-weight: bold;
+        color: #e6edf3;
+    }
+    .success-text { color: #3fb950; }
+    .danger-text { color: #f85149; }
+    
+    /* Tablo Başlıklarını Gizle/Düzenle */
     thead tr th:first-child {display:none}
     tbody th {display:none}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. VERİ YÜKLEME VE HATA YAKALAMA ---
+# --- 3. GÜVENLİ VERİ YÜKLEME ---
 @st.cache_data(ttl=30)
 def load_data():
-    """CSV dosyasını okur ve hatalara karşı koruma sağlar."""
     try:
-        # CSV dosyasını güvenli okuma modunda oku (bozuk satırları atlar)
+        # Hata korumalı okuma
         df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         
-        # Sütunları temizle ve sayısal formatları düzelt
+        # Tarih formatı
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
         df = df.sort_values(by='Tarih', ascending=False)
         
-        # Sayısal sütunların formatını garanti et
-        df['RSI'] = pd.to_numeric(df['RSI'], errors='coerce').fillna(0)
-        df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0).astype(int)
+        # KRİTİK: Eksik sütunları doldur (KeyError önleyici)
+        expected_cols = ['Stop_Loss', 'Hedef_Fiyat', 'Risk_Yuzdesi', 'Kazanc_Potansiyeli', 'Risk_Odul', 'Guven_Skoru']
+        for col in expected_cols:
+            if col not in df.columns:
+                df[col] = 0 # Veya uygun bir varsayılan değer
         
-        return df # Başarılı durum: İşlenmiş df'i geri döndür
-        
+        return df
     except FileNotFoundError:
-        # Dosya yoksa uyarı ver ve boş tablo döndür
-        st.warning("⚠️ CSV dosyası bulunamadı. Botun ilk sinyali bekleniyor.")
-        return pd.DataFrame() 
-        
+        return pd.DataFrame()
     except Exception as e:
-        # Diğer ParserError veya format hataları için
-        st.error(f"❌ Veri Formatı Hatası: Lütfen CSV dosyasını kontrol edin. ({e})")
-        return pd.DataFrame() # Hata durumunda boş tablo döndür
+        st.error(f"Veri okunurken hata: {e}")
+        return pd.DataFrame()
 
-# --- 4. KRİTİK VERİ YÜKLEME ÇAĞRISI ---
-# Bu çağrı, NameError'ı engellemek için doğru yerdir.
-df = load_data() 
+# Veriyi Yükle
+df = load_data()
 
-# Filtrelerin varsayılan değerleri için de boş bir DataFrame yaratılır (df.empty kontrolü için)
-if df.empty:
-    df_filtered = pd.DataFrame()
-else:
-    df_filtered = df.copy()
+# --- 4. ÜST BAŞLIK VE ÖZET ---
+st.title("🌾 Sazlık Projesi: Günlük Bülten")
+st.markdown("Yapay Zeka Destekli Swing Trade Sinyalleri ve Piyasa Analizi")
+st.markdown("---")
 
-# --- 5. KENAR ÇUBUĞU (SIDEBAR) ---
-with st.sidebar:
-    st.title("🤖 Sazlık AI Analist")
-    st.caption("v3.0 - Gemini Destekli Stratejiler")
-    st.markdown("---")
+# --- 5. ANA EKRAN MANTIĞI ---
+if not df.empty:
     
-    # Filtreler sadece veri varsa gösterilir
-    if not df.empty:
-        st.subheader("🔍 Filtreleme")
-        hisse_listesi = ["Tümü"] + sorted(list(df['Hisse'].unique()))
-        secilen_hisse = st.selectbox("Hisse Senedi:", hisse_listesi)
+    # --- BÖLÜM 1: YAPAY ZEKA'NIN GÖZÜNE ÇARPANLAR (KARTLAR) ---
+    st.subheader("🤖 Yapay Zeka'nın Gözüne Çarpanlar (Top Picks)")
+    st.caption("Sistem, Güven Skoru ve Risk/Ödül oranına göre en iyi fırsatları öne çıkarır.")
+    
+    # En iyi 3 sinyali seç (Güven Skoruna göre)
+    # Önce sayısal dönüşüm garantisi
+    df['Guven_Skoru'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
+    top_picks = df.sort_values(by='Guven_Skoru', ascending=False).head(3)
+    
+    cols = st.columns(3) # 3 Yan yana kart
+    
+    for i, (index, row) in enumerate(top_picks.iterrows()):
+        # Kart rengini karara göre belirle
+        card_class = "metric-card" if "AL" in str(row.get('Karar')) else "metric-card-sell"
+        trend_icon = "🟢" if "AL" in str(row.get('Karar')) else "🔴"
+        col = cols[i % 3]
         
-        karar_listesi = ["Tümü"] + sorted(list(df['Karar'].unique()))
-        secilen_karar = st.selectbox("AI Kararı:", karar_listesi)
-        
-        # Filtreleme Mantığı
-        if secilen_hisse != "Tümü":
-            df_filtered = df_filtered[df_filtered['Hisse'] == secilen_hisse]
-        if secilen_karar != "Tümü":
-            df_filtered = df_filtered[df_filtered['Karar'] == secilen_karar]
+        with col:
+            st.markdown(f"""
+            <div class="{card_class}">
+                <div class="card-title">{trend_icon} #{i+1} {row.get('Hisse', 'N/A')}</div>
+                <div style="margin-bottom: 10px; font-size: 14px;"><i>{row.get('Karar', '-')}</i></div>
+                <div style="display: flex; justify-content: space-between;">
+                    <div>
+                        <div class="card-metric-label">HEDEF</div>
+                        <div class="card-metric-value success-text">${row.get('Hedef_Fiyat', 0):.2f}</div>
+                        <div style="font-size: 11px; color: #3fb950;">{row.get('Kazanc_Potansiyeli', '-')}</div>
+                    </div>
+                    <div>
+                        <div class="card-metric-label">GİRİŞ</div>
+                        <div class="card-metric-value">${row.get('Fiyat', 0):.2f}</div>
+                    </div>
+                    <div>
+                        <div class="card-metric-label">STOP</div>
+                        <div class="card-metric-value danger-text">${row.get('Stop_Loss', 0):.2f}</div>
+                        <div style="font-size: 11px; color: #f85149;">{row.get('Risk_Yuzdesi', '-')}</div>
+                    </div>
+                </div>
+                <hr style="border-color: #30333F; margin: 10px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #8b949e;">
+                    <span>Risk/Ödül: <b>{row.get('Risk_Odul', '-')}</b></span>
+                    <span>Güven: <b>{int(row.get('Guven_Skoru', 0))}/100</b></span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.info(f"Son Sinyal Tarihi:\n{df['Tarih'].max().strftime('%d-%m-%Y %H:%M')}")
-        
-        if st.button("Verileri Yenile", type="primary"):
-            st.rerun()
-    else:
-        st.warning("Henüz AI sinyali yok. Botun çalışmasını bekleyin.")
+    # --- BÖLÜM 2: DETAYLI LİSTE (Tablo Görünümü) ---
+    st.markdown("### 📋 Listenin Devamı (Detaylı Analiz)")
+    
+    # Tablo için temiz veri
+    display_df = df[[
+        'Hisse', 'Karar', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss', 
+        'Risk_Odul', 'Guven_Skoru', 'Analiz_Ozeti', 'Haber_Baslik'
+    ]].copy()
+    
+    # Tablo Renklendirme Fonksiyonu
+    def color_coding(val):
+        color = '#ffffff' # Varsayılan beyaz
+        if 'AL' in str(val): color = '#3fb950' # Yeşil
+        elif 'SAT' in str(val): color = '#f85149' # Kırmızı
+        elif 'BEKLE' in str(val): color = '#e3b341' # Sarı
+        return f'color: {color}; font-weight: bold'
 
-# --- 6. ANA EKRAN ---
-st.header("📊 AI Strateji Paneli")
-
-if not df_filtered.empty:
-    # Sekmeler
-    tab1, tab2 = st.tabs(["🚀 Yeni Trade Kurulumları", "📋 Detaylı Sinyal Geçmişi"])
-
-    with tab1:
-        st.subheader("En Güvenilir ve Yeni Trade Planları")
-        
-        # KPI'lar
-        col1, col2, col3, col4 = st.columns(4)
-        
-        # En Yüksek Güven Skoru
-        max_guven = df_filtered.loc[df_filtered['Guven_Skoru'].idxmax()]
-        col1.metric("⭐ En Yüksek Güven", f"{max_guven['Guven_Skoru']}/100", max_guven['Hisse'])
-        
-        # En İyi Risk/Ödül (Risk/Reward, R/Ö)
-        # Risk_Odul sütunu '1:X.X' formatında olduğu için sayısal değere çevirme
-        try:
-            risk_odul_series = df_filtered['Risk_Odul'].str.split(':', expand=True).iloc[:, 1]
-            risk_odul_series = pd.to_numeric(risk_odul_series, errors='coerce').fillna(0)
-            best_ro = df_filtered.loc[risk_odul_series.idxmax()]
-            col2.metric("🏆 En İyi R/Ö Oranı", best_ro['Risk_Odul'], best_ro['Hisse'])
-        except Exception:
-             col2.metric("🏆 En İyi R/Ö Oranı", "Hesaplanıyor")
-
-        # Karar Dağılımı Grafiği
-        karar_counts = df_filtered['Karar'].value_counts().reset_index()
-        karar_counts.columns = ['Karar', 'Adet']
-        
-        chart = alt.Chart(karar_counts).mark_arc().encode(
-            theta=alt.Theta(field="Adet", type="quantitative"),
-            color=alt.Color(field="Karar", scale=alt.Scale(domain=['GÜÇLÜ AL', 'AL', 'BEKLE', 'SAT', 'GÜÇLÜ SAT'], 
-                                                            range=['#4CAF50', '#A5D6A7', '#FFC107', '#F44336', '#E57373'])),
-            tooltip=["Karar", "Adet"]
-        ).properties(title="AI Karar Dağılımı")
-        col3.altair_chart(chart, use_container_width=True)
-
-        st.markdown("---")
-
-        st.subheader("AI Analist Tarafından Önerilen Trade Setuplar:")
-        
-        # Her bir sinyali ayrı bir kartta göster
-        for index, row in df_filtered.head(5).iterrows():
-            karar_class = 'al-sinyali' if 'AL' in row.get('Karar', '') else 'sat-sinyali' if 'SAT' in row.get('Karar', '') else 'bekle-sinyali'
-            
-            with st.container():
-                st.markdown(f'<div class="metric-card">', unsafe_allow_html=True)
-                # Karar ve Hisse Kontrolü
-                st.markdown(f"### <span class='{karar_class}'>🚀 {row.get('Karar', 'N/A')} Sinyali: {row.get('Hisse', 'N/A')}</span>", unsafe_allow_html=True)
-                
-                col_a, col_b, col_c, col_d = st.columns(4)
-                
-                # METRİKLER (Güvenli Erişim için .get() kullanıyoruz)
-                
-                # Giriş Fiyatı
-                col_a.metric("Giriş Fiyatı", f"${row.get('Fiyat', 0.0):.2f}")
-                
-                # Hedef Fiyat
-                col_b.metric(
-                    "🎯 Hedef Fiyat", 
-                    f"${row.get('Hedef_Fiyat', 0.0):.2f}", 
-                    row.get('Kazanc_Potansiyeli', 'N/A')
-                )
-                
-                # Stop Loss
-                col_c.metric(
-                    "🛑 Stop Loss", 
-                    f"${row.get('Stop_Loss', 0.0):.2f}", 
-                    row.get('Risk_Yuzdesi', 'N/A')
-                )
-                
-                # R/Ö Oranı
-                col_d.metric("📈 R/Ö Oranı", row.get('Risk_Odul', 'N/A'))
-                
-                # Alt Yazılar
-                st.caption(f"**Güven Skoru:** {row.get('Guven_Skoru', 'N/A')}/100 | **RSI:** {row.get('RSI', 'N/A'):.2f}")
-                st.markdown(f"**Özet:** *{row.get('Analiz_Ozeti', 'Analiz Eksik')}*")
-                st.markdown(f"**Haber:** {row.get('Haber_Baslik', 'N/A')} [Link]({row.get('Link', '#')})")
-                st.markdown("</div>", unsafe_allow_html=True)
-                st.markdown("---")
-        
-    # --- TAB 2: DETAYLI LİSTE ---
-    with tab2:
-        st.markdown("### 📋 Tüm AI Sinyal Geçmişi")
-        
-        # Renkli tablo stili
-        def highlight_karar(val):
-            if 'AL' in str(val):
-                return 'background-color: #0E2A12; color: #4CAF50'
-            elif 'SAT' in str(val):
-                return 'background-color: #2A0E0E; color: #F44336'
-            else:
-                return 'background-color: #212121; color: #FFC107'
-
-        display_df = df_filtered[[
-            "Tarih", "Hisse", "Karar", "Fiyat", "Hedef_Fiyat", "Stop_Loss", "Guven_Skoru", "RSI", "Analiz_Ozeti", "Risk_Odul"
-        ]]
-        
-        st.dataframe(
-            display_df.style.applymap(highlight_karar, subset=['Karar'])
-            .format({"Fiyat": "$ {:.2f}", "Hedef_Fiyat": "$ {:.2f}", "Stop_Loss": "$ {:.2f}", "RSI": "{:.2f}"}),
-            use_container_width=True,
-            height=600
-        )
+    st.dataframe(
+        display_df.style.applymap(color_coding, subset=['Karar'])
+        .format({
+            "Fiyat": "${:.2f}", 
+            "Hedef_Fiyat": "${:.2f}", 
+            "Stop_Loss": "${:.2f}",
+            "Guven_Skoru": "{:.0f}"
+        }),
+        use_container_width=True,
+        height=500
+    )
+    
+    # Yenileme Butonu
+    if st.button("🔄 Verileri Yenile"):
+        st.rerun()
 
 else:
-    st.info("AI Analiz Sinyalleri bekleniyor...")
+    # Veri yoksa gösterilecek şık uyarı
+    st.info("📡 Veri bekleniyor... Bot piyasayı tarıyor.")
+    if st.button("Şimdi Kontrol Et"):
+        st.rerun()
+
+# --- 6. SIDEBAR (FİLTRELER) ---
+with st.sidebar:
+    st.header("🔍 Filtreleme")
+    if not df.empty:
+        hisse_sec = st.selectbox("Hisse Seç:", ["Tümü"] + list(df['Hisse'].unique()))
+        if hisse_sec != "Tümü":
+            st.warning(f"Sadece {hisse_sec} gösteriliyor (Yukarıdaki tablo filtrelenmedi, sadece kartlar güncellenecek)")
