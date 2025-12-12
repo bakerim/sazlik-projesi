@@ -17,9 +17,9 @@ if API_KEY:
     genai.configure(api_key=API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
 else:
-    print("⚠️ UYARI: GEMINI_API_KEY bulunamadı. Sadece Teknik Robot çalışacak.")
+    print("⚠️ UYARI: GEMINI_API_KEY bulunamadı.")
 
-# --- GARANTİCİ BABA ALGORİTMASI (ROBOT) ---
+# --- GELİŞMİŞ GARANTİCİ BABA ALGORİTMASI ---
 def garantici_baba_analiz(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -37,53 +37,69 @@ def garantici_baba_analiz(ticker):
         sma50 = df['SMA_50'].iloc[-1]
         sma200 = df['SMA_200'].iloc[-1]
         
-        if pd.isna(rsi) or pd.isna(sma50): return None
+        if pd.isna(rsi): return None
 
-        # Puanlama
+        # --- PUANLAMA VE DETAYLI YORUM ---
         score = 50
-        ozet_list = []
-        vade_tahmini = "Belirsiz"
+        sebepler = []
+        vade = "Belirsiz"
         
-        # RSI ve Vade Mantığı
+        # 1. RSI Yorumu
         if rsi < 30:
             score += 25
-            ozet_list.append(f"RSI Dipte ({rsi:.0f})")
-            vade_tahmini = "Kısa Vade (3-5 Gün)" # Tepki çabuk gelir
+            sebepler.append(f"RSI göstergesi {rsi:.0f} seviyesinde dip yaptı. Bu teknik olarak 'aşırı satım' bölgesidir ve güçlü bir tepki alımı beklenebilir.")
+            vade = "3-5 Gün (Tepki)"
         elif rsi < 40:
             score += 10
-            ozet_list.append("RSI Ucuz")
-            vade_tahmini = "1-2 Hafta"
+            sebepler.append(f"RSI {rsi:.0f} ile ucuz bölgede, kademeli alım için makul.")
+            vade = "1-2 Hafta"
         elif rsi > 70:
             score -= 20
-            ozet_list.append(f"RSI Tepede ({rsi:.0f})")
-            vade_tahmini = "Gün İçi (Düzeltme)"
-            
-        # Trend
+            sebepler.append(f"RSI {rsi:.0f} ile aşırı ısındı. Düzeltme riski çok yüksek.")
+            vade = "Uzak Dur"
+        else:
+            sebepler.append(f"RSI {rsi:.0f} ile nötr bölgede seyrediyor.")
+
+        # 2. Trend Yorumu
         if current_price > sma200:
             score += 15
-            ozet_list.append("Trend Pozitif")
-            if vade_tahmini == "Belirsiz": vade_tahmini = "Orta Vade (1 Ay+)"
+            sebepler.append(f"Fiyat 200 günlük ortalamanın (${sma200:.2f}) üzerinde, yani ana trend hala YÜKSELİŞ yönünde.")
+            if vade == "Belirsiz": vade = "Orta Vade"
         else:
             score -= 10
-            ozet_list.append("Trend Negatif")
+            sebepler.append(f"Fiyat 200 günlük ortalamanın (${sma200:.2f}) altına sarkmış, ayı piyasası baskısı var.")
+
+        # 3. Golden Cross
+        if sma50 > sma200:
+            score += 10
+            sebepler.append("50 günlük ortalama 200 günlüğü yukarı kesmiş (Golden Cross), bu uzun vadeli en güçlü boğa sinyalidir.")
         
-        # Karar
+        # 4. Fiyat Konumu
+        if current_price > sma50:
+            score += 5
+            sebepler.append("Kısa vadeli momentum pozitif (Fiyat > SMA50).")
+        
+        # Karar Mekanizması
         karar = "BEKLE"
         if score >= 75: karar = "GÜÇLÜ AL"
         elif score >= 60: karar = "AL"
         elif score <= 30: karar = "SAT"
         
+        # Yorumları Birleştir
+        analiz_metni = " ".join(sebepler)
+        analiz_metni = f"[GARANTİCİ BABA]: {analiz_metni}"
+        
         return {
             "karar": karar,
             "guven_skoru": score,
-            "analiz_ozeti": f"[GARANTİCİ BABA]: {' | '.join(ozet_list)}",
+            "analiz_ozeti": analiz_metni,
             "fiyat": round(current_price, 2),
             "rsi": round(rsi, 2),
             "hedef_fiyat": round(current_price * 1.05, 2),
             "stop_loss": round(current_price * 0.95, 2),
             "kazanc_pot": "%5",
             "risk_yuzde": "%-5",
-            "vade": vade_tahmini # Artık dolu gelecek
+            "vade": vade
         }
     except:
         return None
@@ -98,7 +114,7 @@ def ask_gemini_consolidated(ticker, news_list, tech_data):
     HİSSE: {ticker}, FİYAT: {tech_data['price']}, RSI: {tech_data['rsi']}
     HABERLER: {news_text}
     
-    GÖREV: VADE bilgisini mutlaka ver (örn: '1-3 Gün', '2 Hafta', '1 Ay'). Asla boş bırakma.
+    GÖREV: VADE bilgisini (örn: '1-3 Gün', '2 Hafta') ve KAZANC_POTANSIYELI (örn: '%12') mutlaka ver.
     
     JSON FORMATI:
     {{
@@ -116,7 +132,7 @@ def ask_gemini_consolidated(ticker, news_list, tech_data):
 
 # --- ANA MOTOR ---
 def run_news_bot():
-    print(f"[{datetime.now().strftime('%H:%M')}] 🧠 Sazlık Hibrit Motoru (Vade Düzeltmeli)...")
+    print(f"[{datetime.now().strftime('%H:%M')}] 🧠 Sazlık Hibrit Motoru Başlatılıyor...")
     
     all_signals = []
     processed_tickers = set()
@@ -155,7 +171,7 @@ def run_news_bot():
                 "Hedef_Fiyat": ai_result.get('hedef_fiyat', 0),
                 "Stop_Loss": ai_result.get('stop_loss', 0),
                 "Guven_Skoru": int(ai_result.get('guven_skoru', 0)),
-                "Vade": ai_result.get('vade', 'Belirsiz'), # AI'dan geleni al
+                "Vade": ai_result.get('vade', 'Belirsiz'),
                 "Kasa_Yonetimi": ai_result.get('kasa_yonetimi', '-'),
                 "Kazanc_Potansiyeli": ai_result.get('kazanc_potansiyeli', '-'),
                 "Risk_Yuzdesi": ai_result.get('risk_yuzdesi', '-'),
@@ -175,7 +191,6 @@ def run_news_bot():
     for ticker in scan_list:
         try:
             res = garantici_baba_analiz(ticker)
-            # FİLTRE: 60 Üstü veya 30 Altı
             if res and (res['guven_skoru'] >= 60 or res['guven_skoru'] <= 30):
                 print(f"   ✅ FIRSAT: {ticker} ({res['vade']})")
                 signal = {
@@ -186,7 +201,7 @@ def run_news_bot():
                     "Hedef_Fiyat": res['hedef_fiyat'],
                     "Stop_Loss": res['stop_loss'],
                     "Guven_Skoru": res['guven_skoru'],
-                    "Vade": res['vade'], # Robotun ürettiği vade
+                    "Vade": res['vade'],
                     "Kasa_Yonetimi": "%5 (Robot)",
                     "Kazanc_Potansiyeli": res['kazanc_pot'],
                     "Risk_Yuzdesi": res['risk_yuzde'],
