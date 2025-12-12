@@ -17,6 +17,7 @@ st.markdown("""
 <style>
     .stApp { background-color: #0e1117; }
     
+    /* VİTRİN KARTI */
     .top-card {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -30,6 +31,36 @@ st.markdown("""
     .top-price { font-size: 24px; font-weight: bold; color: #e6edf3; margin-bottom: 5px; }
     .top-vade { font-size: 14px; color: #8b949e; margin-bottom: 15px; font-style: italic; }
     
+    /* İNFOGRAFİK KUTULARI (PORTFÖY İÇİN) */
+    .info-box {
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        color: white;
+        margin-bottom: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .info-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .info-count { font-size: 42px; font-weight: 900; }
+    .info-desc { font-size: 12px; opacity: 0.8; }
+    
+    .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } /* Yeşil */
+    .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   /* Mavi */
+    .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     /* Sarı */
+    .bg-bad { background: linear-gradient(135deg, #da3633 0%, #f85149 100%); }     /* Kırmızı */
+
+    /* HİSSE LİSTESİ (KUTU İÇİ) */
+    .stock-item {
+        background-color: rgba(0,0,0,0.2);
+        padding: 8px;
+        margin: 5px 0;
+        border-radius: 5px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+    }
+
+    /* DEDEKTİF KARTI */
     .detective-card {
         background-color: #0d1117;
         border: 2px solid #58a6ff;
@@ -49,7 +80,7 @@ st.markdown("""
 
 # --- İZLEME LİSTESİ ---
 FULL_WATCHLIST = [
-        # TEKNOLOJİ DEVLERİ
+    # TEKNOLOJİ DEVLERİ
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
     "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
@@ -123,8 +154,6 @@ def load_data():
                 kazanc = float(kazanc_str)
             except:
                 kazanc = 0
-            
-            # Eğer vade 'Ay' içeriyorsa VE kazanç %15 altındaysa GİZLE
             if ("ay" in vade or "month" in vade) and kazanc < 15:
                 return False
             return True
@@ -215,7 +244,7 @@ if not df.empty:
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏆 AI Vitrini", 
-    "📅 Portföy Planı", 
+    "📊 Portföy Analizi", 
     "👴 Garantici Baba", 
     "🗃️ Tüm Veriler",
     "🔎 Hisse Dedektifi"
@@ -232,7 +261,6 @@ with tab1:
             score = int(row['Guven_Skoru_Num'])
             color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
             
-            # HTML'i tek satırda oluşturuyoruz (Div İstilası Çözümü)
             html = f"""<div class="top-card"><div style="color:#58a6ff; font-weight:bold; font-size:12px;">#{rank} NUMARA</div><div class="top-symbol">{row['Hisse']}</div><div class="top-price">{safe_val(row['Fiyat'], '$')}</div><div class="top-vade">{safe_val(row['Vade'])}</div><div style="display:flex; justify-content:center; gap:5px; align-items:baseline;"><span style="color:#888;">PUAN:</span><span class="top-score" style="color:{color};">{score}</span><span style="color:#888;">/100</span></div><hr style="border-color:#30363d; margin:15px 0;"><div style="display:flex; justify-content:space-between; font-size:14px;"><div style="text-align:left;"><div style="color:#888; font-size:11px;">HEDEF</div><div class="text-green" style="font-weight:bold; font-size:18px;">{safe_val(row['Hedef_Fiyat'], '$')}</div><div class="text-green">{safe_val(row['Kazanc_Potansiyeli'])}</div></div><div style="text-align:right;"><div style="color:#888; font-size:11px;">STOP</div><div class="text-red" style="font-weight:bold; font-size:18px;">{safe_val(row['Stop_Loss'], '$')}</div><div class="text-red">{safe_val(row['Risk_Yuzdesi'])}</div></div></div></div>"""
             return html
 
@@ -246,19 +274,58 @@ with tab1:
     else:
         st.info("Kriterlere uyan AI fırsatı yok.")
 
-# --- SEKME 2: PORTFÖY ---
+# --- SEKME 2: PORTFÖY VE KARAR DESTEK ---
 with tab2:
+    st.subheader("📊 Portföy Karar Destek Matrisi")
+    
     if not df.empty:
-        buy_signals = df[df['Karar'].str.contains('AL', na=False)]
-        if not buy_signals.empty:
-            chart = alt.Chart(buy_signals).mark_arc(innerRadius=60).encode(
-                theta=alt.Theta(field="Guven_Skoru_Num", type="quantitative"),
-                color=alt.Color(field="Hisse", type="nominal"),
-                tooltip=["Hisse", "Vade", "Guven_Skoru"]
-            ).properties(height=350)
-            st.altair_chart(chart, use_container_width=True)
+        # Kategorilendirme
+        efsane = df[df['Guven_Skoru_Num'] >= 85]
+        iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
+        orta = df[(df['Guven_Skoru_Num'] >= 50) & (df['Guven_Skoru_Num'] < 70)]
+        cop = df[df['Guven_Skoru_Num'] < 50]
+
+        # 4 Kolonlu İnfografik Yapı
+        c1, c2, c3, c4 = st.columns(4)
+
+        # HTML Helper
+        def create_infobox(title, count, desc, bg_class, items_df):
+            items_html = ""
+            for _, row in items_df.head(5).iterrows():
+                items_html += f"<div class='stock-item'><span><b>{row['Hisse']}</b></span><span>{int(row['Guven_Skoru_Num'])} Puan</span></div>"
+            
+            return f"""
+            <div class="info-box {bg_class}">
+                <div class="info-title">{title}</div>
+                <div class="info-count">{count}</div>
+                <div class="info-desc">{desc}</div>
+                <hr style="border-color:rgba(255,255,255,0.2); margin:10px 0;">
+                <div style="text-align:left;">{items_html}</div>
+            </div>
+            """
+
+        with c1:
+            st.markdown(create_infobox("💎 Mükemmel", len(efsane), "Gözün kapalı alabileceğin fırsatlar", "bg-legend", efsane), unsafe_allow_html=True)
+        with c2:
+            st.markdown(create_infobox("🚀 İyi", len(iyi), "Güçlü yükseliş potansiyeli", "bg-good", iyi), unsafe_allow_html=True)
+        with c3:
+            st.markdown(create_infobox("⚖️ Orta", len(orta), "İzlemede kal, henüz net değil", "bg-mid", orta), unsafe_allow_html=True)
+        with c4:
+            st.markdown(create_infobox("⛔ Sakın Dokunma", len(cop), "Düşüş trendi veya aşırı riskli", "bg-bad", cop), unsafe_allow_html=True)
+
+        st.markdown("---")
+        
+        # Detaylı Filtreleme (Opsiyonel Grafik)
+        st.subheader("📈 Puan Dağılım Grafiği")
+        chart = alt.Chart(df).mark_bar().encode(
+            x=alt.X("Guven_Skoru_Num", bin=True, title="Güven Skoru"),
+            y=alt.Y('count()', title="Hisse Sayısı"),
+            color=alt.Color('Guven_Skoru_Num', scale=alt.Scale(scheme='viridis'), legend=None)
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
+
     else:
-        st.warning("Veri yok.")
+        st.warning("Analiz verisi bekleniyor...")
 
 # --- SEKME 3: ROBOT ---
 with tab3:
@@ -295,7 +362,6 @@ with tab5:
             score = int(row['Guven_Skoru_Num']) if 'Guven_Skoru_Num' in row else 50
             score_color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
             
-            # HTML temizliği
             ozet_temiz = str(row['Analiz_Ozeti']).replace("<div>", "").replace("</div>", "").replace("<br>", " ")
 
             col_det1, col_det2 = st.columns([1, 2])
