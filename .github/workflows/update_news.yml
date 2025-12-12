@@ -41,14 +41,18 @@ jobs:
       run: |
         python news_bot.py
 
-    - name: Verileri Kaydet (Commit & Push)
+- name: Verileri Kaydet (Commit & Push)
       run: |
         git config --global user.name "Sazlik Bot"
         git config --global user.email "bot@sazlik.com"
         
+        # Önce uzak sunucudaki son değişiklikleri çekmeye çalış
+        git pull origin main --rebase || echo "Rebase sorunu oluştu, devam ediliyor..."
+        
         git add sazlik_signals.csv
         
-        git commit -m "🤖 AI Trade Analizi Eklendi" || echo "Değişiklik yok"
+        # Değişiklik varsa commit et
+        git commit -m "🤖 AI Trade Analizi Güncellendi" || echo "Değişiklik yok"
         
-        git pull --rebase origin main
+        # Push yaparken çakışma olursa zorla değil, güvenli gönder
         git push origin main
