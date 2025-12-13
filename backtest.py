@@ -78,16 +78,15 @@ TEST_TICKERS = [
 ]
 
 BASLANGIC_KASA = 1000.0   
-ISLEM_BASI_YUZDE = 0.25   # DİKKAT: %5 yerine %25 ile giriyoruz! (Daha büyük oyun)
-STOP_LOSS = 0.10          # %5 yerine %10 (Daha geniş alan)
-TAKE_PROFIT = 0.20        # %15 yerine %20
+ISLEM_BASI_YUZDE = 0.25   # Kasanın %25'i (Balina Modu Devam)
+STOP_LOSS = 0.07          # %7 Stop (İdeal aralık)
+TAKE_PROFIT = 0.20        # %20 Kar Hedefi
 TEST_SURESI_YIL = 2       
-KOMISYON = 1.5            # 1.5 Giriş + 1.5 Çıkış
+KOMISYON = 1.5            
 VERGI_ORANI = 0.15        
 
-# --- SNIPER SKORLAMA ---
+# --- TREND TAKİPÇİSİ SKORLAMA (V6.0) ---
 def skor_hesapla(row):
-    score = 50
     try:
         rsi = float(row['RSI_14'])
         close = float(row['Close'])
@@ -97,28 +96,40 @@ def skor_hesapla(row):
     
     if pd.isna(rsi) or pd.isna(sma200): return 0
 
-    # Trend Filtresi: 200 günlüğün altındaysa ASLA ALMA
-    if close < sma200: return 0 
-
-    # RSI çok düşükse al (Dipten toplama stratejisi)
-    if rsi < 30: score += 40      
-    elif rsi < 45: score += 20    
-    elif rsi > 70: score -= 50    
+    # KURAL 1: TREND ÇOK GÜÇLÜ OLMALI (Golden Cross Bölgesi)
+    # Eğer 50 günlük ortalama, 200 günlüğün altında ise o hisseye DOKUNMA.
+    if sma50 < sma200: return 0
     
-    # Golden Cross desteği
-    if sma50 > sma200: score += 10
+    # KURAL 2: Fiyat 200 günlüğün üzerinde olmalı
+    if close < sma200: return 0
+
+    score = 50
+
+    # KURAL 3: DÜZELTME YAKALA (Pullback)
+    # RSI 30'u beklemiyoruz. Güçlü trendde RSI 40-55 arası "Alım Fırsatı"dır.
+    if 40 <= rsi <= 55: 
+        score += 30  # Mükemmel giriş noktası
+    elif rsi < 40:
+        score += 15  # Biraz fazla düşmüş ama hala alınır
+    elif rsi > 70:
+        score -= 50  # Çok şişmiş, alma.
+
+    # KURAL 4: MOMENTUM
+    # Fiyat kısa vadeli ortalamanın (SMA50) yakınındaysa destek bulabilir
+    fark_yuzde = abs(close - sma50) / sma50
+    if fark_yuzde < 0.03: # SMA50'ye %3 yakınlıkta
+        score += 10
     
     return score
 
 def main():
     print("\n" + "="*60)
-    print(f"🐋  GARANTİCİ BABA - BALİNA MODU (Yüksek Risk/Yüksek Getiri)")
-    print(f"💰 Başlangıç: ${BASLANGIC_KASA} | 🍰 İşlem Boyutu: %{ISLEM_BASI_YUZDE*100}")
-    print(f"🛑 Stop: %{STOP_LOSS*100} | 🎯 Hedef: %{TAKE_PROFIT*100}")
+    print(f"📈 GARANTİCİ BABA v6.0 - TREND TAKİPÇİSİ")
+    print(f"💰 Başlangıç: ${BASLANGIC_KASA} | 🍰 Boyut: %{ISLEM_BASI_YUZDE*100}")
     print("="*60)
 
     # 1. VERİLERİ HAZIRLA
-    print("⏳ Veriler indiriliyor...")
+    print("⏳ Veriler işleniyor...")
     market_data = {}
     tum_tarihler = set()
 
@@ -136,9 +147,7 @@ def main():
                 tum_tarihler.update(df.index)
         except: continue
 
-    if not market_data:
-        print("❌ Veri çekilemedi.")
-        return
+    if not market_data: return
 
     zaman_cizelgesi = sorted(list(tum_tarihler))
     
@@ -147,126 +156,104 @@ def main():
     portfoy = {} 
     islem_gecmisi = []
     toplam_komisyon = 0
-    toplam_vergi = 0
     
     for gun in zaman_cizelgesi:
-        # A. PORTFÖY GÜNCELLEME
+        # A. DEĞERLEME
         portfoy_degeri = nakit
         for t, poz in portfoy.items():
             if gun in market_data[t].index:
-                guncel_fiyat = market_data[t].loc[gun]['Close']
-                portfoy_degeri += poz['adet'] * guncel_fiyat
+                curr = market_data[t].loc[gun]['Close']
+                portfoy_degeri += poz['adet'] * curr
             else:
                 portfoy_degeri += poz['adet'] * poz['maliyet']
 
-        # B. SATIŞ KONTROLÜ
+        # B. SATIŞ
         satilacaklar = []
         for t, poz in portfoy.items():
             if gun not in market_data[t].index: continue
             
             row = market_data[t].loc[gun]
-            fiyat = row['Close']
-            yuksek = row['High']
-            dusuk = row['Low']
-            puan = skor_hesapla(row)
+            curr = row['Close']
+            high = row['High']
+            low = row['Low']
             
             sebeb = ""
             cikis_fiyati = 0
             
-            if dusuk <= poz['maliyet'] * (1 - STOP_LOSS):
+            # Stop Loss
+            if low <= poz['maliyet'] * (1 - STOP_LOSS):
                 cikis_fiyati = poz['maliyet'] * (1 - STOP_LOSS)
                 sebeb = "STOP"
-            elif yuksek >= poz['maliyet'] * (1 + TAKE_PROFIT):
+            # Kar Al
+            elif high >= poz['maliyet'] * (1 + TAKE_PROFIT):
                 cikis_fiyati = poz['maliyet'] * (1 + TAKE_PROFIT)
                 sebeb = "KAR AL"
-            elif puan <= 35: # Teknik çıkışı da gevşettik
-                cikis_fiyati = fiyat
-                sebeb = "TEKNİK SATIŞ"
-            
+            # RSI Aşırı Şişerse (Erken Kar Realizasyonu)
+            elif row['RSI_14'] > 80:
+                cikis_fiyati = curr
+                sebeb = "RSI ZİRVE"
+
             if sebeb:
                 satis_tutari = poz['adet'] * cikis_fiyati
-                brut_kar = satis_tutari - (poz['adet'] * poz['maliyet'])
+                brut = satis_tutari - (poz['adet'] * poz['maliyet'])
                 
-                komisyon = KOMISYON 
-                vergi = 0
-                if brut_kar > 0:
-                    vergi = brut_kar * VERGI_ORANI
-                
-                net_kar = brut_kar - komisyon - vergi
-                nakit += satis_tutari - komisyon - vergi
-                
-                toplam_komisyon += komisyon
-                toplam_vergi += vergi
+                vergi = brut * VERGI_ORANI if brut > 0 else 0
+                net = brut - KOMISYON - vergi
+                nakit += satis_tutari - KOMISYON - vergi
+                toplam_komisyon += KOMISYON
                 
                 islem_gecmisi.append({
                     'Hisse': t,
                     'Tarih': gun.date(),
-                    'İşlem': 'SATIŞ',
-                    'Net Kar': round(net_kar, 2),
-                    'Yüzde': round((net_kar / (poz['adet'] * poz['maliyet'])) * 100, 2),
+                    'Net Kar': round(net, 2),
+                    'Yüzde': round((net / (poz['adet'] * poz['maliyet'])) * 100, 2),
                     'Sebep': sebeb
                 })
                 satilacaklar.append(t)
         
-        for t in satilacaklar:
-            del portfoy[t]
+        for t in satilacaklar: del portfoy[t]
             
-        # C. ALIŞ KONTROLÜ
+        # C. ALIŞ (TREND TAKİBİ)
         for t in TEST_TICKERS:
             if t in portfoy: continue 
             if t not in market_data: continue
             if gun not in market_data[t].index: continue
             
-            # Kasanın %25'i ile giriyoruz!
-            hedef_islem_tutari = portfoy_degeri * ISLEM_BASI_YUZDE
-            
-            if nakit < (hedef_islem_tutari + KOMISYON): continue
+            hedef_tutar = portfoy_degeri * ISLEM_BASI_YUZDE
+            if nakit < (hedef_tutar + KOMISYON): continue
             
             row = market_data[t].loc[gun]
             puan = skor_hesapla(row)
             
-            # Sadece 70 ve üzeri (Kaliteli Giriş)
-            if puan >= 70:
+            # Sinyal Eşiği: 75
+            if puan >= 75:
                 fiyat = row['Close']
-                adet = hedef_islem_tutari / fiyat
-                
+                adet = hedef_tutar / fiyat
                 nakit -= (adet * fiyat + KOMISYON)
                 toplam_komisyon += KOMISYON
                 
-                portfoy[t] = {
-                    'adet': adet,
-                    'maliyet': fiyat,
-                    'tarih': gun
-                }
+                portfoy[t] = {'adet': adet, 'maliyet': fiyat, 'tarih': gun}
     
-    # --- SONUÇ ---
-    print("\n" + "-"*30)
-    print("📊 BALİNA MODU SONUÇLARI")
-    print("-"*30)
-    
+    # --- SONUÇLAR ---
     son_deger = nakit
     for t, poz in portfoy.items():
         if not market_data[t].empty:
-            son_fiyat = market_data[t].iloc[-1]['Close']
-            son_deger += poz['adet'] * son_fiyat
+            son_deger += poz['adet'] * market_data[t].iloc[-1]['Close']
             
-    kar_zarar = son_deger - BASLANGIC_KASA
-    yuzde_degisim = (kar_zarar / BASLANGIC_KASA) * 100
-    
-    print(f"Başlangıç      : ${BASLANGIC_KASA:.2f}")
-    print(f"Bitiş          : ${son_deger:.2f}")
-    print(f"Net Kar/Zarar  : ${kar_zarar:.2f} (%{yuzde_degisim:.2f})")
+    print("\n" + "-"*30)
+    print("📊 TREND AVCISI SONUÇLARI")
     print("-" * 30)
+    print(f"Bitiş          : ${son_deger:.2f}")
+    print(f"Net Kar/Zarar  : ${son_deger - BASLANGIC_KASA:.2f} (%{(son_deger - BASLANGIC_KASA)/BASLANGIC_KASA*100:.2f})")
     print(f"💸 Komisyon      : ${toplam_komisyon:.2f}")
-    print(f"Toplam İşlem   : {len(islem_gecmisi)}")
     
     if islem_gecmisi:
-        df_res = pd.DataFrame(islem_gecmisi)
-        win = len(df_res[df_res['Net Kar'] > 0])
-        print(f"Başarı Oranı   : %{(win/len(df_res))*100:.1f}")
-        
-        print("\n🏆 EN İYİ İŞLEMLER:")
-        print(df_res.sort_values('Net Kar', ascending=False).head(3)[['Hisse', 'Tarih', 'Net Kar', 'Yüzde']].to_string(index=False))
+        df = pd.DataFrame(islem_gecmisi)
+        win = len(df[df['Net Kar'] > 0])
+        print(f"Başarı Oranı   : %{(win/len(df))*100:.1f}")
+        print(f"Toplam İşlem   : {len(df)}")
+        print("\n🏆 EN İYİLER:")
+        print(df.sort_values('Net Kar', ascending=False).head(3)[['Hisse', 'Tarih', 'Net Kar', 'Sebep']].to_string(index=False))
 
     if islem_gecmisi:
         pd.DataFrame(islem_gecmisi).to_csv("backtest_portfoy.csv", index=False)
