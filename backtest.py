@@ -3,10 +3,14 @@ import pandas as pd
 import pandas_ta_classic as ta
 import numpy as np
 from datetime import datetime
+import warnings
+
+# Gereksiz uyarıları sustur
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # --- AYARLAR ---
 TEST_TICKERS = [
-   "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
+ "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
     "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
     "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "ANSS", "MSCI", "CHTR",
@@ -73,13 +77,13 @@ TEST_TICKERS = [
     "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR"
 ]
 
-BASLANGIC_KASA = 1000.0   # 1000$
-ISLEM_BASI_YUZDE = 0.05   # %5 (Her işleme kasanın %5'i)
-STOP_LOSS = 0.05          # %5 Zarar Kes
-TAKE_PROFIT = 0.15        # %15 Kar Al
+BASLANGIC_KASA = 1000.0   
+ISLEM_BASI_YUZDE = 0.25   # DİKKAT: %5 yerine %25 ile giriyoruz! (Daha büyük oyun)
+STOP_LOSS = 0.10          # %5 yerine %10 (Daha geniş alan)
+TAKE_PROFIT = 0.20        # %15 yerine %20
 TEST_SURESI_YIL = 2       
-KOMISYON = 1.5            # Tek yön (Giriş 1.5, Çıkış 1.5)
-VERGI_ORANI = 0.15        # %15 (Sadece kardan)
+KOMISYON = 1.5            # 1.5 Giriş + 1.5 Çıkış
+VERGI_ORANI = 0.15        
 
 # --- SNIPER SKORLAMA ---
 def skor_hesapla(row):
@@ -93,33 +97,34 @@ def skor_hesapla(row):
     
     if pd.isna(rsi) or pd.isna(sma200): return 0
 
-    # Trend Filtresi (Ayı piyasasında alma)
+    # Trend Filtresi: 200 günlüğün altındaysa ASLA ALMA
     if close < sma200: return 0 
 
-    if rsi < 30: score += 30      
-    elif rsi < 45: score += 15    
+    # RSI çok düşükse al (Dipten toplama stratejisi)
+    if rsi < 30: score += 40      
+    elif rsi < 45: score += 20    
     elif rsi > 70: score -= 50    
     
+    # Golden Cross desteği
     if sma50 > sma200: score += 10
-    if close > sma50: score += 10
     
     return score
 
 def main():
     print("\n" + "="*60)
-    print(f"🛡️  GARANTİCİ BABA - PORTFÖY SİMÜLASYONU")
+    print(f"🐋  GARANTİCİ BABA - BALİNA MODU (Yüksek Risk/Yüksek Getiri)")
     print(f"💰 Başlangıç: ${BASLANGIC_KASA} | 🍰 İşlem Boyutu: %{ISLEM_BASI_YUZDE*100}")
-    print(f"💸 Komisyon: ${KOMISYON*2} (Toplam) | 🏛️ Vergi: %{VERGI_ORANI*100}")
+    print(f"🛑 Stop: %{STOP_LOSS*100} | 🎯 Hedef: %{TAKE_PROFIT*100}")
     print("="*60)
 
     # 1. VERİLERİ HAZIRLA
-    print("⏳ Veriler indiriliyor ve işleniyor...")
+    print("⏳ Veriler indiriliyor...")
     market_data = {}
     tum_tarihler = set()
 
     for t in TEST_TICKERS:
         try:
-            df = yf.download(t, period=f"{TEST_SURESI_YIL}y", interval="1d", progress=False)
+            df = yf.download(t, period=f"{TEST_SURESI_YIL}y", interval="1d", progress=False, auto_adjust=True)
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             
@@ -131,30 +136,30 @@ def main():
                 tum_tarihler.update(df.index)
         except: continue
 
-    # Tarihleri sırala (Zaman çizelgesi)
+    if not market_data:
+        print("❌ Veri çekilemedi.")
+        return
+
     zaman_cizelgesi = sorted(list(tum_tarihler))
     
-    # 2. SİMÜLASYON DEĞİŞKENLERİ
+    # 2. SİMÜLASYON
     nakit = BASLANGIC_KASA
-    portfoy = {} # { 'AAPL': {'adet': 5, 'maliyet': 150, 'tarih': ...} }
-    
+    portfoy = {} 
     islem_gecmisi = []
     toplam_komisyon = 0
     toplam_vergi = 0
     
-    # Zaman yolculuğu başlıyor
     for gun in zaman_cizelgesi:
-        # A. PORTFÖY DEĞERİNİ HESAPLA (Nakit + Açık Pozisyonlar)
+        # A. PORTFÖY GÜNCELLEME
         portfoy_degeri = nakit
         for t, poz in portfoy.items():
             if gun in market_data[t].index:
                 guncel_fiyat = market_data[t].loc[gun]['Close']
                 portfoy_degeri += poz['adet'] * guncel_fiyat
             else:
-                # Veri yoksa maliyetten say (Haftasonu vs.)
                 portfoy_degeri += poz['adet'] * poz['maliyet']
 
-        # B. POZİSYONLARI KONTROL ET (Çıkış Var mı?)
+        # B. SATIŞ KONTROLÜ
         satilacaklar = []
         for t, poz in portfoy.items():
             if gun not in market_data[t].index: continue
@@ -163,43 +168,33 @@ def main():
             fiyat = row['Close']
             yuksek = row['High']
             dusuk = row['Low']
-            
-            # Puanı anlık hesapla
             puan = skor_hesapla(row)
             
             sebeb = ""
             cikis_fiyati = 0
             
-            # Stop Loss
             if dusuk <= poz['maliyet'] * (1 - STOP_LOSS):
                 cikis_fiyati = poz['maliyet'] * (1 - STOP_LOSS)
                 sebeb = "STOP"
-            # Kar Al
             elif yuksek >= poz['maliyet'] * (1 + TAKE_PROFIT):
                 cikis_fiyati = poz['maliyet'] * (1 + TAKE_PROFIT)
                 sebeb = "KAR AL"
-            # Teknik Bozulma
-            elif puan <= 40:
+            elif puan <= 35: # Teknik çıkışı da gevşettik
                 cikis_fiyati = fiyat
                 sebeb = "TEKNİK SATIŞ"
             
             if sebeb:
-                # SATIŞ İŞLEMİ
                 satis_tutari = poz['adet'] * cikis_fiyati
                 brut_kar = satis_tutari - (poz['adet'] * poz['maliyet'])
                 
-                # Masraflar
-                komisyon = KOMISYON # Çıkış komisyonu
+                komisyon = KOMISYON 
                 vergi = 0
                 if brut_kar > 0:
                     vergi = brut_kar * VERGI_ORANI
                 
                 net_kar = brut_kar - komisyon - vergi
-                
-                # Nakite ekle
                 nakit += satis_tutari - komisyon - vergi
                 
-                # İstatistikleri güncelle
                 toplam_komisyon += komisyon
                 toplam_vergi += vergi
                 
@@ -207,47 +202,35 @@ def main():
                     'Hisse': t,
                     'Tarih': gun.date(),
                     'İşlem': 'SATIŞ',
-                    'Fiyat': round(cikis_fiyati, 2),
                     'Net Kar': round(net_kar, 2),
                     'Yüzde': round((net_kar / (poz['adet'] * poz['maliyet'])) * 100, 2),
                     'Sebep': sebeb
                 })
                 satilacaklar.append(t)
         
-        # Satılanları portföyden düş
         for t in satilacaklar:
             del portfoy[t]
             
-        # C. YENİ FIRSATLARI TARA (Giriş Var mı?)
-        # 200. günden sonra başla (SMA200 oluşması için)
-        # Basit bir kontrol: Günün indeksi > 200 olmalı ama burada tarih bazlı gidiyoruz.
-        # Basit çözüm: Eğer hissenin verisi o gün mevcutsa ve yeterli geçmiş varsa.
-        
+        # C. ALIŞ KONTROLÜ
         for t in TEST_TICKERS:
-            if t in portfoy: continue # Zaten elimizde var
+            if t in portfoy: continue 
             if t not in market_data: continue
             if gun not in market_data[t].index: continue
             
-            # Yeterli nakit var mı? (Komisyonu da düşünerek)
-            # Hedef işlem büyüklüğü: Güncel Portföy Değerinin %5'i
+            # Kasanın %25'i ile giriyoruz!
             hedef_islem_tutari = portfoy_degeri * ISLEM_BASI_YUZDE
             
-            # Eğer hedef tutar 20$'ın altındaysa işlem açma (Komisyon %10'u geçer, mantıksız)
-            if hedef_islem_tutari < 20: continue
             if nakit < (hedef_islem_tutari + KOMISYON): continue
             
             row = market_data[t].loc[gun]
             puan = skor_hesapla(row)
             
-            # ALIM EŞİĞİ (SNIPER)
-            if puan >= 75:
+            # Sadece 70 ve üzeri (Kaliteli Giriş)
+            if puan >= 70:
                 fiyat = row['Close']
-                # Adet hesabı (Parçalı hisse alabiliyoruz)
                 adet = hedef_islem_tutari / fiyat
                 
-                # ALIM İŞLEMİ
-                maliyet_tutari = adet * fiyat
-                nakit -= (maliyet_tutari + KOMISYON)
+                nakit -= (adet * fiyat + KOMISYON)
                 toplam_komisyon += KOMISYON
                 
                 portfoy[t] = {
@@ -255,16 +238,13 @@ def main():
                     'maliyet': fiyat,
                     'tarih': gun
                 }
-                
-                # Giriş kaydı tutmaya gerek yok, sadece çıkışları raporluyoruz
     
-    # --- RAPORLAMA ---
+    # --- SONUÇ ---
     print("\n" + "-"*30)
-    print("📊 PORTFÖY SONUÇ RAPORU")
+    print("📊 BALİNA MODU SONUÇLARI")
     print("-"*30)
     
     son_deger = nakit
-    # Kalan hisseleri nakite çevirmeden değerini ekle
     for t, poz in portfoy.items():
         if not market_data[t].empty:
             son_fiyat = market_data[t].iloc[-1]['Close']
@@ -273,26 +253,23 @@ def main():
     kar_zarar = son_deger - BASLANGIC_KASA
     yuzde_degisim = (kar_zarar / BASLANGIC_KASA) * 100
     
-    print(f"Başlangıç Kasası : ${BASLANGIC_KASA:.2f}")
-    print(f"Bitiş Kasası     : ${son_deger:.2f}")
-    print(f"Net Kar/Zarar    : ${kar_zarar:.2f} (%{yuzde_degisim:.2f})")
+    print(f"Başlangıç      : ${BASLANGIC_KASA:.2f}")
+    print(f"Bitiş          : ${son_deger:.2f}")
+    print(f"Net Kar/Zarar  : ${kar_zarar:.2f} (%{yuzde_degisim:.2f})")
     print("-" * 30)
-    print(f"💸 Ödenen Komisyon: ${toplam_komisyon:.2f}")
-    print(f"🏛️ Ödenen Vergi   : ${toplam_vergi:.2f}")
-    print(f"Toplam İşlem     : {len(islem_gecmisi)}")
+    print(f"💸 Komisyon      : ${toplam_komisyon:.2f}")
+    print(f"Toplam İşlem   : {len(islem_gecmisi)}")
     
     if islem_gecmisi:
         df_res = pd.DataFrame(islem_gecmisi)
         win = len(df_res[df_res['Net Kar'] > 0])
-        print(f"Başarı Oranı     : %{(win/len(df_res))*100:.1f}")
+        print(f"Başarı Oranı   : %{(win/len(df_res))*100:.1f}")
         
         print("\n🏆 EN İYİ İŞLEMLER:")
         print(df_res.sort_values('Net Kar', ascending=False).head(3)[['Hisse', 'Tarih', 'Net Kar', 'Yüzde']].to_string(index=False))
 
-    # CSV Kayıt
     if islem_gecmisi:
         pd.DataFrame(islem_gecmisi).to_csv("backtest_portfoy.csv", index=False)
-        print("\n💾 Detaylar 'backtest_portfoy.csv' dosyasına kaydedildi.")
 
 if __name__ == "__main__":
     main()
