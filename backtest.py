@@ -5,10 +5,11 @@ import numpy as np
 from datetime import datetime
 import warnings
 
-# Gereksiz uyarıları sustur
+# Uyarıları temizle
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # --- AYARLAR ---
+# Piranha, hareketsiz hisseyi sevmez. Sadece Oynak (Volatil) Hisseler:
 TEST_TICKERS = [
  "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
@@ -78,58 +79,41 @@ TEST_TICKERS = [
 ]
 
 BASLANGIC_KASA = 1000.0   
-ISLEM_BASI_YUZDE = 0.25   # Kasanın %25'i (Balina Modu Devam)
-STOP_LOSS = 0.07          # %7 Stop (İdeal aralık)
-TAKE_PROFIT = 0.20        # %20 Kar Hedefi
-TEST_SURESI_YIL = 2       
+ISLEM_BASI_YUZDE = 0.20   # Kasanın %20'si (200$ ile giriş - Komisyonu ezmek için)
+STOP_LOSS = 0.15          # %15 (RSI 2 stratejisinde stop geniştir, çünkü düşeni alıyoruz)
+# KAR HEDEFİ YOK! SMA5'i yukarı kırınca satacağız.
+TEST_SURESI_YIL = 1       # Son 1 yıl (Güncel piyasa refleksi)
 KOMISYON = 1.5            
 VERGI_ORANI = 0.15        
 
-# --- TREND TAKİPÇİSİ SKORLAMA (V6.0) ---
-def skor_hesapla(row):
+# --- PİRANHA SKORLAMA (Mean Reversion) ---
+def sinyal_kontrol(row):
     try:
-        rsi = float(row['RSI_14'])
+        # İndikatörleri al
         close = float(row['Close'])
-        sma50 = float(row['SMA_50'])
-        sma200 = float(row['SMA_200'])
-    except: return 0
+        rsi2 = float(row['RSI_2'])       # Çok hızlı RSI
+        sma200 = float(row['SMA_200'])   # Ana Trend
+    except: return None
+
+    # KURAL 1: Ana Trend Yukarı Olsun (İsteğe bağlı, kaldırırsan daha çok işlem çıkar ama risk artar)
+    if close < sma200: return "YOK"
+
+    # KURAL 2: ALIM SİNYALİ (Korkuyu Satın Al)
+    # RSI(2) < 10 ise piyasa paniktedir. Burası alım yeridir.
+    if rsi2 < 10:
+        return "AL"
     
-    if pd.isna(rsi) or pd.isna(sma200): return 0
-
-    # KURAL 1: TREND ÇOK GÜÇLÜ OLMALI (Golden Cross Bölgesi)
-    # Eğer 50 günlük ortalama, 200 günlüğün altında ise o hisseye DOKUNMA.
-    if sma50 < sma200: return 0
-    
-    # KURAL 2: Fiyat 200 günlüğün üzerinde olmalı
-    if close < sma200: return 0
-
-    score = 50
-
-    # KURAL 3: DÜZELTME YAKALA (Pullback)
-    # RSI 30'u beklemiyoruz. Güçlü trendde RSI 40-55 arası "Alım Fırsatı"dır.
-    if 40 <= rsi <= 55: 
-        score += 30  # Mükemmel giriş noktası
-    elif rsi < 40:
-        score += 15  # Biraz fazla düşmüş ama hala alınır
-    elif rsi > 70:
-        score -= 50  # Çok şişmiş, alma.
-
-    # KURAL 4: MOMENTUM
-    # Fiyat kısa vadeli ortalamanın (SMA50) yakınındaysa destek bulabilir
-    fark_yuzde = abs(close - sma50) / sma50
-    if fark_yuzde < 0.03: # SMA50'ye %3 yakınlıkta
-        score += 10
-    
-    return score
+    return "YOK"
 
 def main():
     print("\n" + "="*60)
-    print(f"📈 GARANTİCİ BABA v6.0 - TREND TAKİPÇİSİ")
-    print(f"💰 Başlangıç: ${BASLANGIC_KASA} | 🍰 Boyut: %{ISLEM_BASI_YUZDE*100}")
+    print(f"🐟 SAZLIK v8.0 - PİRANHA MODU (Larry Connors RSI 2)")
+    print(f"🎯 Hedef: Vur-Kaç (SMA 5 Dönüşü)")
+    print(f"💰 Kasa: ${BASLANGIC_KASA} | 🍰 Dilim: %{ISLEM_BASI_YUZDE*100}")
     print("="*60)
 
     # 1. VERİLERİ HAZIRLA
-    print("⏳ Veriler işleniyor...")
+    print("⏳ Volatil hisseler taranıyor...")
     market_data = {}
     tum_tarihler = set()
 
@@ -139,15 +123,19 @@ def main():
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             
-            if len(df) > 200:
-                df.ta.rsi(length=14, append=True)
-                df.ta.sma(length=50, append=True)
-                df.ta.sma(length=200, append=True)
+            if len(df) > 100:
+                # ÖZEL İNDİKATÖRLER
+                df.ta.rsi(length=2, append=True) # RSI 2 (Sır burada)
+                df.ta.sma(length=5, append=True) # Çıkış için SMA 5
+                df.ta.sma(length=200, append=True) # Trend filtresi
+                
                 market_data[t] = df
                 tum_tarihler.update(df.index)
         except: continue
 
-    if not market_data: return
+    if not market_data: 
+        print("❌ Veri bulunamadı.")
+        return
 
     zaman_cizelgesi = sorted(list(tum_tarihler))
     
@@ -167,31 +155,28 @@ def main():
             else:
                 portfoy_degeri += poz['adet'] * poz['maliyet']
 
-        # B. SATIŞ
+        # B. SATIŞ (SMA 5 ÇIKIŞI)
         satilacaklar = []
         for t, poz in portfoy.items():
             if gun not in market_data[t].index: continue
             
             row = market_data[t].loc[gun]
             curr = row['Close']
-            high = row['High']
-            low = row['Low']
+            sma5 = row['SMA_5']
             
             sebeb = ""
             cikis_fiyati = 0
             
-            # Stop Loss
-            if low <= poz['maliyet'] * (1 - STOP_LOSS):
-                cikis_fiyati = poz['maliyet'] * (1 - STOP_LOSS)
-                sebeb = "STOP"
-            # Kar Al
-            elif high >= poz['maliyet'] * (1 + TAKE_PROFIT):
-                cikis_fiyati = poz['maliyet'] * (1 + TAKE_PROFIT)
-                sebeb = "KAR AL"
-            # RSI Aşırı Şişerse (Erken Kar Realizasyonu)
-            elif row['RSI_14'] > 80:
+            # PİRANHA ÇIKIŞ KURALI:
+            # Fiyat 5 günlük ortalamanın üzerine çıktığı an sat! (Ortalamaya döndü)
+            if curr > sma5:
                 cikis_fiyati = curr
-                sebeb = "RSI ZİRVE"
+                sebeb = "SMA5 DÖNÜŞÜ (KAR)"
+            
+            # Acil Durum Stopu (Çok derin düşüşlerde kol kesmek için)
+            elif curr <= poz['maliyet'] * (1 - STOP_LOSS):
+                cikis_fiyati = poz['maliyet'] * (1 - STOP_LOSS)
+                sebeb = "STOP LOSS"
 
             if sebeb:
                 satis_tutari = poz['adet'] * cikis_fiyati
@@ -202,31 +187,37 @@ def main():
                 nakit += satis_tutari - KOMISYON - vergi
                 toplam_komisyon += KOMISYON
                 
+                # Gün sayısını hesapla
+                try:
+                    tarih_fark = (gun - poz['tarih']).days
+                except: tarih_fark = 0
+
                 islem_gecmisi.append({
                     'Hisse': t,
                     'Tarih': gun.date(),
                     'Net Kar': round(net, 2),
                     'Yüzde': round((net / (poz['adet'] * poz['maliyet'])) * 100, 2),
+                    'Süre': tarih_fark,
                     'Sebep': sebeb
                 })
                 satilacaklar.append(t)
         
         for t in satilacaklar: del portfoy[t]
             
-        # C. ALIŞ (TREND TAKİBİ)
+        # C. ALIŞ (RSI 2 DİP AVCI)
         for t in TEST_TICKERS:
             if t in portfoy: continue 
             if t not in market_data: continue
             if gun not in market_data[t].index: continue
             
+            # Kasa kontrolü (En az işlem açacak kadar para var mı?)
             hedef_tutar = portfoy_degeri * ISLEM_BASI_YUZDE
             if nakit < (hedef_tutar + KOMISYON): continue
             
             row = market_data[t].loc[gun]
-            puan = skor_hesapla(row)
+            sinyal = sinyal_kontrol(row)
             
-            # Sinyal Eşiği: 75
-            if puan >= 75:
+            if sinyal == "AL":
                 fiyat = row['Close']
                 adet = hedef_tutar / fiyat
                 nakit -= (adet * fiyat + KOMISYON)
@@ -234,17 +225,18 @@ def main():
                 
                 portfoy[t] = {'adet': adet, 'maliyet': fiyat, 'tarih': gun}
     
-    # --- SONUÇLAR ---
+    # --- RAPOR ---
     son_deger = nakit
     for t, poz in portfoy.items():
         if not market_data[t].empty:
             son_deger += poz['adet'] * market_data[t].iloc[-1]['Close']
             
     print("\n" + "-"*30)
-    print("📊 TREND AVCISI SONUÇLARI")
+    print("📊 PİRANHA SONUÇLARI")
     print("-" * 30)
     print(f"Bitiş          : ${son_deger:.2f}")
-    print(f"Net Kar/Zarar  : ${son_deger - BASLANGIC_KASA:.2f} (%{(son_deger - BASLANGIC_KASA)/BASLANGIC_KASA*100:.2f})")
+    kar_zarar = son_deger - BASLANGIC_KASA
+    print(f"Net Kar/Zarar  : ${kar_zarar:.2f} (%{kar_zarar/BASLANGIC_KASA*100:.2f})")
     print(f"💸 Komisyon      : ${toplam_komisyon:.2f}")
     
     if islem_gecmisi:
@@ -252,8 +244,9 @@ def main():
         win = len(df[df['Net Kar'] > 0])
         print(f"Başarı Oranı   : %{(win/len(df))*100:.1f}")
         print(f"Toplam İşlem   : {len(df)}")
-        print("\n🏆 EN İYİLER:")
-        print(df.sort_values('Net Kar', ascending=False).head(3)[['Hisse', 'Tarih', 'Net Kar', 'Sebep']].to_string(index=False))
+        print(f"Ort. Süre      : {df['Süre'].mean():.1f} Gün")
+        print("\n🏆 SON İŞLEMLER:")
+        print(df.sort_values('Tarih', ascending=False).head(5)[['Hisse', 'Tarih', 'Net Kar', 'Yüzde']].to_string(index=False))
 
     if islem_gecmisi:
         pd.DataFrame(islem_gecmisi).to_csv("backtest_portfoy.csv", index=False)
