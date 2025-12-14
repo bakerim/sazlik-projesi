@@ -12,83 +12,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CSS TASARIMI (Görsel İyileştirmeler) ---
+# --- 2. CSS (Sadece Gerekli Olanlar) ---
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; }
-    
-    /* VİTRİN KARTI */
-    .top-card {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-        margin-bottom: 20px;
-    }
-    .top-symbol { font-size: 36px; font-weight: 900; color: #ffffff; margin: 5px 0; }
-    .top-price { font-size: 24px; font-weight: bold; color: #e6edf3; margin-bottom: 5px; }
-    .top-vade { font-size: 14px; color: #8b949e; margin-bottom: 15px; font-style: italic; }
-    
-    /* İNFOGRAFİK KUTULARI */
-    .info-box {
-        padding: 15px; border-radius: 10px; text-align: center; color: white; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);
-    }
-    .info-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
-    .info-count { font-size: 42px; font-weight: 900; }
-    .info-desc { font-size: 12px; opacity: 0.8; }
-    .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } 
-    .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   
-    .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     
-    .bg-bad { background: linear-gradient(135deg, #da3633 0%, #f85149 100%); }     
-
-    /* HİSSE LİSTESİ */
-    .stock-item {
-        background-color: rgba(0,0,0,0.2); padding: 8px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; font-size: 14px;
-    }
-
-    /* OPERASYON KARTI (YENİLENMİŞ CSS) */
-    .op-card {
-        background-color: #0d1117;
-        border: 2px solid #3fb950; /* Yeşil Çerçeve */
-        border-radius: 12px;
-        padding: 25px;
-        margin-bottom: 25px;
-        box-shadow: 0 0 15px rgba(63, 185, 80, 0.1);
-    }
-    .op-card-b { 
-        border-color: #8b949e; /* Gri Çerçeve */
-        opacity: 0.9;
-    }
-    .op-header {
-        display: flex; justify-content: space-between; align-items: center;
-        border-bottom: 1px solid #30363d; padding-bottom: 15px; margin-bottom: 15px;
-    }
-    .op-title { font-size: 22px; font-weight: 900; color: white; margin: 0; }
-    .op-rsi { font-size: 14px; font-weight: bold; color: #3fb950; background: rgba(63, 185, 80, 0.1); padding: 5px 10px; border-radius: 20px; }
-    
-    .op-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .op-stat-label { font-size: 11px; font-weight: bold; color: #8b949e; letter-spacing: 1px; text-transform: uppercase; }
-    .op-stat-val { font-size: 20px; font-weight: bold; color: #e6edf3; }
-    
-    .op-step-box {
-        background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 20px;
-    }
-    .op-step-text { color: #e6edf3; font-size: 15px; line-height: 1.6; margin: 0; }
-    
-    .op-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid #30363d; padding-top: 15px; }
-    .val-green { color: #3fb950 !important; font-size: 22px !important; }
-    .val-red { color: #f85149 !important; font-size: 22px !important; }
-    
-    /* DEDEKTİF KARTI */
-    .detective-card { background-color: #0d1117; border: 2px solid #58a6ff; border-radius: 15px; padding: 30px; text-align: center; }
-    .detective-label { font-size: 14px; color: #8b949e; letter-spacing: 1px; }
-    .detective-value { font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px; }
-    
-    .text-green { color: #3fb950 !important; }
-    .text-red { color: #f85149 !important; }
-    .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
+    .stMetric { background-color: #161b22; padding: 10px; border-radius: 8px; border: 1px solid #30363d; }
+    .css-1r6slb0 { border: 1px solid #30363d; padding: 20px; border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -119,13 +48,7 @@ def load_data():
 df = pd.DataFrame()
 df = load_data()
 
-def safe_val(val, prefix=""):
-    try:
-        if pd.isna(val) or str(val).lower() in ['nan', '0', '']: return '-'
-        return f"{prefix}{val}"
-    except: return '-'
-
-# --- SNIPER BARON ANALİZ MOTORU ---
+# --- ANALİZ MOTORU ---
 def analyze_sniper(ticker):
     try:
         df_sniper = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
@@ -147,25 +70,13 @@ def analyze_sniper(ticker):
         rsi = last_row['RSI_14']
         
         durum = "BEKLE"
-        
-        # STRATEJİ KURALLARI
-        trend_score = 1 if (close > sma200 and close > sma50) else 0
-        momentum_score = 1 if rsi >= 55 else 0
-        trigger = close > sma20
-        
-        if trend_score and momentum_score and trigger:
+        if (close > sma200 and close > sma50) and (rsi >= 55) and (close > sma20):
             durum = "AL (SNIPER)"
         elif close < sma50: 
             durum = "SAT"
         
-        return {
-            "Hisse": ticker,
-            "Fiyat": close,
-            "RSI": rsi,
-            "Durum": durum
-        }
-    except:
-        return None
+        return { "Hisse": ticker, "Fiyat": close, "RSI": rsi, "Durum": durum }
+    except: return None
 
 # --- CANLI ANALİZ ---
 def canli_analiz_yap(ticker):
@@ -173,63 +84,29 @@ def canli_analiz_yap(ticker):
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1y")
         if len(hist) < 200: return None
-        
         curr_price = hist['Close'].iloc[-1]
         hist.ta.rsi(length=14, append=True)
-        hist.ta.sma(length=50, append=True)
-        hist.ta.sma(length=200, append=True)
-        
         rsi = hist['RSI_14'].iloc[-1]
-        sma200 = hist['SMA_200'].iloc[-1]
-        
         score = 50
-        ozet = []
-        vade = "Belirsiz"
-        
-        if rsi < 30: 
-            score += 25; ozet.append(f"RSI Dipte ({rsi:.0f})")
-            vade = "3-5 Gün (Tepki)"
-        elif rsi < 40: 
-            score += 10; ozet.append(f"RSI Ucuz ({rsi:.0f})")
-            vade = "1-2 Hafta"
-        elif rsi > 70: 
-            score -= 20; ozet.append("RSI Tepede")
-            vade = "Düzeltme Bekle"
-        
-        if curr_price > sma200: 
-            score += 15; ozet.append("Trend Pozitif")
-            if vade == "Belirsiz": vade = "Orta Vade"
-        else: 
-            score -= 10; ozet.append("Trend Negatif")
+        if rsi < 30: score += 25
+        elif rsi < 40: score += 10
+        elif rsi > 70: score -= 20
         
         karar = "BEKLE"
-        if score >= 75: karar = "GÜÇLÜ AL"
-        elif score >= 60: karar = "AL"
+        if score >= 60: karar = "AL"
         elif score <= 30: karar = "SAT"
         
         return {
-            'Hisse': ticker,
-            'Fiyat': curr_price,
-            'Karar': karar,
-            'Guven_Skoru_Num': score,
-            'Hedef_Fiyat': curr_price * 1.05,
-            'Stop_Loss': curr_price * 0.95,
-            'Kazanc_Potansiyeli': '%5',
-            'Risk_Yuzdesi': '%-5',
-            'Vade': vade,
-            'Analiz_Ozeti': " | ".join(ozet),
-            'Link': f"https://finance.yahoo.com/quote/{ticker}"
+            'Hisse': ticker, 'Fiyat': curr_price, 'Karar': karar, 'Guven_Skoru_Num': score,
+            'Hedef_Fiyat': curr_price * 1.05, 'Stop_Loss': curr_price * 0.95,
+            'Vade': "1-2 Hafta", 'Analiz_Ozeti': f"RSI: {rsi:.1f}"
         }
-    except:
-        return None
+    except: return None
 
 # --- 4. ANA EKRAN ---
 st.title("🌾 Sazlık Pro: Komuta Merkezi")
 st.markdown(f"**Aktif Özel Tim:** `{', '.join(FULL_WATCHLIST)}`")
 st.markdown("---")
-
-if df.empty:
-    st.info("📡 Veri bekleniyor...")
 
 # VERİ AYRIŞTIRMA
 robot_picks = pd.DataFrame()
@@ -241,87 +118,52 @@ if not df.empty:
         ai_picks = df_filtered[~df_filtered.index.isin(robot_picks.index)]
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🏆 AI Vitrini", 
-    "📊 Portföy Analizi", 
-    "🧪 250$ Deney Labı", 
-    "🗃️ Veri Havuzu",
-    "🔎 Hisse Dedektifi"
+    "🏆 AI Vitrini", "📊 Portföy Analizi", "🧪 250$ Deney Labı", "🗃️ Veri Havuzu", "🔎 Hisse Dedektifi"
 ])
 
-# --- SEKME 1: AI VİTRİNİ ---
+# --- TAB 1: AI VİTRİNİ ---
 with tab1:
     if not ai_picks.empty:
-        top_picks = ai_picks.sort_values('Guven_Skoru_Num', ascending=False)
-        col1, col2, col3 = st.columns(3)
-        top3 = top_picks.head(3).reset_index()
-        
-        def create_vitrin_card(row, rank):
-            score = int(row['Guven_Skoru_Num'])
-            color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
-            
-            html = f"""<div class="top-card"><div style="color:#58a6ff; font-weight:bold; font-size:12px;">#{rank} NUMARA</div><div class="top-symbol">{row['Hisse']}</div><div class="top-price">{safe_val(row['Fiyat'], '$')}</div><div class="top-vade">{safe_val(row['Vade'])}</div><div style="display:flex; justify-content:center; gap:5px; align-items:baseline;"><span style="color:#888;">PUAN:</span><span class="top-score" style="color:{color};">{score}</span><span style="color:#888;">/100</span></div><hr style="border-color:#30363d; margin:15px 0;"><div style="display:flex; justify-content:space-between; font-size:14px;"><div style="text-align:left;"><div style="color:#888; font-size:11px;">HEDEF</div><div class="text-green" style="font-weight:bold; font-size:18px;">{safe_val(row['Hedef_Fiyat'], '$')}</div><div class="text-green">{safe_val(row['Kazanc_Potansiyeli'])}</div></div><div style="text-align:right;"><div style="color:#888; font-size:11px;">STOP</div><div class="text-red" style="font-weight:bold; font-size:18px;">{safe_val(row['Stop_Loss'], '$')}</div><div class="text-red">{safe_val(row['Risk_Yuzdesi'])}</div></div></div></div>"""
-            return html
-
-        if len(top3) > 0: col1.markdown(create_vitrin_card(top3.iloc[0], 1), unsafe_allow_html=True)
-        if len(top3) > 1: col2.markdown(create_vitrin_card(top3.iloc[1], 2), unsafe_allow_html=True)
-        if len(top3) > 2: col3.markdown(create_vitrin_card(top3.iloc[2], 3), unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.subheader("📋 Liste Görünümü")
-        st.dataframe(top_picks[['Guven_Skoru', 'Hisse', 'Vade', 'Fiyat', 'Hedef_Fiyat', 'Analiz_Ozeti']], use_container_width=True)
+        top_picks = ai_picks.sort_values('Guven_Skoru_Num', ascending=False).head(3)
+        cols = st.columns(3)
+        for i, (index, row) in enumerate(top_picks.iterrows()):
+            with cols[i]:
+                st.metric(label=f"#{i+1} {row['Hisse']}", value=f"${row['Fiyat']}", delta=f"Puan: {int(row['Guven_Skoru_Num'])}")
+                st.write(f"**Hedef:** {row['Hedef_Fiyat']}")
+                st.write(f"**Stop:** {row['Stop_Loss']}")
+                st.info(row['Vade'])
     else:
-        st.info("Bu listedeki hisseler için uygun AI fırsatı bulunamadı.")
+        st.info("Uygun sinyal yok.")
 
-# --- SEKME 2: PORTFÖY VE KARAR DESTEK ---
+# --- TAB 2: PORTFÖY ---
 with tab2:
-    st.subheader("📊 Portföy Karar Destek Matrisi")
-    
-    df_chart = df[df['Hisse'].isin(FULL_WATCHLIST)] if not df.empty else pd.DataFrame()
-
-    if not df_chart.empty:
-        efsane = df_chart[df_chart['Guven_Skoru_Num'] >= 85]
-        iyi = df_chart[(df_chart['Guven_Skoru_Num'] >= 70) & (df_chart['Guven_Skoru_Num'] < 85)]
-        orta = df_chart[(df_chart['Guven_Skoru_Num'] >= 50) & (df_chart['Guven_Skoru_Num'] < 70)]
-        cop = df_chart[df_chart['Guven_Skoru_Num'] < 50]
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        def create_infobox(title, count, desc, bg_class, items_df):
-            items_html = ""
-            for _, row in items_df.head(5).iterrows():
-                items_html += f"<div class='stock-item'><span><b>{row['Hisse']}</b></span><span>{int(row['Guven_Skoru_Num'])} Puan</span></div>"
-            
-            return f"""
-            <div class="info-box {bg_class}">
-                <div class="info-title">{title}</div>
-                <div class="info-count">{count}</div>
-                <div class="info-desc">{desc}</div>
-                <hr style="border-color:rgba(255,255,255,0.2); margin:10px 0;">
-                <div style="text-align:left;">{items_html}</div>
-            </div>
-            """
-
-        with c1: st.markdown(create_infobox("💎 Mükemmel", len(efsane), "Gözün kapalı alabileceğin fırsatlar", "bg-legend", efsane), unsafe_allow_html=True)
-        with c2: st.markdown(create_infobox("🚀 İyi", len(iyi), "Güçlü yükseliş potansiyeli", "bg-good", iyi), unsafe_allow_html=True)
-        with c3: st.markdown(create_infobox("⚖️ Orta", len(orta), "İzlemede kal, henüz net değil", "bg-mid", orta), unsafe_allow_html=True)
-        with c4: st.markdown(create_infobox("⛔ Sakın Dokunma", len(cop), "Düşüş trendi veya aşırı riskli", "bg-bad", cop), unsafe_allow_html=True)
+    if not df.empty:
+        efsane = df[df['Guven_Skoru_Num'] >= 85]
+        iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
+        c1, c2 = st.columns(2)
+        with c1: 
+            st.success(f"💎 Mükemmel ({len(efsane)})")
+            st.table(efsane[['Hisse', 'Fiyat', 'Guven_Skoru']])
+        with c2: 
+            st.info(f"🚀 İyi ({len(iyi)})")
+            st.table(iyi[['Hisse', 'Fiyat', 'Guven_Skoru']])
     else:
-        st.warning("Veri bekleniyor...")
+        st.warning("Veri yok.")
 
-# --- SEKME 3: DÜZELTİLMİŞ SNIPER BARON LABORATUVARI ---
+# ==============================================================================
+# --- TAB 3: 250$ SNIPER LABORATUVARI (HTML KULLANMADAN - NATIVE UI) ---
+# ==============================================================================
 with tab3:
-    st.markdown("## 🧪 250$ Deney Laboratuvarı: Operasyon Masası")
-    st.markdown("Matematiğe güven. Talimatları uygula.")
+    st.header("🧪 250$ Deney Laboratuvarı")
+    st.caption("Duyguları bırak, matematiği uygula.")
     
-    col_input, col_info = st.columns([1, 2])
-    with col_input:
-        budget = st.number_input("Mevcut Kasa ($)", value=250.0, step=10.0, format="%.2f")
-    with col_info:
-        trade_budget = budget * 0.98
-        st.info(f"**Savaş Bütçesi:** ${trade_budget:.2f} (Kasanın %98'i)\n\n*Komisyon için %2 nakit bırakıldı.*")
+    col_in, col_inf = st.columns([1, 2])
+    budget = col_in.number_input("Kasa ($)", value=250.0, step=10.0)
+    trade_budget = budget * 0.98
+    col_inf.success(f"**Savaş Bütçesi:** ${trade_budget:.2f} (Kasanın %98'i)")
 
-    if st.button("🚀 Piyasayı Tara ve Emri Ver", type="primary"):
-        with st.spinner("Özel Tim taranıyor... Strateji hesaplanıyor..."):
+    if st.button("🚀 Piyasayı Tara", type="primary"):
+        with st.spinner("Hesaplanıyor..."):
             opportunities = []
             for ticker in FULL_WATCHLIST:
                 res = analyze_sniper(ticker)
@@ -331,135 +173,60 @@ with tab3:
             opportunities.sort(key=lambda x: x["RSI"], reverse=True)
             
             if not opportunities:
-                st.warning("### 💤 Pusuya Devam")
-                st.write("Şu an hiçbir hisse Sniper kriterlerini karşılamıyor.")
+                st.warning("💤 Uygun fırsat yok.")
             else:
                 plan_a = opportunities[0]
                 plan_b = opportunities[1] if len(opportunities) > 1 else None
                 
-                # HTML KART OLUŞTURUCU
-                def render_operation_card(plan, label, css_class=""):
-                    ticker = plan['Hisse']
-                    price = plan['Fiyat']
-                    rsi = plan['RSI']
-                    
-                    yatirim_tutari = trade_budget
-                    hedef_fiyat = price * 1.10
-                    stop_fiyat = price * 0.92
-                    
-                    adet_tam = int(yatirim_tutari / price)
-                    kalan_para = yatirim_tutari - (adet_tam * price)
-
-                    # BÜTÇE UYARISI
-                    if adet_tam == 0:
-                        buy_msg = f"""
-                        <div style='background:rgba(248, 81, 73, 0.15); padding:10px; border-radius:5px; border-left: 3px solid #f85149;'>
-                            <span style='color:#f85149; font-weight:bold;'>⚠️ BÜTÇE UYARISI:</span><br>
-                            Bütçen (${yatirim_tutari:.2f}) bu hissenin 1 tanesine (${price:.2f}) yetmiyor.<br>
-                            👉 <b>SADECE Parça Hisse (Fractional Share) alabiliyorsan devam et.</b><br>
-                            👉 Alamıyorsan bu planı iptal et ve aşağıdakine (Plan B) geç.
-                        </div>
-                        """
-                    else:
-                        buy_msg = f"""
-                        <div style='background:rgba(63, 185, 80, 0.15); padding:10px; border-radius:5px; border-left: 3px solid #3fb950;'>
-                            ✅ <b>ALIM TALİMATI:</b><br>
-                            - <b>Tam Hisse:</b> {adet_tam} Adet al. (Kalan ${kalan_para:.2f} nakitte dursun).<br>
-                            - <b>Parça Hisse:</b> ${yatirim_tutari:.2f} tutarında al.
-                        </div>
-                        """
-
-                    # KART HTML
-                    html_code = f"""
-                    <div class="op-card {css_class}">
-                        <div class="op-header">
-                            <div class="op-title">{label}: {ticker}</div>
-                            <div class="op-rsi">RSI: {rsi:.1f}</div>
-                        </div>
+                # --- OPERASYON KARTI FONKSİYONU (STREAMLIT NATIVE) ---
+                def show_card(plan, title_prefix, color_stripe):
+                    with st.container():
+                        st.markdown(f"### {color_stripe} {title_prefix}: {plan['Hisse']}")
                         
-                        <div class="op-grid">
-                            <div>
-                                <div class="op-stat-label">GİRİŞ FİYATI (Tahmini)</div>
-                                <div class="op-stat-val">${price:.2f}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="op-stat-label">YATIRILACAK TUTAR</div>
-                                <div class="op-stat-val">${yatirim_tutari:.2f}</div>
-                            </div>
-                        </div>
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Giriş Fiyatı", f"${plan['Fiyat']:.2f}")
+                        c2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
+                        c3.metric("Yatırılacak", f"${trade_budget:.2f}")
                         
-                        <div class="op-step-box">
-                            <div class="op-stat-label" style="margin-bottom:5px;">ADIM 1: GİRİŞ EMRİ</div>
-                            {buy_msg}
-                        </div>
+                        adet = int(trade_budget / plan['Fiyat'])
                         
-                        <div class="op-actions">
-                            <div>
-                                <div class="op-stat-label">ALARM 1 (KAR AL)</div>
-                                <div class="op-stat-val val-green">${hedef_fiyat:.2f}</div>
-                                <div style="font-size:11px; color:#8b949e;">Bu fiyata gelince yarısını sat!</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="op-stat-label">ALARM 2 (STOP)</div>
-                                <div class="op-stat-val val-red">${stop_fiyat:.2f}</div>
-                                <div style="font-size:11px; color:#8b949e;">Bu fiyata düşerse kaç!</div>
-                            </div>
-                        </div>
-                    </div>
-                    """
-                    # BU KOD SAYESİNDE HTML OLARAK GÖRÜNECEK, YAZI OLARAK DEĞİL
-                    st.markdown(html_code, unsafe_allow_html=True)
+                        # ALIM TALİMATI KUTUSU
+                        with st.chat_message("assistant"):
+                            if adet == 0:
+                                st.error(f"⚠️ **DİKKAT:** Paran 1 adet almaya yetmiyor ({plan['Fiyat']:.2f} > {trade_budget:.2f}).")
+                                st.write("👉 **Sadece 'Parça Hisse' (Fractional) alabiliyorsan devam et.**")
+                            else:
+                                st.write(f"✅ **TALİMAT:** Tam hisse alacaksan **{adet} Adet** al.")
+                                st.write(f"ℹ️ Parça hisse alacaksan direkt **${trade_budget:.2f}** tutarında al.")
 
-                st.markdown(f"### 🔥 TESPİT EDİLEN FIRSATLAR ({len(opportunities)} Adet)")
+                        # HEDEF & STOP
+                        hc1, hc2 = st.columns(2)
+                        hc1.success(f"🎯 **KAR AL (%10):** ${plan['Fiyat']*1.10:.2f}")
+                        hc2.error(f"🛑 **STOP (%8):** ${plan['Fiyat']*0.92:.2f}")
+                        st.divider()
+
+                # PLANLARI GÖSTER
+                show_card(plan_a, "PLAN A (Ana Hedef)", "🔥")
                 
-                # PLAN A
-                render_operation_card(plan_a, "PLAN A (Ana Hedef)")
-                
-                # PLAN B
                 if plan_b:
-                    st.markdown("👇 *Eğer Plan A bütçeni aşıyorsa veya alım yapamıyorsan:*")
-                    render_operation_card(plan_b, "PLAN B (Yedek Güç)", "op-card-b")
+                    st.info("👇 Eğer Plan A bütçeni aşıyorsa buna geç:")
+                    show_card(plan_b, "PLAN B (Yedek)", "🛡️")
                 elif plan_a and int(trade_budget / plan_a['Fiyat']) == 0:
-                     st.warning("⚠️ Plan A bütçeni aşıyor ve başka alternatif (Plan B) bulunamadı.")
+                     st.warning("⚠️ Plan A bütçeni aşıyor ve başka alternatif yok.")
 
-# --- SEKME 4: TÜM VERİ ---
+# --- TAB 4 & 5 (AYNI KALDI) ---
 with tab4:
-    df_show = df[df['Hisse'].isin(FULL_WATCHLIST)] if not df.empty else pd.DataFrame()
-    st.dataframe(df_show, use_container_width=True)
-
-# --- SEKME 5: HİSSE DEDEKTİFİ ---
+    st.dataframe(df if not df.empty else pd.DataFrame(), use_container_width=True)
 with tab5:
     st.header("🔎 Hisse Dedektifi")
-    selected_ticker = st.selectbox("İncelemek İstediğiniz Hisseyi Seçin:", sorted(FULL_WATCHLIST))
-    
-    if st.button("Hisse Analizini Getir"):
-        row = None
-        if not df.empty and selected_ticker in df['Hisse'].values:
-            row = df[df['Hisse'] == selected_ticker].iloc[0]
-            st.success("✅ Veri veritabanından getirildi.")
-        else:
-            with st.spinner(f"{selected_ticker} için canlı piyasa analizi yapılıyor..."):
-                row = canli_analiz_yap(selected_ticker)
-                if row: st.success("⚡ Canlı analiz tamamlandı.")
-                else: st.error("Veri çekilemedi.")
-        
-        if row is not None:
-            score = int(row['Guven_Skoru_Num']) if 'Guven_Skoru_Num' in row else 50
-            score_color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
-            ozet_temiz = str(row['Analiz_Ozeti']).replace("<div>", "").replace("</div>", "").replace("<br>", " ")
-
-            col_det1, col_det2 = st.columns([1, 2])
-            with col_det1:
-                st.markdown(f"""<div class="detective-card"><div style="font-size:40px; font-weight:900; color:white;">{row['Hisse']}</div><div style="font-size:16px; color:#888; margin-bottom:20px;">{safe_val(row['Vade'])}</div><div style="font-size:60px; font-weight:bold; color:{score_color}; line-height:1;">{score}</div><div style="font-size:12px; color:#888; letter-spacing:2px;">PUAN</div><hr style="border-color:#30363d; margin:20px 0;"><div style="font-size:24px; font-weight:bold; color:white;">{row['Karar']}</div></div>""", unsafe_allow_html=True)
-            
-            with col_det2:
-                c1, c2, c3 = st.columns(3)
-                c1.markdown(f"<div class='detective-label'>HEDEF FİYAT</div><div class='detective-value text-green'>{safe_val(row['Hedef_Fiyat'], '$')}</div>", unsafe_allow_html=True)
-                c2.markdown(f"<div class='detective-label'>STOP LOSS</div><div class='detective-value text-red'>{safe_val(row['Stop_Loss'], '$')}</div>", unsafe_allow_html=True)
-                c3.markdown(f"<div class='detective-label'>GÜNCEL FİYAT</div><div class='detective-value'>{safe_val(row['Fiyat'], '$')}</div>", unsafe_allow_html=True)
-                
-                st.markdown("---")
-                st.subheader("📝 Analiz Raporu")
-                st.info(ozet_temiz)
-                if 'Link' in row and str(row['Link']) != '-':
-                    st.markdown(f"[Haberi Kaynağında Oku 🔗]({row['Link']})")
+    sel = st.selectbox("Hisse Seç:", sorted(FULL_WATCHLIST))
+    if st.button("Analiz Et"):
+        with st.spinner("Bakılıyor..."):
+            r = canli_analiz_yap(sel)
+            if r:
+                c1, c2 = st.columns(2)
+                c1.metric("Fiyat", f"${r['Fiyat']:.2f}")
+                c1.metric("Puan", f"{int(r['Guven_Skoru_Num'])}")
+                c2.info(r['Analiz_Ozeti'])
+                st.success(f"Karar: {r['Karar']}")
+            else: st.error("Hata.")
