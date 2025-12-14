@@ -31,7 +31,7 @@ st.markdown("""
     .top-price { font-size: 24px; font-weight: bold; color: #e6edf3; margin-bottom: 5px; }
     .top-vade { font-size: 14px; color: #8b949e; margin-bottom: 15px; font-style: italic; }
     
-    /* İNFOGRAFİK KUTULARI (PORTFÖY İÇİN) */
+    /* İNFOGRAFİK KUTULARI */
     .info-box {
         padding: 15px;
         border-radius: 10px;
@@ -44,12 +44,12 @@ st.markdown("""
     .info-count { font-size: 42px; font-weight: 900; }
     .info-desc { font-size: 12px; opacity: 0.8; }
     
-    .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } /* Yeşil */
-    .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   /* Mavi */
-    .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     /* Sarı */
-    .bg-bad { background: linear-gradient(135deg, #da3633 0%, #f85149 100%); }     /* Kırmızı */
+    .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } 
+    .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   
+    .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     
+    .bg-bad { background: linear-gradient(135deg, #da3633 0%, #f85149 100%); }     
 
-    /* HİSSE LİSTESİ (KUTU İÇİ) */
+    /* HİSSE LİSTESİ */
     .stock-item {
         background-color: rgba(0,0,0,0.2);
         padding: 8px;
@@ -78,57 +78,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- İZLEME LİSTESİ ---
+# --- İZLEME LİSTESİ (SADECE ÖZEL TİM) ---
+# Burası artık çöplük değil, sadece V13 stratejisine uygun elitler var.
 FULL_WATCHLIST = [
-    # TEKNOLOJİ DEVLERİ
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
-    "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
-    "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
-    "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "ANSS", "MSCI", "CHTR",
-    
-    # FİNANS
-    "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPY", "BLK", "SCHW",
-    "C", "AXP", "CB", "MMC", "AON", "CME", "ICE", "PGR", "ALL", "MET",
-    "AIG", "PNC", "USB", "BK", "COF", "TRV", "MCO", "CBOE", "RJF",
-    "GPN", "FIS", "ZION", "FITB", "STT", "NDAQ", "RF", "KEY", "CFG", "HBAN",
-    
-    # SAĞLIK
-    "JNJ", "LLY", "UNH", "ABBV", "MRK", "PFE", "DHR", "TMO", "MDT", "SYK",
-    "GILD", "BIIB", "VRTX", "BMY", "ISRG", "ABT", "ZTS", "BDX", "BSX",
-    "CI", "CVS", "HUM", "HCA", "ELV", "LH", "COO", "ALGN", "HOLX", "DVA",
-    "WAT", "RGEN", "IQV", "REGN", "EW", "TECH", "RVTY", "DGX", "INCY", "CRL",
-    
-    # TÜKETİM
-    "PG", "KO", "PEP", "WMT", "COST", "HD", "MCD", "NKE", "LOW", "TGT",
-    "SBUX", "MDLZ", "CL", "PM", "MO", "KR", "DG", "EL", "KHC",
-    "GIS", "K", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
-    "MAT", "HOG", "GT", "TPR", "TTC", "VFC", "HBI", "KSS", "ULTA",
-    
-    # SANAYİ & ENERJİ
-    "XOM", "CVX", "BRK.B", "LMT", "RTX", "BA", "HON", "MMM", "GE", "GD",
-    "CAT", "DE", "EOG", "OXY", "SLB", "COP", "PSX", "MPC", "WMB", "KMI",
-    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR",
-    "ITW", "GWW", "WAB", "AAL", "DAL", "UAL", "LUV", "ALK",
-    
-    # DİĞER
-    "DUK", "NEE", "SO", "EXC", "AEP", "SRE", "WEC", "D", "ED", "XEL",
-    "VNQ", "SPG", "PLD", "EQIX", "AMT", "CCI", "HST", "O", "ARE", "PSA",
-    "WY", "BXP", "REG", "VTR", "AVB", "ESR", "EPR", "KIM", "FRT",
-    "LUMN", "PARA", "FOX", "WBD", "ETSY", "EBAY", "EA", "TTWO", "ZG",
-    
-    # YENİ NESİL & BÜYÜME
-    "ASML", "AMAT", "TSM", "MCHP", "TER", "U", "VEEV", "OKTA", "NET", "CRWD", 
-    "DDOG", "ZS", "TEAM", "ADSK", "MSI", "FTV", "WDC", "ZBRA", "SWKS", "QDEL",
-    "FSLY", "PLUG", "ENPH", "SEDG", "RUN", "SPWR", "BLDP", "FCEL", "BE", "SOL",
-    "LI", "NIO", "XPEV", "RIVN", "LCID", "NKLA", "QS", "GOEV",
-    "SQ", "COIN", "HOOD", "UPST", "AFRM", "SOFI", "MQ", "BILL", "TOST", "PAYA",
-    "MRNA", "BMRN", "CTAS", "EXEL", "IONS", "XBI", "EDIT", "BEAM", "NTLA", "CRSP",
-    "MELI", "ROKU", "PTON", "SPOT", "CHWY", "ZM", "DOCU", "FVRR",
-    "PINS", "SNAP", "WIX", "SHOP", "SE", "BABA", "JD", "BIDU", "PDD",
-    "ROP", "TT", "FLR", "HUBB", "APH", "ECL", "SHW", "PPG", "FMC",
-    "MOS", "CF", "NUE", "STLD", "SAVE", "CAR", "RCL", "CCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
-    "RBLX", "UBER", "LYFT", "ABNB", "DOX", "FLT", "PRU", "VLO", "DVN", "APA", "MRO", "HAL",
-    "BKR", "FTI", "NOV", "TDW", "PAGP", "ENLC", "PAA", "WES"
+    "NVDA",  # Trend Kralı
+    "META",  # Güvenli Liman
+    "TSLA",  # Volatilite Canavarı
+    "AVGO",  # Yarı İletken Devi
+    "AMZN",  # E-Ticaret ve Bulut
+    "MSFT",  # İstikrar Abidesi
+    "GOOGL", # Teknoloji Devi
+    "PLTR",  # Momentum Roketi
+    "MSTR",  # Bitcoin Kaldıracı
+    "COIN"   # Kripto Borsası
 ]
 
 # --- 3. VERİ YÜKLEME ---
@@ -146,19 +108,9 @@ def load_data():
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
         
-        # Vade Filtresi
-        def vade_filtresi(row):
-            vade = str(row['Vade']).lower()
-            kazanc_str = str(row['Kazanc_Potansiyeli']).replace('%', '').strip()
-            try:
-                kazanc = float(kazanc_str)
-            except:
-                kazanc = 0
-            if ("ay" in vade or "month" in vade) and kazanc < 15:
-                return False
-            return True
-            
-        df = df[df.apply(vade_filtresi, axis=1)]
+        # Sadece WATCHLIST içindeki hisseleri filtrele
+        df = df[df['Hisse'].isin(FULL_WATCHLIST)]
+        
         return df
     except:
         return pd.DataFrame()
@@ -172,7 +124,78 @@ def safe_val(val, prefix=""):
         return f"{prefix}{val}"
     except: return '-'
 
-# --- CANLI ANALİZ ---
+# --- SNIPER BARON ANALİZ MOTORU (V13.0) ---
+def analyze_sniper(ticker):
+    """V13 Sniper Baron Stratejisine göre anlık analiz eder"""
+    try:
+        df_sniper = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
+        if isinstance(df_sniper.columns, pd.MultiIndex):
+            df_sniper.columns = df_sniper.columns.get_level_values(0)
+        
+        if len(df_sniper) < 200: return None
+        
+        # İndikatörler
+        df_sniper.ta.rsi(length=14, append=True)
+        df_sniper.ta.sma(length=20, append=True)
+        df_sniper.ta.sma(length=50, append=True)
+        df_sniper.ta.sma(length=200, append=True)
+        
+        last_row = df_sniper.iloc[-1]
+        close = last_row['Close']
+        sma20 = last_row['SMA_20']
+        sma50 = last_row['SMA_50']
+        sma200 = last_row['SMA_200']
+        rsi = last_row['RSI_14']
+        
+        durum = "BEKLE"
+        renk = "grey"
+        notlar = []
+
+        # 1. TREND KONTROLÜ
+        if close > sma200 and close > sma50:
+            trend = "BOĞA (Yükseliş)"
+            trend_score = 1
+        else:
+            trend = "AYI/NÖTR"
+            trend_score = 0
+            notlar.append("Trend Zayıf")
+
+        # 2. MOMENTUM KONTROLÜ
+        if rsi >= 55:
+            momentum = "GÜÇLÜ"
+            momentum_score = 1
+        else:
+            momentum = "ZAYIF"
+            momentum_score = 0
+            notlar.append("Momentum Düşük")
+
+        # 3. TETİK (Trigger)
+        trigger = close > sma20
+        
+        # KARAR MEKANİZMASI
+        if trend_score == 1 and momentum_score == 1 and trigger:
+            durum = "AL (SNIPER)"
+            renk = "green"
+        elif close < sma50: 
+            durum = "SAT / UZAK DUR"
+            renk = "red"
+        elif rsi > 75:
+            durum = "RİSKLİ (Aşırı Alım)"
+            renk = "orange"
+        
+        return {
+            "Fiyat": close,
+            "RSI": rsi,
+            "SMA20": sma20,
+            "Trend": trend,
+            "Durum": durum,
+            "Renk": renk,
+            "Not": ", ".join(notlar) if notlar else "Şartlar Uygun"
+        }
+    except:
+        return None
+
+# --- CANLI ANALİZ (Dedektif İçin) ---
 def canli_analiz_yap(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -230,23 +253,30 @@ def canli_analiz_yap(ticker):
 
 # --- 4. ANA EKRAN ---
 st.title("🌾 Sazlık Pro: Komuta Merkezi")
+st.markdown(f"**Aktif İzleme Listesi:** `{', '.join(FULL_WATCHLIST)}`") # Kullanıcı listeyi görsün
 st.markdown("---")
 
 if df.empty:
-    st.info("📡 Veri bekleniyor...")
+    st.info("📡 Veri bekleniyor veya listede uygun sinyal yok...")
 
-# VERİ AYRIŞTIRMA
+# VERİ AYRIŞTIRMA (Sadece FULL_WATCHLIST içindekiler)
 robot_picks = pd.DataFrame()
 ai_picks = pd.DataFrame()
 if not df.empty:
-    robot_picks = df[df['Analiz_Ozeti'].str.contains('GARANTİCİ BABA', na=False) | (df['Haber_Baslik'] == "Teknik Tarama (Haber Yok)")]
-    ai_picks = df[~df.index.isin(robot_picks.index)]
+    # CSV'den gelen verileri de filtrele
+    df_filtered = df[df['Hisse'].isin(FULL_WATCHLIST)]
+    
+    if not df_filtered.empty:
+        robot_picks = df_filtered[df_filtered['Analiz_Ozeti'].str.contains('GARANTİCİ BABA', na=False) | (df_filtered['Haber_Baslik'] == "Teknik Tarama (Haber Yok)")]
+        ai_picks = df_filtered[~df_filtered.index.isin(robot_picks.index)]
+    else:
+        st.warning("CSV dosyasında bu hisselere ait güncel sinyal bulunamadı. Canlı tarama yapın.")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏆 AI Vitrini", 
     "📊 Portföy Analizi", 
-    "👴 Garantici Baba", 
-    "🗃️ Tüm Veriler",
+    "🧪 250$ Deney Labı", 
+    "🗃️ Veri Havuzu",
     "🔎 Hisse Dedektifi"
 ])
 
@@ -272,18 +302,21 @@ with tab1:
         st.subheader("📋 Liste Görünümü")
         st.dataframe(top_picks[['Guven_Skoru', 'Hisse', 'Vade', 'Fiyat', 'Hedef_Fiyat', 'Analiz_Ozeti']], use_container_width=True)
     else:
-        st.info("Kriterlere uyan AI fırsatı yok.")
+        st.info("Bu listedeki hisseler için uygun AI fırsatı bulunamadı.")
 
 # --- SEKME 2: PORTFÖY VE KARAR DESTEK ---
 with tab2:
     st.subheader("📊 Portföy Karar Destek Matrisi")
     
-    if not df.empty:
+    # Sadece FULL_WATCHLIST içindekileri göster
+    df_chart = df[df['Hisse'].isin(FULL_WATCHLIST)] if not df.empty else pd.DataFrame()
+
+    if not df_chart.empty:
         # Kategorilendirme
-        efsane = df[df['Guven_Skoru_Num'] >= 85]
-        iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
-        orta = df[(df['Guven_Skoru_Num'] >= 50) & (df['Guven_Skoru_Num'] < 70)]
-        cop = df[df['Guven_Skoru_Num'] < 50]
+        efsane = df_chart[df_chart['Guven_Skoru_Num'] >= 85]
+        iyi = df_chart[(df_chart['Guven_Skoru_Num'] >= 70) & (df_chart['Guven_Skoru_Num'] < 85)]
+        orta = df_chart[(df_chart['Guven_Skoru_Num'] >= 50) & (df_chart['Guven_Skoru_Num'] < 70)]
+        cop = df_chart[df_chart['Guven_Skoru_Num'] < 50]
 
         # 4 Kolonlu İnfografik Yapı
         c1, c2, c3, c4 = st.columns(4)
@@ -317,7 +350,7 @@ with tab2:
         
         # Detaylı Filtreleme (Opsiyonel Grafik)
         st.subheader("📈 Puan Dağılım Grafiği")
-        chart = alt.Chart(df).mark_bar().encode(
+        chart = alt.Chart(df_chart).mark_bar().encode(
             x=alt.X("Guven_Skoru_Num", bin=True, title="Güven Skoru"),
             y=alt.Y('count()', title="Hisse Sayısı"),
             color=alt.Color('Guven_Skoru_Num', scale=alt.Scale(scheme='viridis'), legend=None)
@@ -325,27 +358,98 @@ with tab2:
         st.altair_chart(chart, use_container_width=True)
 
     else:
-        st.warning("Analiz verisi bekleniyor...")
+        st.warning("Veri bekleniyor...")
 
-# --- SEKME 3: ROBOT ---
+# --- SEKME 3: 250$ SNIPER BARON LABORATUVARI ---
 with tab3:
-    if not robot_picks.empty:
-        st.dataframe(robot_picks[['Guven_Skoru', 'Hisse', 'Vade', 'Fiyat', 'Hedef_Fiyat', 'Analiz_Ozeti']], use_container_width=True)
-    else:
-        st.info("Robot verisi yok.")
+    st.markdown("## 🧪 250$ Deney Laboratuvarı: Sniper Baron")
+    st.markdown("""
+    Bu panel, **V13.0 Kar Topu (Bileşik Getiri)** stratejisi için **Özel Tim (Elite 10)** üzerinde çalışır.
+    
+    **Görev:** Duygularını kapıda bırak. Sadece matematiği takip et.
+    """)
+    
+    # --- HESAP MAKİNESİ ---
+    with st.expander("🧮 Mermi Hesaplayıcı (Kaç Adet Almalıyım?)", expanded=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            guncel_kasa = st.number_input("Güncel Kasa ($)", value=250.0, step=10.0, format="%.2f")
+        with col2:
+            kullanilacak_tutar = guncel_kasa * 0.98
+            st.info(f"**Strateji:** Tek hisseye 'All-In' (%98)\n\n**Ateşlenecek Mermi:** ${kullanilacak_tutar:.2f}")
+
+    if st.button("🔍 Piyasayı Tara (Sniper Modu)"):
+        with st.spinner("Özel Tim taranıyor..."):
+            sonuclar = []
+            
+            for ticker in FULL_WATCHLIST:
+                analiz = analyze_sniper(ticker)
+                if analiz is not None:
+                    # Adet Hesabı
+                    kullanilabilir_bakiye = guncel_kasa * 0.98
+                    adet = int(kullanilabilir_bakiye / analiz['Fiyat'])
+                    
+                    sonuclar.append({
+                        "Hisse": ticker,
+                        "Fiyat": f"${analiz['Fiyat']:.2f}",
+                        "RSI (14)": f"{analiz['RSI']:.1f}",
+                        "Trend": analiz['Trend'],
+                        "KARAR": analiz['Durum'],
+                        "Adet (Tahmini)": adet,
+                        "Notlar": analiz['Not']
+                    })
+            
+            if sonuclar:
+                # DataFrame Oluştur
+                df_res = pd.DataFrame(sonuclar)
+                
+                # Renklendirme Fonksiyonu
+                def color_signals(val):
+                    color = 'white'
+                    if val == "AL (SNIPER)": color = '#90EE90' # Light Green
+                    elif val == "SAT / UZAK DUR": color = '#FFB6C1' # Light Pink
+                    elif "RİSKLİ" in val: color = '#FFE4B5' # Moccasin
+                    return f'background-color: {color}; color: black'
+
+                # Tabloyu Göster
+                st.dataframe(df_res.style.applymap(color_signals, subset=['KARAR']), use_container_width=True)
+                
+                # Sinyal Özeti
+                st.markdown("---")
+                al_sinyalleri = [x for x in sonuclar if x['KARAR'] == "AL (SNIPER)"]
+                
+                if al_sinyalleri:
+                    # RSI'a göre en iyiyi seç
+                    en_iyi_aday = sorted(al_sinyalleri, key=lambda x: float(x['RSI (14)']), reverse=True)[0]
+                    
+                    st.success(f"### 🔥 ATEŞ EMRİ: {en_iyi_aday['Hisse']}")
+                    st.write(f"**Talimat:** Kasanın tamamıyla ({en_iyi_aday['Adet (Tahmini)']} adet) {en_iyi_aday['Hisse']} al.")
+                    st.write(f"*Sebep: Trend güçlü, Momentum yüksek (RSI: {en_iyi_aday['RSI (14)']})*")
+                else:
+                    st.warning("### 💤 Şu an net bir atış fırsatı yok. Pusuya devam.")
+            else:
+                st.error("Veri alınamadı. Piyasalar kapalı olabilir.")
+
+            st.markdown("""
+            ---
+            **Operasyon Kuralları:**
+            1. **Erken Hasat:** Fiyat %10 artınca yarısını sat.
+            2. **Koruma:** Kalan yarısı için stop'u maliyete çek.
+            3. **Bitiş:** Robot "SAT" diyene kadar trendden inme.
+            """)
 
 # --- SEKME 4: TÜM VERİ ---
 with tab4:
-    st.dataframe(df, use_container_width=True)
+    # Sadece Watchlisttekiler
+    df_show = df[df['Hisse'].isin(FULL_WATCHLIST)] if not df.empty else pd.DataFrame()
+    st.dataframe(df_show, use_container_width=True)
 
 # --- SEKME 5: HİSSE DEDEKTİFİ ---
 with tab5:
     st.header("🔎 Hisse Dedektifi")
     
-    csv_tickers = list(df['Hisse'].unique()) if not df.empty else []
-    combined_list = sorted(list(set(FULL_WATCHLIST + csv_tickers)))
-    
-    selected_ticker = st.selectbox("İncelemek İstediğiniz Hisseyi Seçin:", combined_list)
+    # Sadece bizim 10'lu liste
+    selected_ticker = st.selectbox("İncelemek İstediğiniz Hisseyi Seçin:", sorted(FULL_WATCHLIST))
     
     if st.button("Hisse Analizini Getir"):
         row = None
