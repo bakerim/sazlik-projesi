@@ -1,52 +1,32 @@
 import yfinance as yf
 import pandas as pd
-import pandas_ta_classic as ta
+import pandas_ta as ta
 import numpy as np
-from datetime import datetime
-import warnings
-
-# Uyarıları sustur
-warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # --- AYARLAR ---
+# Sadece "Özel Tim" (En yüksek volatilite ve momentum)
 TEST_TICKERS = [
     "NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"
 ]
 
 BASLANGIC_KASA = 250.0    
-ISLEM_BASI_YUZDE = 0.98   # %98 ALL-IN (Bileşik Getiriyi iliklerine kadar hissetmek için)
-ILK_KAR_AL_YUZDE = 0.10   
-TRAILING_STOP_YUZDE = 0.10 
-KOMISYON = 1.5            
-VERGI_ORANI = 0.15        
+GIRIS_GUCU = 0.98         # %98 All-In
+KOMISYON = 1.0            # İşlem başı komisyon (Alım/Satım)
 
-# --- STRATEJİ MOTORU ---
-def sinyal_kontrol(row):
-    try:
-        close = float(row['Close'])
-        sma20 = float(row['SMA_20'])
-        sma50 = float(row['SMA_50'])
-        sma200 = float(row['SMA_200'])
-        rsi = float(row['RSI_14'])
-    except: return "YOK"
-
-    if pd.notna(sma200) and close < sma200: return "YOK"
-    if close < sma50: return "YOK"
-    if rsi < 55: return "YOK"
-
-    if close > sma20:
-        return "AL"
-    return "YOK"
+# --- HEDEF SEVİYELERİ ---
+TARGET_1_PCT = 0.10  # %10 Kar (Pozisyonun %50'si satılır)
+TARGET_2_PCT = 0.30  # %30 Kar (Kalanın %50'si satılır)
+TARGET_3_PCT = 0.50  # %50 Kar (Jackpot - Hepsi satılır)
+STOP_LOSS_PCT = 0.08 # %8 Stop
 
 def main():
     print("\n" + "="*70)
-    print(f"☃️ 250$ DENEYİ v13.0 - KAR TOPU (BİLEŞİK GETİRİ)")
-    print(f"💰 Kasa: ${BASLANGIC_KASA} | 🚀 Giriş Gücü: %{ISLEM_BASI_YUZDE*100}")
-    print(f"📉 Felsefe: Kazandığını tekrar yatır, mermiyi büyüt.")
+    print(f"🧪 SNIPER ELITE - 3 KADEMELİ ROKET TESTİ")
+    print(f"💰 Kasa: ${BASLANGIC_KASA} | 🎯 Hedefler: %10 / %30 / %50")
     print("="*70)
 
     # 1. VERİLERİ HAZIRLA
-    print("⏳ Veriler işleniyor...")
+    print("⏳ Veriler işleniyor (Son 2 Yıl)...")
     market_data = {}
     tum_tarihler = set()
 
@@ -65,32 +45,23 @@ def main():
                 tum_tarihler.update(df.index)
         except: continue
 
-    if not market_data: return
     zaman_cizelgesi = sorted(list(tum_tarihler))
     
-    # 2. SİMÜLASYON
+    # 2. SİMÜLASYON DEĞİŞKENLERİ
     nakit = BASLANGIC_KASA
-    portfoy = {} 
+    portfoy = {}  # { 'Hisse': {'adet': 10, 'maliyet': 100, 't1_ok': False, 't2_ok': False, 'stop': 92} }
     islem_gecmisi = []
-    equity_curve = [] 
-    toplam_komisyon = 0
     
-    ilk_islem_buyuklugu = 0
-    son_islem_buyuklugu = 0
-    
-    for gun in zaman_cizelgesi:
-        # A. DEĞERLEME
-        portfoy_degeri = nakit
-        for t, poz in portfoy.items():
-            if gun in market_data[t].index:
-                curr = market_data[t].loc[gun]['Close']
-                portfoy_degeri += poz['adet'] * curr
-            else:
-                portfoy_degeri += poz['adet'] * poz['zirve_fiyat']
-        
-        equity_curve.append(portfoy_degeri)
+    istatistik = {
+        "Stop Olanlar": 0,
+        "Hedef 1 (Güvenlik)": 0,
+        "Hedef 2 (Trend)": 0,
+        "Hedef 3 (Jackpot)": 0
+    }
 
-        # B. SATIŞ
+    # 3. ZAMAN MAKİNESİ
+    for gun in zaman_cizelgesi:
+        # A. MEVCUT POZİSYONLARI YÖNET (SATIŞ SİMÜLASYONU)
         satilacaklar = []
         for t, poz in portfoy.items():
             if gun not in market_data[t].index: continue
@@ -98,132 +69,139 @@ def main():
             row = market_data[t].loc[gun]
             high = row['High']
             low = row['Low']
+            close = row['Close']
             
-            if high > poz['zirve_fiyat']: poz['zirve_fiyat'] = high
-            
-            sebeb = ""
-            cikis_fiyati = 0
-            satilan_adet = 0
-            
-            # DURUM 1: İLK KAR AL (%10)
-            if not poz['yarisi_satildi_mi'] and high >= poz['maliyet'] * (1 + ILK_KAR_AL_YUZDE):
-                cikis_fiyati = poz['maliyet'] * (1 + ILK_KAR_AL_YUZDE)
-                satilan_adet = poz['adet'] / 2 
-                sebeb = "İLK KAR AL (%10)"
+            # 1. STOP KONTROLÜ
+            if low <= poz['stop']:
+                # Stop Patladı - Hepsini Sat
+                satis_fiyati = poz['stop']
+                gelir = poz['adet'] * satis_fiyati - KOMISYON
+                nakit += gelir
                 
-                poz['adet'] -= satilan_adet
-                poz['yarisi_satildi_mi'] = True
-                poz['stop_seviyesi'] = poz['maliyet'] 
+                net_kar = gelir - (poz['adet'] * poz['maliyet_orijinal']) # Sadece bu parçanın karı değil, toplam işlem matematiği karışık, basit tutalım.
                 
-                satis_tutari = satilan_adet * cikis_fiyati
-                brut = satis_tutari - (satilan_adet * poz['maliyet'])
-                vergi = brut * VERGI_ORANI
-                net = brut - KOMISYON - vergi
-                nakit += satis_tutari - KOMISYON - vergi
-                toplam_komisyon += KOMISYON
-                
-                islem_gecmisi.append({
-                    'Hisse': t, 'Tarih': gun.date(), 'Net Kar': round(net, 2),
-                    'İşlem Hacmi': round(satilan_adet * poz['maliyet'], 2),
-                    'Sebep': sebeb
-                })
-                continue 
-
-            # DURUM 2: KOMPLE ÇIKIŞ
-            if poz['yarisi_satildi_mi']:
-                stop_level = max(poz['maliyet'], poz['zirve_fiyat'] * (1 - TRAILING_STOP_YUZDE))
-            else:
-                stop_level = poz['zirve_fiyat'] * (1 - TRAILING_STOP_YUZDE)
-            
-            if low <= stop_level:
-                cikis_fiyati = stop_level
-                satilan_adet = poz['adet']
-                sebeb = "STOP / TRAILING"
-                
-                satis_tutari = satilan_adet * cikis_fiyati
-                brut = satis_tutari - (satilan_adet * poz['maliyet'])
-                vergi = brut * VERGI_ORANI if brut > 0 else 0
-                net = brut - KOMISYON - vergi
-                nakit += satis_tutari - KOMISYON - vergi
-                toplam_komisyon += KOMISYON
-                
-                islem_gecmisi.append({
-                    'Hisse': t, 'Tarih': gun.date(), 'Net Kar': round(net, 2),
-                    'İşlem Hacmi': round(satilan_adet * poz['maliyet'], 2),
-                    'Sebep': sebeb
-                })
+                islem_gecmisi.append({'Tarih': gun.date(), 'Hisse': t, 'Olay': 'STOP LOSS', 'Fiyat': satis_fiyati})
                 satilacaklar.append(t)
+                istatistik["Stop Olanlar"] += 1
+                continue
+
+            # 2. HEDEF 1 KONTROLÜ (%10)
+            if not poz['t1_ok'] and high >= poz['maliyet'] * (1 + TARGET_1_PCT):
+                # Yarısını Sat
+                satilacak_adet = poz['adet'] / 2
+                satis_fiyati = poz['maliyet'] * (1 + TARGET_1_PCT)
+                
+                nakit += (satilacak_adet * satis_fiyati) - KOMISYON
+                
+                # Pozisyonu Güncelle
+                poz['adet'] -= satilacak_adet
+                poz['t1_ok'] = True
+                poz['stop'] = poz['maliyet'] # STOP'U MALİYETE ÇEK (Risk Free)
+                
+                islem_gecmisi.append({'Tarih': gun.date(), 'Hisse': t, 'Olay': '🎯 HEDEF 1 (%10)', 'Fiyat': satis_fiyati})
+                istatistik["Hedef 1 (Güvenlik)"] += 1
+
+            # 3. HEDEF 2 KONTROLÜ (%30)
+            if poz['t1_ok'] and not poz['t2_ok'] and high >= poz['maliyet'] * (1 + TARGET_2_PCT):
+                # Kalanın Yarısını Sat (Yani başlangıcın %25'i)
+                satilacak_adet = poz['adet'] / 2
+                satis_fiyati = poz['maliyet'] * (1 + TARGET_2_PCT)
+                
+                nakit += (satilacak_adet * satis_fiyati) - KOMISYON
+                
+                poz['adet'] -= satilacak_adet
+                poz['t2_ok'] = True
+                # Stop'u Hedef 1 seviyesine çek (Kar Kilitle)
+                poz['stop'] = poz['maliyet'] * (1 + TARGET_1_PCT)
+                
+                islem_gecmisi.append({'Tarih': gun.date(), 'Hisse': t, 'Olay': '🚀 HEDEF 2 (%30)', 'Fiyat': satis_fiyati})
+                istatistik["Hedef 2 (Trend)"] += 1
+                
+            # 4. HEDEF 3 (JACKPOT) KONTROLÜ (%50)
+            if poz['t2_ok'] and high >= poz['maliyet'] * (1 + TARGET_3_PCT):
+                # Kalan Hepsini Sat
+                satis_fiyati = poz['maliyet'] * (1 + TARGET_3_PCT)
+                gelir = poz['adet'] * satis_fiyati - KOMISYON
+                nakit += gelir
+                
+                islem_gecmisi.append({'Tarih': gun.date(), 'Hisse': t, 'Olay': '💰 JACKPOT (%50+)', 'Fiyat': satis_fiyati})
+                satilacaklar.append(t) # Pozisyon bitti
+                istatistik["Hedef 3 (Jackpot)"] += 1
         
+        # Listeden silinecekleri temizle
         for t in satilacaklar: del portfoy[t]
-            
-        # C. ALIŞ (BİLEŞİK GETİRİ BURADA ÇALIŞIR)
-        if len(portfoy) == 0 and nakit > 50: 
+
+        # B. YENİ ALIM (Eğer Nakit Varsa ve Pozisyon Yoksa)
+        if len(portfoy) == 0 and nakit > 50:
             adaylar = []
             for t in TEST_TICKERS:
-                if t not in market_data: continue
-                if gun not in market_data[t].index: continue
-                
+                if t not in market_data or gun not in market_data[t].index: continue
                 row = market_data[t].loc[gun]
-                if sinyal_kontrol(row) == "AL":
-                    adaylar.append((t, row['RSI_14']))
+                
+                # SNIPER STRATEJİSİ
+                try:
+                    sma200 = row['SMA_200']
+                    sma50 = row['SMA_50']
+                    sma20 = row['SMA_20']
+                    rsi = row['RSI_14']
+                    close = row['Close']
+                    
+                    if (close > sma200 and close > sma50) and (rsi >= 55) and (close > sma20):
+                        adaylar.append((t, rsi))
+                except: continue
             
+            # En yüksek RSI olanı seç
             adaylar.sort(key=lambda x: x[1], reverse=True)
             
             if adaylar:
-                t_secilen = adaylar[0][0]
-                
-                # BİLEŞİK GETİRİ FORMÜLÜ:
-                # Kasa büyüdükçe, işlem büyüklüğü de büyür.
-                hedef_tutar = nakit * ISLEM_BASI_YUZDE 
-                if hedef_tutar < 50: continue 
-
-                row = market_data[t_secilen].loc[gun]
+                secilen = adaylar[0][0]
+                row = market_data[secilen].loc[gun]
                 fiyat = row['Close']
-                adet = hedef_tutar / fiyat
                 
-                # İstatistik için kaydet
-                if ilk_islem_buyuklugu == 0: ilk_islem_buyuklugu = hedef_tutar
-                son_islem_buyuklugu = hedef_tutar
-
-                nakit -= (adet * fiyat + KOMISYON)
-                toplam_komisyon += KOMISYON
+                alincak_tutar = nakit * GIRIS_GUCU
+                adet = alincak_tutar / fiyat
                 
-                portfoy[t_secilen] = {
-                    'adet': adet, 'maliyet': fiyat, 'tarih': gun,
-                    'zirve_fiyat': fiyat, 'yarisi_satildi_mi': False
+                nakit -= (alincak_tutar + KOMISYON)
+                
+                portfoy[secilen] = {
+                    'adet': adet,
+                    'maliyet': fiyat,
+                    'maliyet_orijinal': fiyat,
+                    'stop': fiyat * (1 - STOP_LOSS_PCT),
+                    't1_ok': False,
+                    't2_ok': False
                 }
+                islem_gecmisi.append({'Tarih': gun.date(), 'Hisse': secilen, 'Olay': 'ALIM', 'Fiyat': fiyat})
 
-    # --- RAPOR ---
-    son_deger = equity_curve[-1]
+    # --- RAPORLAMA ---
+    # Son gün portföy değeri
+    son_deger = nakit
+    for t, poz in portfoy.items():
+        curr = market_data[t].iloc[-1]['Close']
+        son_deger += poz['adet'] * curr
+
     kar_zarar = son_deger - BASLANGIC_KASA
-    
-    # Max Drawdown
-    peak = equity_curve[0]
-    max_drawdown = 0
-    for val in equity_curve:
-        if val > peak: peak = val
-        dd = (peak - val) / peak
-        if dd > max_drawdown: max_drawdown = dd
+    yuzde = (kar_zarar / BASLANGIC_KASA) * 100
 
     print("-" * 40)
-    print("📊 KAR TOPU (BİLEŞİK GETİRİ) SONUÇLARI")
+    print("📊 LABORATUVAR SONUCU")
     print("-" * 40)
+    print(f"Başlangıç Kasası : ${BASLANGIC_KASA}")
     print(f"Bitiş Kasası     : ${son_deger:.2f}")
-    print(f"Net Kar/Zarar    : ${kar_zarar:.2f} (%{kar_zarar/BASLANGIC_KASA*100:.2f})")
-    print(f"Ödenen Komisyon  : ${toplam_komisyon:.2f}")
+    print(f"Net Kar/Zarar    : ${kar_zarar:.2f} (%{yuzde:.2f})")
     print("-" * 40)
-    print(f"❄️ KAR TOPU ETKİSİ:")
-    print(f"İlk Mermi Büyüklüğü : ${ilk_islem_buyuklugu:.2f}")
-    print(f"Son Mermi Büyüklüğü : ${son_islem_buyuklugu:.2f}")
-    degisim = ((son_islem_buyuklugu - ilk_islem_buyuklugu) / ilk_islem_buyuklugu) * 100
-    print(f"Mermi Büyümesi      : %{degisim:.2f}")
+    print("📈 İSTATİSTİKLER (Kademeli Satış Başarısı)")
+    print(f"❌ Stop Olan İşlemler    : {istatistik['Stop Olanlar']}")
+    print(f"✅ Hedef 1 (%10) Kilit   : {istatistik['Hedef 1 (Güvenlik)']}")
+    print(f"🚀 Hedef 2 (%30) Trend   : {istatistik['Hedef 2 (Trend)']}")
+    print(f"💰 Hedef 3 (%50) Jackpot : {istatistik['Hedef 3 (Jackpot)']}")
+    print("-" * 40)
     
-    if islem_gecmisi:
-        df = pd.DataFrame(islem_gecmisi)
-        win = len(df[df['Net Kar'] > 0])
-        print(f"Başarı Oranı     : %{(win/len(df))*100:.1f}")
-        print("\n🏆 SON İŞLEMLER:")
-        print(df.sort_values('Tarih', ascending=False).head(5)[['Hisse', 'Tarih', 'İşlem Hacmi', 'Net Kar']].to_string(index=False))
+    # Son 10 İşlem
+    print("\n📜 SON OPERASYON KAYITLARI:")
+    df_log = pd.DataFrame(islem_gecmisi)
+    if not df_log.empty:
+        print(df_log.tail(10).to_string(index=False))
 
 if __name__ == "__main__":
     main()
