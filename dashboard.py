@@ -3,6 +3,7 @@ import pandas as pd
 import altair as alt
 import yfinance as yf
 import pandas_ta as ta
+import textwrap  # <--- SİHİRLİ DEĞNEK BU
 
 # --- 1. SAYFA AYARLARI ---
 st.set_page_config(
@@ -27,9 +28,6 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         margin-bottom: 20px;
     }
-    .top-symbol { font-size: 36px; font-weight: 900; color: #ffffff; margin: 5px 0; }
-    .top-price { font-size: 24px; font-weight: bold; color: #e6edf3; margin-bottom: 5px; }
-    .top-vade { font-size: 14px; color: #8b949e; margin-bottom: 15px; font-style: italic; }
     
     /* OPERASYON KARTI (ELITE DESIGN) */
     .op-card {
@@ -65,9 +63,6 @@ st.markdown("""
 
     /* DİĞER STİLLER */
     .info-box { padding: 15px; border-radius: 10px; text-align: center; color: white; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
-    .info-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
-    .info-count { font-size: 42px; font-weight: 900; }
-    .info-desc { font-size: 12px; opacity: 0.8; }
     .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } 
     .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   
     .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     
@@ -75,6 +70,11 @@ st.markdown("""
     .stock-item { background-color: rgba(0,0,0,0.2); padding: 8px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; font-size: 14px; }
     .detective-card { background-color: #161b22; border: 2px solid #58a6ff; border-radius: 15px; padding: 30px; text-align: center; }
     .text-green { color: #3fb950 !important; } .text-red { color: #f85149 !important; }
+    
+    /* Yardımcı sınıflar */
+    .op-row { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 1px solid #30363d; padding-bottom: 15px; }
+    .op-label { font-size: 11px; font-weight: bold; color: #8b949e; letter-spacing: 1px; text-transform: uppercase; }
+    .op-value { font-size: 22px; font-weight: bold; color: #e6edf3; font-family: monospace; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -83,25 +83,18 @@ FULL_WATCHLIST = [
     "NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"
 ]
 
-# --- VERİ YÜKLEME VE DÜZELTME ---
+# --- VERİ YÜKLEME ---
 @st.cache_data(ttl=300)
 def load_data():
     try:
-        # CSV Yükle
         df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-        
-        # Eksik Kolonları Doldur
         required = ['Hisse', 'Fiyat', 'Karar', 'Guven_Skoru', 'Hedef_Fiyat', 'Stop_Loss', 'Vade', 'Analiz_Ozeti', 'Kazanc_Potansiyeli', 'Risk_Yuzdesi']
         for col in required:
             if col not in df.columns: df[col] = "-"
-            
-        # Sayısal Dönüşüm
+        df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(50)
-        
-        # SADECE BİZİM LİSTEYİ AL (Filtreleme hatası olmasın diye)
         df = df[df['Hisse'].isin(FULL_WATCHLIST)]
-        
         return df
     except:
         return pd.DataFrame()
@@ -177,42 +170,34 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏆 AI Vitrini", "📊 Portföy Analizi", "🧪 250$ Deney Labı", "🗃️ Veri Havuzu", "🔎 Hisse Dedektifi"
 ])
 
-# --- TAB 1: AI VİTRİNİ (DÜZELTİLDİ) ---
+# --- TAB 1: AI VİTRİNİ ---
 with tab1:
     if not df.empty:
-        # En yüksek puanlı 3 hisseyi getir (Filtresiz)
         top_picks = df.sort_values('Guven_Skoru_Num', ascending=False).head(3)
         c1, c2, c3 = st.columns(3)
         top3 = top_picks.reset_index()
-        
         def create_vitrin_card(row, rank):
             score = int(row['Guven_Skoru_Num'])
             color = "#238636" if score >= 85 else "#1f6feb" if score >= 70 else "#d29922"
-            html = f"""<div class="top-card"><div style="color:#58a6ff; font-weight:bold; font-size:12px;">#{rank} NUMARA</div><div class="top-symbol">{row['Hisse']}</div><div class="top-price">{safe_val(row['Fiyat'], '$')}</div><div class="top-vade">{safe_val(row['Vade'])}</div><div style="display:flex; justify-content:center; gap:5px; align-items:baseline;"><span style="color:#888;">PUAN:</span><span class="top-score" style="color:{color};">{score}</span><span style="color:#888;">/100</span></div><hr style="border-color:#30363d; margin:15px 0;"><div style="display:flex; justify-content:space-between; font-size:14px;"><div style="text-align:left;"><div style="color:#888; font-size:11px;">HEDEF</div><div class="text-green" style="font-weight:bold; font-size:18px;">{safe_val(row['Hedef_Fiyat'], '$')}</div></div><div style="text-align:right;"><div style="color:#888; font-size:11px;">STOP</div><div class="text-red" style="font-weight:bold; font-size:18px;">{safe_val(row['Stop_Loss'], '$')}</div></div></div></div>"""
-            return html
-        
+            return f"""<div class="top-card"><div style="color:#58a6ff; font-weight:bold; font-size:12px;">#{rank} NUMARA</div><div class="top-symbol">{row['Hisse']}</div><div class="top-price">{safe_val(row['Fiyat'], '$')}</div><div class="top-vade">{safe_val(row['Vade'])}</div><div style="display:flex; justify-content:center; gap:5px; align-items:baseline;"><span style="color:#888;">PUAN:</span><span class="top-score" style="color:{color};">{score}</span><span style="color:#888;">/100</span></div><hr style="border-color:#30363d; margin:15px 0;"><div style="display:flex; justify-content:space-between; font-size:14px;"><div style="text-align:left;"><div style="color:#888; font-size:11px;">HEDEF</div><div class="text-green" style="font-weight:bold; font-size:18px;">{safe_val(row['Hedef_Fiyat'], '$')}</div></div><div style="text-align:right;"><div style="color:#888; font-size:11px;">STOP</div><div class="text-red" style="font-weight:bold; font-size:18px;">{safe_val(row['Stop_Loss'], '$')}</div></div></div></div>"""
         if len(top3) > 0: c1.markdown(create_vitrin_card(top3.iloc[0], 1), unsafe_allow_html=True)
         if len(top3) > 1: c2.markdown(create_vitrin_card(top3.iloc[1], 2), unsafe_allow_html=True)
         if len(top3) > 2: c3.markdown(create_vitrin_card(top3.iloc[2], 3), unsafe_allow_html=True)
     else:
-        st.info("Veri havuzu boş. 'Hisse Dedektifi'nden tek tek analiz yapabilirsin.")
+        st.info("Veri havuzu boş.")
 
-# --- TAB 2: PORTFÖY ANALİZİ (DÜZELTİLDİ) ---
+# --- TAB 2: PORTFÖY ANALİZİ ---
 with tab2:
     if not df.empty:
         efsane = df[df['Guven_Skoru_Num'] >= 85]
         iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
         orta = df[(df['Guven_Skoru_Num'] >= 50) & (df['Guven_Skoru_Num'] < 70)]
         cop = df[df['Guven_Skoru_Num'] < 50]
-
         c1, c2, c3, c4 = st.columns(4)
-        
         def create_infobox(title, count, desc, bg_class, items_df):
             items_html = ""
-            for _, row in items_df.head(5).iterrows():
-                items_html += f"<div class='stock-item'><span><b>{row['Hisse']}</b></span><span>{int(row['Guven_Skoru_Num'])} Puan</span></div>"
+            for _, row in items_df.head(5).iterrows(): items_html += f"<div class='stock-item'><span><b>{row['Hisse']}</b></span><span>{int(row['Guven_Skoru_Num'])} Puan</span></div>"
             return f"""<div class="info-box {bg_class}"><div class="info-title">{title}</div><div class="info-count">{count}</div><div class="info-desc">{desc}</div><hr style="border-color:rgba(255,255,255,0.2); margin:10px 0;"><div style="text-align:left;">{items_html}</div></div>"""
-
         with c1: st.markdown(create_infobox("💎 Mükemmel", len(efsane), "Kaçırma", "bg-legend", efsane), unsafe_allow_html=True)
         with c2: st.markdown(create_infobox("🚀 İyi", len(iyi), "Güçlü", "bg-good", iyi), unsafe_allow_html=True)
         with c3: st.markdown(create_infobox("⚖️ Orta", len(orta), "Takip Et", "bg-mid", orta), unsafe_allow_html=True)
@@ -221,7 +206,7 @@ with tab2:
         st.warning("Analiz verisi bekleniyor.")
 
 # ==============================================================================
-# --- TAB 3: SNIPER ELITE LABORATUVARI (V21.0 - HTML RENDER FIXED) ---
+# --- TAB 3: SNIPER ELITE LABORATUVARI (TEXTWRAP DEDENT İLE DÜZELTİLDİ) ---
 # ==============================================================================
 with tab3:
     st.markdown("## 🧪 250$ Deney Laboratuvarı: SNIPER ELITE")
@@ -232,7 +217,7 @@ with tab3:
     col_inf.success(f"**Savaş Bütçesi:** ${trade_budget:.2f} (Parça Hisse Alımı Aktif)")
 
     if st.button("🚀 Piyasayı Tara ve Yol Haritasını Çıkar", type="primary"):
-        with st.spinner("Strateji hesaplanıyor... Hedefler belirleniyor..."):
+        with st.spinner("Strateji hesaplanıyor..."):
             opportunities = []
             for ticker in FULL_WATCHLIST:
                 res = analyze_sniper(ticker)
@@ -264,78 +249,73 @@ with tab3:
                     profit_3 = (trade_budget * 0.25) * 0.50
                     total_potential_profit = profit_1 + profit_2 + profit_3
                     
-                    # HTML KODUNU TEK PARÇA HALİNDE OLUŞTURUYORUZ
-                    # DİKKAT: f-string içindeki süslü parantezlere dikkat.
+                    # HTML KODU (textwrap.dedent ile temizlenmiş)
+                    html_code = textwrap.dedent(f"""
+                        <div class="op-card">
+                            <div class="op-header">
+                                <div class="op-title">{label}: {ticker}</div>
+                                <div class="op-badge">RSI GÜCÜ: {rsi:.1f}</div>
+                            </div>
+                            
+                            <div class="op-row">
+                                <div>
+                                    <div class="op-label">GİRİŞ FİYATI</div>
+                                    <div class="op-value">${entry_price:.2f}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div class="op-label">YATIRILACAK</div>
+                                    <div class="op-value text-green">${trade_budget:.2f}</div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom:20px;">
+                                <div class="op-label">📄 GÖREV EMRİ</div>
+                                <div style="color:#e6edf3; font-size:15px; margin-top:5px;">
+                                    <b>Parça Hisse (Fractional)</b> emri ile <b>${trade_budget:.2f}</b> tutarında {ticker} al.
+                                    <br><span style="color:#f85149; font-size:13px;">(Stop Loss: ${stop_loss:.2f})</span>
+                                </div>
+                            </div>
+                            
+                            <div class="op-label" style="text-align:center; margin-bottom:10px;">📍 3 KADEMELİ SATIŞ ROTASI</div>
+                            
+                            <div class="roadmap-container">
+                                <div class="roadmap-step">
+                                    <div class="step-title">1. GÜVENLİK KİLİDİ</div>
+                                    <div class="step-price">${target_1:.2f}</div>
+                                    <div class="step-desc">Elindekinin <b>%50'sini</b> sat.<br><span style="color:#3fb950">Kazanç: +${profit_1:.2f}</span></div>
+                                    <div class="step-time">Tahmini: 1-3 Hafta</div>
+                                </div>
+                                <div class="roadmap-step">
+                                    <div class="step-title">2. TREND KAZANCI</div>
+                                    <div class="step-price">${target_2:.2f}</div>
+                                    <div class="step-desc">Elindekinin <b>%25'ini</b> sat.<br><span style="color:#3fb950">Kazanç: +${profit_2:.2f}</span></div>
+                                    <div class="step-time">Tahmini: 1-2 Ay</div>
+                                </div>
+                                <div class="roadmap-step">
+                                    <div class="step-title">3. JACKPOT</div>
+                                    <div class="step-price">${target_3:.2f}+</div>
+                                    <div class="step-desc">Kalan <b>%25'i</b> sür.<br><span style="color:#3fb950">Kazanç: +${profit_3:.2f}+</span></div>
+                                    <div class="step-time">Tahmini: 3-6 Ay</div>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top:20px; text-align:center; font-size:14px; color:#8b949e;">
+                                🎯 Operasyon Başarılı Olursa Toplam Tahmini Kar: <b style="color:#3fb950">${total_potential_profit:.2f}</b>
+                            </div>
+                        </div>
+                    """)
                     
-                    html_code = f"""
-                    <div class="op-card">
-                        <div class="op-header">
-                            <div class="op-title">{label}: {ticker}</div>
-                            <div class="op-badge">RSI GÜCÜ: {rsi:.1f}</div>
-                        </div>
-                        
-                        <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid #30363d; padding-bottom:15px;">
-                            <div>
-                                <div class="op-label">GİRİŞ FİYATI</div>
-                                <div class="op-value">${entry_price:.2f}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="op-label">YATIRILACAK</div>
-                                <div class="op-value text-green">${trade_budget:.2f}</div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-bottom:20px;">
-                            <div class="op-label">📄 GÖREV EMRİ</div>
-                            <div style="color:#e6edf3; font-size:15px; margin-top:5px;">
-                                <b>Parça Hisse (Fractional)</b> emri ile <b>${trade_budget:.2f}</b> tutarında {ticker} al.
-                                <br><span style="color:#f85149; font-size:13px;">(Stop Loss: ${stop_loss:.2f})</span>
-                            </div>
-                        </div>
-                        
-                        <div class="op-label" style="text-align:center; margin-bottom:10px;">📍 3 KADEMELİ SATIŞ ROTASI</div>
-                        
-                        <div class="roadmap-container">
-                            <div class="roadmap-step">
-                                <div class="step-title">1. GÜVENLİK KİLİDİ</div>
-                                <div class="step-price">${target_1:.2f}</div>
-                                <div class="step-desc">Elindekinin <b>%50'sini</b> sat.<br><span style="color:#3fb950">Kazanç: +${profit_1:.2f}</span></div>
-                                <div class="step-time">Tahmini: 1-3 Hafta</div>
-                            </div>
-                            <div class="roadmap-step">
-                                <div class="step-title">2. TREND KAZANCI</div>
-                                <div class="step-price">${target_2:.2f}</div>
-                                <div class="step-desc">Elindekinin <b>%25'ini</b> sat.<br><span style="color:#3fb950">Kazanç: +${profit_2:.2f}</span></div>
-                                <div class="step-time">Tahmini: 1-2 Ay</div>
-                            </div>
-                            <div class="roadmap-step">
-                                <div class="step-title">3. JACKPOT</div>
-                                <div class="step-price">${target_3:.2f}+</div>
-                                <div class="step-desc">Kalan <b>%25'i</b> sür.<br><span style="color:#3fb950">Kazanç: +${profit_3:.2f}+</span></div>
-                                <div class="step-time">Tahmini: 3-6 Ay</div>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top:20px; text-align:center; font-size:14px; color:#8b949e;">
-                            🎯 Operasyon Başarılı Olursa Toplam Tahmini Kar: <b style="color:#3fb950">${total_potential_profit:.2f}</b>
-                        </div>
-                    </div>
-                    """
-                    # İŞTE SİHİRLİ KOMUT: unsafe_allow_html=True
                     st.markdown(html_code, unsafe_allow_html=True)
 
                 st.markdown(f"### 🔥 TESPİT EDİLEN FIRSATLAR ({len(opportunities)} Adet)")
                 render_roadmap_card(plan_a, "PLAN A")
-                
                 if plan_b:
                     st.markdown("👇 **Alternatif:**")
                     render_roadmap_card(plan_b, "PLAN B")
 
-# --- TAB 4: VERİ ---
+# --- TAB 4 & 5 ---
 with tab4:
     st.dataframe(df if not df.empty else pd.DataFrame(), use_container_width=True)
-
-# --- TAB 5: DEDEKTİF ---
 with tab5:
     st.header("🔎 Hisse Dedektifi")
     sel = st.selectbox("Hisse Seç:", sorted(FULL_WATCHLIST))
