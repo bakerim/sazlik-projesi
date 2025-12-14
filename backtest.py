@@ -9,19 +9,18 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # --- AYARLAR ---
-# 250$ İÇİN TEK KURAL: Sadece En Güçlüler (Muhteşem 7'li + Birkaç Yıldız)
 TEST_TICKERS = [
     "NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"
 ]
 
-BASLANGIC_KASA = 250.0    # MİKRO SERMAYE
-ISLEM_BASI_YUZDE = 0.95   # DİKKAT: Kasanın %95'i (Tek Hisse). %5 nakit bırakıyoruz (Komisyon vb. için)
-ILK_KAR_AL_YUZDE = 0.10   # %10 kârda yarısını sat
-TRAILING_STOP_YUZDE = 0.10 # %10 izleyen stop
-KOMISYON = 1.5            # 1.5 Giriş + 1.5 Çıkış
+BASLANGIC_KASA = 250.0    
+ISLEM_BASI_YUZDE = 0.98   # %98 ALL-IN (Bileşik Getiriyi iliklerine kadar hissetmek için)
+ILK_KAR_AL_YUZDE = 0.10   
+TRAILING_STOP_YUZDE = 0.10 
+KOMISYON = 1.5            
 VERGI_ORANI = 0.15        
 
-# --- SNIPER BARON SKORLAMA (Aynı Strateji) ---
+# --- STRATEJİ MOTORU ---
 def sinyal_kontrol(row):
     try:
         close = float(row['Close'])
@@ -31,25 +30,23 @@ def sinyal_kontrol(row):
         rsi = float(row['RSI_14'])
     except: return "YOK"
 
-    # FİLTRE: Boğa Piyasası ve Momentum
     if pd.notna(sma200) and close < sma200: return "YOK"
     if close < sma50: return "YOK"
     if rsi < 55: return "YOK"
 
-    # GİRİŞ: Düzeltme Bitişi
     if close > sma20:
         return "AL"
     return "YOK"
 
 def main():
     print("\n" + "="*70)
-    print(f"🧪 250 DOLAR DENEYİ - SNIPER BARON (TEK MERMİ MODU)")
-    print(f"💰 Kasa: ${BASLANGIC_KASA} | 🍰 Pozisyon: %{ISLEM_BASI_YUZDE*100} (Tek Seferde Full Giriş)")
-    print(f"🎯 Amaç: Komisyonu ezmek için parayı bölmüyoruz.")
+    print(f"☃️ 250$ DENEYİ v13.0 - KAR TOPU (BİLEŞİK GETİRİ)")
+    print(f"💰 Kasa: ${BASLANGIC_KASA} | 🚀 Giriş Gücü: %{ISLEM_BASI_YUZDE*100}")
+    print(f"📉 Felsefe: Kazandığını tekrar yatır, mermiyi büyüt.")
     print("="*70)
 
     # 1. VERİLERİ HAZIRLA
-    print("⏳ Veriler işleniyor (Son 2 Yıl)...")
+    print("⏳ Veriler işleniyor...")
     market_data = {}
     tum_tarihler = set()
 
@@ -77,6 +74,9 @@ def main():
     islem_gecmisi = []
     equity_curve = [] 
     toplam_komisyon = 0
+    
+    ilk_islem_buyuklugu = 0
+    son_islem_buyuklugu = 0
     
     for gun in zaman_cizelgesi:
         # A. DEĞERLEME
@@ -124,6 +124,7 @@ def main():
                 
                 islem_gecmisi.append({
                     'Hisse': t, 'Tarih': gun.date(), 'Net Kar': round(net, 2),
+                    'İşlem Hacmi': round(satilan_adet * poz['maliyet'], 2),
                     'Sebep': sebeb
                 })
                 continue 
@@ -148,13 +149,14 @@ def main():
                 
                 islem_gecmisi.append({
                     'Hisse': t, 'Tarih': gun.date(), 'Net Kar': round(net, 2),
+                    'İşlem Hacmi': round(satilan_adet * poz['maliyet'], 2),
                     'Sebep': sebeb
                 })
                 satilacaklar.append(t)
         
         for t in satilacaklar: del portfoy[t]
             
-        # C. ALIŞ (Sadece Portföy Boşsa Alır - TEK MERMİ)
+        # C. ALIŞ (BİLEŞİK GETİRİ BURADA ÇALIŞIR)
         if len(portfoy) == 0 and nakit > 50: 
             adaylar = []
             for t in TEST_TICKERS:
@@ -165,19 +167,24 @@ def main():
                 if sinyal_kontrol(row) == "AL":
                     adaylar.append((t, row['RSI_14']))
             
-            # En güçlüsünü seç
             adaylar.sort(key=lambda x: x[1], reverse=True)
             
             if adaylar:
-                t_secilen = adaylar[0][0] # Sadece en iyisi
+                t_secilen = adaylar[0][0]
                 
-                hedef_tutar = nakit * ISLEM_BASI_YUZDE # Paranın neredeyse tamamı
+                # BİLEŞİK GETİRİ FORMÜLÜ:
+                # Kasa büyüdükçe, işlem büyüklüğü de büyür.
+                hedef_tutar = nakit * ISLEM_BASI_YUZDE 
                 if hedef_tutar < 50: continue 
 
                 row = market_data[t_secilen].loc[gun]
                 fiyat = row['Close']
                 adet = hedef_tutar / fiyat
                 
+                # İstatistik için kaydet
+                if ilk_islem_buyuklugu == 0: ilk_islem_buyuklugu = hedef_tutar
+                son_islem_buyuklugu = hedef_tutar
+
                 nakit -= (adet * fiyat + KOMISYON)
                 toplam_komisyon += KOMISYON
                 
@@ -199,20 +206,24 @@ def main():
         if dd > max_drawdown: max_drawdown = dd
 
     print("-" * 40)
-    print("📊 250$ DENEY SONUÇLARI")
+    print("📊 KAR TOPU (BİLEŞİK GETİRİ) SONUÇLARI")
     print("-" * 40)
     print(f"Bitiş Kasası     : ${son_deger:.2f}")
     print(f"Net Kar/Zarar    : ${kar_zarar:.2f} (%{kar_zarar/BASLANGIC_KASA*100:.2f})")
-    print(f"Max Drawdown     : %{max_drawdown*100:.2f}")
     print(f"Ödenen Komisyon  : ${toplam_komisyon:.2f}")
+    print("-" * 40)
+    print(f"❄️ KAR TOPU ETKİSİ:")
+    print(f"İlk Mermi Büyüklüğü : ${ilk_islem_buyuklugu:.2f}")
+    print(f"Son Mermi Büyüklüğü : ${son_islem_buyuklugu:.2f}")
+    degisim = ((son_islem_buyuklugu - ilk_islem_buyuklugu) / ilk_islem_buyuklugu) * 100
+    print(f"Mermi Büyümesi      : %{degisim:.2f}")
     
     if islem_gecmisi:
         df = pd.DataFrame(islem_gecmisi)
         win = len(df[df['Net Kar'] > 0])
         print(f"Başarı Oranı     : %{(win/len(df))*100:.1f}")
-        print(f"Toplam İşlem     : {len(df)}")
         print("\n🏆 SON İŞLEMLER:")
-        print(df.sort_values('Tarih', ascending=False).head(5)[['Hisse', 'Tarih', 'Net Kar', 'Sebep']].to_string(index=False))
+        print(df.sort_values('Tarih', ascending=False).head(5)[['Hisse', 'Tarih', 'İşlem Hacmi', 'Net Kar']].to_string(index=False))
 
 if __name__ == "__main__":
     main()
