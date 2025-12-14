@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CSS TASARIMI ---
+# --- 2. CSS TASARIMI (Görsel İyileştirmeler) ---
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; }
@@ -33,17 +33,11 @@ st.markdown("""
     
     /* İNFOGRAFİK KUTULARI */
     .info-box {
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        color: white;
-        margin-bottom: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
+        padding: 15px; border-radius: 10px; text-align: center; color: white; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);
     }
     .info-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
     .info-count { font-size: 42px; font-weight: 900; }
     .info-desc { font-size: 12px; opacity: 0.8; }
-    
     .bg-legend { background: linear-gradient(135deg, #1a7f37 0%, #2da44e 100%); } 
     .bg-good { background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%); }   
     .bg-mid { background: linear-gradient(135deg, #9e6a03 0%, #d29922 100%); }     
@@ -51,53 +45,49 @@ st.markdown("""
 
     /* HİSSE LİSTESİ */
     .stock-item {
-        background-color: rgba(0,0,0,0.2);
-        padding: 8px;
-        margin: 5px 0;
-        border-radius: 5px;
-        display: flex;
-        justify-content: space-between;
-        font-size: 14px;
+        background-color: rgba(0,0,0,0.2); padding: 8px; margin: 5px 0; border-radius: 5px; display: flex; justify-content: space-between; font-size: 14px;
     }
 
-    /* OPERASYON KARTI (TAB 3) */
+    /* OPERASYON KARTI (YENİLENMİŞ CSS) */
     .op-card {
         background-color: #0d1117;
-        border: 2px solid #3fb950;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
+        border: 2px solid #3fb950; /* Yeşil Çerçeve */
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 0 15px rgba(63, 185, 80, 0.1);
     }
-    .op-card-b { border-color: #8b949e; opacity: 0.8; }
+    .op-card-b { 
+        border-color: #8b949e; /* Gri Çerçeve */
+        opacity: 0.9;
+    }
     .op-header {
-        font-size: 24px; font-weight: 900; color: white;
-        border-bottom: 1px solid #30363d; padding-bottom: 10px; margin-bottom: 15px;
-        display: flex; justify-content: space-between;
+        display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid #30363d; padding-bottom: 15px; margin-bottom: 15px;
     }
-    .op-step {
-        background: rgba(255,255,255,0.05);
-        padding: 10px; border-radius: 5px; margin: 5px 0;
-        font-size: 15px; color: #e6edf3; line-height: 1.6;
+    .op-title { font-size: 22px; font-weight: 900; color: white; margin: 0; }
+    .op-rsi { font-size: 14px; font-weight: bold; color: #3fb950; background: rgba(63, 185, 80, 0.1); padding: 5px 10px; border-radius: 20px; }
+    
+    .op-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .op-stat-label { font-size: 11px; font-weight: bold; color: #8b949e; letter-spacing: 1px; text-transform: uppercase; }
+    .op-stat-val { font-size: 20px; font-weight: bold; color: #e6edf3; }
+    
+    .op-step-box {
+        background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 15px; margin-bottom: 20px;
     }
-    .op-label { color: #8b949e; font-size: 12px; font-weight: bold; letter-spacing: 1px; }
-    .op-value { font-size: 18px; font-weight: bold; color: white; }
-    .op-target { color: #3fb950 !important; }
-    .op-stop { color: #f85149 !important; }
-
+    .op-step-text { color: #e6edf3; font-size: 15px; line-height: 1.6; margin: 0; }
+    
+    .op-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid #30363d; padding-top: 15px; }
+    .val-green { color: #3fb950 !important; font-size: 22px !important; }
+    .val-red { color: #f85149 !important; font-size: 22px !important; }
+    
     /* DEDEKTİF KARTI */
-    .detective-card {
-        background-color: #0d1117;
-        border: 2px solid #58a6ff;
-        border-radius: 15px;
-        padding: 30px;
-        text-align: center;
-    }
+    .detective-card { background-color: #0d1117; border: 2px solid #58a6ff; border-radius: 15px; padding: 30px; text-align: center; }
     .detective-label { font-size: 14px; color: #8b949e; letter-spacing: 1px; }
     .detective-value { font-size: 32px; font-weight: bold; color: white; margin-bottom: 15px; }
     
     .text-green { color: #3fb950 !important; }
     .text-red { color: #f85149 !important; }
-    
     .stDataFrame { border: 1px solid #30363d; border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
@@ -107,7 +97,7 @@ FULL_WATCHLIST = [
     "NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"
 ]
 
-# --- 3. VERİ YÜKLEME ---
+# --- VERİ YÜKLEME ---
 @st.cache_data(ttl=300)
 def load_data():
     try:
@@ -121,10 +111,7 @@ def load_data():
             
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(0)
-        
-        # Sadece WATCHLIST içindeki hisseleri filtrele
         df = df[df['Hisse'].isin(FULL_WATCHLIST)]
-        
         return df
     except:
         return pd.DataFrame()
@@ -138,9 +125,8 @@ def safe_val(val, prefix=""):
         return f"{prefix}{val}"
     except: return '-'
 
-# --- SNIPER BARON ANALİZ MOTORU (V13.0) ---
+# --- SNIPER BARON ANALİZ MOTORU ---
 def analyze_sniper(ticker):
-    """V13 Sniper Baron Stratejisine göre anlık analiz eder"""
     try:
         df_sniper = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
         if isinstance(df_sniper.columns, pd.MultiIndex):
@@ -148,7 +134,6 @@ def analyze_sniper(ticker):
         
         if len(df_sniper) < 200: return None
         
-        # İndikatörler
         df_sniper.ta.rsi(length=14, append=True)
         df_sniper.ta.sma(length=20, append=True)
         df_sniper.ta.sma(length=50, append=True)
@@ -182,7 +167,7 @@ def analyze_sniper(ticker):
     except:
         return None
 
-# --- CANLI ANALİZ (Dedektif İçin) ---
+# --- CANLI ANALİZ ---
 def canli_analiz_yap(ticker):
     try:
         stock = yf.Ticker(ticker)
@@ -244,7 +229,7 @@ st.markdown(f"**Aktif Özel Tim:** `{', '.join(FULL_WATCHLIST)}`")
 st.markdown("---")
 
 if df.empty:
-    st.info("📡 Veri bekleniyor veya listede uygun sinyal yok...")
+    st.info("📡 Veri bekleniyor...")
 
 # VERİ AYRIŞTIRMA
 robot_picks = pd.DataFrame()
@@ -263,7 +248,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔎 Hisse Dedektifi"
 ])
 
-# --- SEKME 1: AI VİTRİNİ (GERİ GELDİ!) ---
+# --- SEKME 1: AI VİTRİNİ ---
 with tab1:
     if not ai_picks.empty:
         top_picks = ai_picks.sort_values('Guven_Skoru_Num', ascending=False)
@@ -287,7 +272,7 @@ with tab1:
     else:
         st.info("Bu listedeki hisseler için uygun AI fırsatı bulunamadı.")
 
-# --- SEKME 2: PORTFÖY VE KARAR DESTEK (GERİ GELDİ!) ---
+# --- SEKME 2: PORTFÖY VE KARAR DESTEK ---
 with tab2:
     st.subheader("📊 Portföy Karar Destek Matrisi")
     
@@ -320,14 +305,13 @@ with tab2:
         with c2: st.markdown(create_infobox("🚀 İyi", len(iyi), "Güçlü yükseliş potansiyeli", "bg-good", iyi), unsafe_allow_html=True)
         with c3: st.markdown(create_infobox("⚖️ Orta", len(orta), "İzlemede kal, henüz net değil", "bg-mid", orta), unsafe_allow_html=True)
         with c4: st.markdown(create_infobox("⛔ Sakın Dokunma", len(cop), "Düşüş trendi veya aşırı riskli", "bg-bad", cop), unsafe_allow_html=True)
-
     else:
         st.warning("Veri bekleniyor...")
 
-# --- SEKME 3: YENİLENEN SNIPER BARON LABORATUVARI ---
+# --- SEKME 3: DÜZELTİLMİŞ SNIPER BARON LABORATUVARI ---
 with tab3:
     st.markdown("## 🧪 250$ Deney Laboratuvarı: Operasyon Masası")
-    st.markdown("Bu panel, sana ne yapacağını adım adım söyleyen bir robottur. **Yorum katma, uygula.**")
+    st.markdown("Matematiğe güven. Talimatları uygula.")
     
     col_input, col_info = st.columns([1, 2])
     with col_input:
@@ -353,6 +337,7 @@ with tab3:
                 plan_a = opportunities[0]
                 plan_b = opportunities[1] if len(opportunities) > 1 else None
                 
+                # HTML KART OLUŞTURUCU
                 def render_operation_card(plan, label, css_class=""):
                     ticker = plan['Hisse']
                     price = plan['Fiyat']
@@ -365,67 +350,77 @@ with tab3:
                     adet_tam = int(yatirim_tutari / price)
                     kalan_para = yatirim_tutari - (adet_tam * price)
 
-                    # 0 ADET UYARISI
+                    # BÜTÇE UYARISI
                     if adet_tam == 0:
-                        buy_msg = f"<span style='color:#f85149'>⚠️ DİKKAT: Bütçen (${yatirim_tutari:.2f}) bu hissenin 1 tanesine (${price:.2f}) yetmiyor.</span><br>👉 Sadece <b>Parça Hisse (Fractional Share)</b> alabiliyorsan devam et."
+                        buy_msg = f"""
+                        <div style='background:rgba(248, 81, 73, 0.15); padding:10px; border-radius:5px; border-left: 3px solid #f85149;'>
+                            <span style='color:#f85149; font-weight:bold;'>⚠️ BÜTÇE UYARISI:</span><br>
+                            Bütçen (${yatirim_tutari:.2f}) bu hissenin 1 tanesine (${price:.2f}) yetmiyor.<br>
+                            👉 <b>SADECE Parça Hisse (Fractional Share) alabiliyorsan devam et.</b><br>
+                            👉 Alamıyorsan bu planı iptal et ve aşağıdakine (Plan B) geç.
+                        </div>
+                        """
                     else:
-                        buy_msg = f"- Eğer sadece Tam Hisse alabiliyorsan: <b>{adet_tam} Adet</b> al. (Kalan ${kalan_para:.2f} nakitte dursun)."
+                        buy_msg = f"""
+                        <div style='background:rgba(63, 185, 80, 0.15); padding:10px; border-radius:5px; border-left: 3px solid #3fb950;'>
+                            ✅ <b>ALIM TALİMATI:</b><br>
+                            - <b>Tam Hisse:</b> {adet_tam} Adet al. (Kalan ${kalan_para:.2f} nakitte dursun).<br>
+                            - <b>Parça Hisse:</b> ${yatirim_tutari:.2f} tutarında al.
+                        </div>
+                        """
 
-                    # DÜZELTİLMİŞ HTML FORMATI (TRIPLE QUOTE KULLANILDI)
+                    # KART HTML
                     html_code = f"""
                     <div class="op-card {css_class}">
                         <div class="op-header">
-                            <span>{label}: {ticker}</span>
-                            <span style="font-size:16px; color:#3fb950;">RSI: {rsi:.1f}</span>
+                            <div class="op-title">{label}: {ticker}</div>
+                            <div class="op-rsi">RSI: {rsi:.1f}</div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                        
+                        <div class="op-grid">
                             <div>
-                                <div class="op-label">GİRİŞ FİYATI (Tahmini)</div>
-                                <div class="op-value">${price:.2f}</div>
+                                <div class="op-stat-label">GİRİŞ FİYATI (Tahmini)</div>
+                                <div class="op-stat-val">${price:.2f}</div>
                             </div>
                             <div style="text-align:right;">
-                                <div class="op-label">YATIRILACAK TUTAR</div>
-                                <div class="op-value">${yatirim_tutari:.2f}</div>
+                                <div class="op-stat-label">YATIRILACAK TUTAR</div>
+                                <div class="op-stat-val">${yatirim_tutari:.2f}</div>
                             </div>
                         </div>
                         
-                        <div class="op-step">
-                            <b>ADIM 1: SATIN ALMA</b><br>
-                            - Eğer Parça Hisse alabiliyorsan: <b>${yatirim_tutari:.2f}</b> tutarında {ticker} al.<br>
+                        <div class="op-step-box">
+                            <div class="op-stat-label" style="margin-bottom:5px;">ADIM 1: GİRİŞ EMRİ</div>
                             {buy_msg}
                         </div>
                         
-                        <div style="display:flex; justify-content:space-between; margin-top:15px; border-top:1px solid #30363d; padding-top:10px;">
+                        <div class="op-actions">
                             <div>
-                                <div class="op-label">ALARM 1 (KAR AL)</div>
-                                <div class="op-value op-target">${hedef_fiyat:.2f}</div>
+                                <div class="op-stat-label">ALARM 1 (KAR AL)</div>
+                                <div class="op-stat-val val-green">${hedef_fiyat:.2f}</div>
                                 <div style="font-size:11px; color:#8b949e;">Bu fiyata gelince yarısını sat!</div>
                             </div>
                             <div style="text-align:right;">
-                                <div class="op-label">ALARM 2 (STOP)</div>
-                                <div class="op-value op-stop">${stop_fiyat:.2f}</div>
+                                <div class="op-stat-label">ALARM 2 (STOP)</div>
+                                <div class="op-stat-val val-red">${stop_fiyat:.2f}</div>
                                 <div style="font-size:11px; color:#8b949e;">Bu fiyata düşerse kaç!</div>
                             </div>
                         </div>
                     </div>
                     """
+                    # BU KOD SAYESİNDE HTML OLARAK GÖRÜNECEK, YAZI OLARAK DEĞİL
                     st.markdown(html_code, unsafe_allow_html=True)
 
                 st.markdown(f"### 🔥 TESPİT EDİLEN FIRSATLAR ({len(opportunities)} Adet)")
+                
+                # PLAN A
                 render_operation_card(plan_a, "PLAN A (Ana Hedef)")
                 
+                # PLAN B
                 if plan_b:
-                    st.markdown("👇 *Eğer Plan A hissesi bütçeni aşıyorsa veya alım yapamıyorsan:*")
+                    st.markdown("👇 *Eğer Plan A bütçeni aşıyorsa veya alım yapamıyorsan:*")
                     render_operation_card(plan_b, "PLAN B (Yedek Güç)", "op-card-b")
                 elif plan_a and int(trade_budget / plan_a['Fiyat']) == 0:
-                     st.warning("⚠️ Plan A için paran yetmiyor ve başka alternatif (Plan B) bulunamadı. Parça hisse alamıyorsan işlem yapma.")
-
-                with st.expander("🧠 Robotun Savaş Taktikleri (Oku!)"):
-                    st.markdown("""
-                    **1. Panik Yok:** Hisseyi aldıktan sonra fiyat %2-3 düşebilir. Robot "SAT" demediği sürece (veya Stop fiyatına gelmediği sürece) satma.
-                    **2. Yarısını Sat:** Fiyat "Kar Al" hedefine ($) geldiği an, elindekilerin tam yarısını sat.
-                    **3. Kapanış:** Robotun "SAT" sinyalini bekle.
-                    """)
+                     st.warning("⚠️ Plan A bütçeni aşıyor ve başka alternatif (Plan B) bulunamadı.")
 
 # --- SEKME 4: TÜM VERİ ---
 with tab4:
