@@ -188,4 +188,15 @@ def main():
     print(f"Net Getiri       : ${kar_zarar:.2f} (%{yuzde:.2f})")
     print("-" * 50)
     print(f"✅ Hedef 1 (%10) Yakalanan : {istatistik['Hedef 1 (Güvenlik)']}")
-    print(f"🚀 Hedef 2 (%30) Yakalan
+    print(f"🚀 Hedef 2 (%30) Yakalanan : {istatistik['Hedef 2 (Trend)']}")
+    print(f"💰 Hedef 3 (%50) Yakalanan : {istatistik['Hedef 3 (Jackpot)']}")
+    print(f"❌ Stop Olan İşlemler      : {istatistik['Stop Olanlar']}")
+    print("-" * 50)
+    
+    print("\n📜 SON 10 İŞLEM KAYDI:")
+    df_log = pd.DataFrame(islem_gecmisi)
+    if not df_log.empty:
+        print(df_log[['Tarih', 'Hisse', 'Olay', 'Fiyat', 'Kasa']].tail(10).to_string(index=False))
+
+if __name__ == "__main__":
+    main()
