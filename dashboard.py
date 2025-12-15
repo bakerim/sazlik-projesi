@@ -18,8 +18,8 @@ st.set_page_config(
 # Buraya istediğin kadar kullanıcı ekleyebilirsin.
 # Şimdilik basit olması için şifreleri açık yazıyoruz.
 USERS = {
-    "mert": "1234",      # Senin Kullanıcı Adın ve Şifren
-    "kardes": "5678"     # Kardeşinin Kullanıcı Adı ve Şifresi
+    "mert": "1317",      # Senin Kullanıcı Adın ve Şifren
+    "murat": "5199"     # Kardeşinin Kullanıcı Adı ve Şifresi
 }
 
 # --- 3. VERİ TABANI FONKSİYONLARI (JSON KAYIT) ---
