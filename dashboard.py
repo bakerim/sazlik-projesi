@@ -8,7 +8,7 @@ import os
 
 # --- 1. SAYFA AYARLARI ---
 st.set_page_config(
-    page_title="Sazlık Pro - Komuta Merkezi",
+    page_title="SAZLIK PRO V40.0: IRONCLAD (HATASIZ) LEDGER",
     page_icon="🌾",
     layout="wide",
     initial_sidebar_state="collapsed"
