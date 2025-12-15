@@ -14,20 +14,17 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. KULLANICI SİSTEMİ VE AYARLAR ---
-# Buraya istediğin kadar kullanıcı ekleyebilirsin.
-# Şimdilik basit olması için şifreleri açık yazıyoruz.
+# --- 2. KULLANICI SİSTEMİ (GÜNCELLENDİ) ---
 USERS = {
-    "mert": "1317",      # Senin Kullanıcı Adın ve Şifren
-    "murat": "5199"     # Kardeşinin Kullanıcı Adı ve Şifresi
+    "mert": "1317",      # Mert'in Yeni Şifresi
+    "murat": "5199"      # Murat'ın Şifresi
 }
 
-# --- 3. VERİ TABANI FONKSİYONLARI (JSON KAYIT) ---
+# --- 3. VERİ TABANI (JSON) ---
 def get_user_file(username):
     return f"portfolio_{username}.json"
 
 def load_portfolio(username):
-    """Kullanıcının özel dosyasını okur."""
     filename = get_user_file(username)
     if os.path.exists(filename):
         with open(filename, "r") as f:
@@ -35,7 +32,6 @@ def load_portfolio(username):
     return []
 
 def save_portfolio(username, data):
-    """Kullanıcının verilerini dosyaya yazar."""
     filename = get_user_file(username)
     with open(filename, "w") as f:
         json.dump(data, f)
@@ -47,12 +43,10 @@ st.markdown("""
     div[data-testid="stMetric"] { background-color: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 8px; }
     .market-safe { color: #3fb950; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #238636; border-radius: 10px; background: rgba(35, 134, 54, 0.1); }
     .market-danger { color: #f85149; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #da3633; border-radius: 10px; background: rgba(218, 54, 51, 0.1); }
-    /* Login Kutusu */
-    .login-box { border: 1px solid #30363d; padding: 40px; border-radius: 20px; background-color: #161b22; max-width: 400px; margin: auto; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 5. HESAPLAMA MOTORLARI (ORTAK) ---
+# --- 5. HESAPLAMA MOTORLARI ---
 FULL_WATCHLIST = ["NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"]
 
 @st.cache_data(ttl=300)
@@ -114,8 +108,7 @@ def get_chart_data(ticker):
         return data
     except: return None
 
-# --- 6. GİRİŞ EKRANI VE ANA UYGULAMA ---
-
+# --- 6. GİRİŞ EKRANI ---
 def login_screen():
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns([1, 2, 1])
@@ -131,14 +124,13 @@ def login_screen():
                 if user_input in USERS and USERS[user_input] == pass_input:
                     st.session_state['logged_in'] = True
                     st.session_state['username'] = user_input
-                    # Giriş yapınca o kullanıcının portföyünü yükle
                     st.session_state['portfolio'] = load_portfolio(user_input)
                     st.rerun()
                 else:
                     st.error("Hatalı kullanıcı adı veya şifre!")
 
+# --- 7. ANA PANEL ---
 def main_dashboard():
-    # Üst Bar: Hoşgeldin ve Çıkış
     c_user, c_logout = st.columns([8, 1])
     c_user.caption(f"👤 Aktif Komutan: **{st.session_state['username'].upper()}**")
     if c_logout.button("Çıkış"):
@@ -147,9 +139,8 @@ def main_dashboard():
         st.session_state['portfolio'] = []
         st.rerun()
 
-    st.title("🌾 Komuta Merkezi V36.0")
+    st.title("🌾 Komuta Merkezi V36.2")
     
-    # PİYASA DURUMU
     market = get_market_sentiment()
     if "BOĞA" in market: st.markdown(f'<div class="market-safe">🟢 PİYASA: {market} - GÜVENLİ</div>', unsafe_allow_html=True)
     else: st.markdown(f'<div class="market-danger">🔴 PİYASA: {market} - RİSKLİ</div>', unsafe_allow_html=True)
@@ -183,7 +174,7 @@ def main_dashboard():
             if not orta.empty: c3.write(", ".join(orta['Hisse'].tolist()))
         else: st.info("Veri havuzu boş.")
 
-    # TAB 2: SNIPER LAB
+    # TAB 2: SNIPER LAB (NATIVE UI - DIVSİZ!)
     with tab2:
         st.header("🧪 Sniper Elite: Operasyon Planlama")
         col_in, col_inf = st.columns([1, 2])
@@ -207,24 +198,44 @@ def main_dashboard():
                         ticker = plan['Hisse']
                         entry = plan['Fiyat']
                         target_1 = entry * 1.10
+                        target_2 = entry * 1.30
+                        target_3 = entry * 1.50
                         stop_loss = entry * 0.92
                         profit_1 = (trade_budget * 0.50) * 0.10
+                        profit_2 = (trade_budget * 0.25) * 0.30
+                        profit_3 = (trade_budget * 0.25) * 0.50
                         
+                        # KART TASARIMI (NATIVE)
                         with st.container():
                             st.divider()
                             c_head1, c_head2 = st.columns([3, 1])
                             c_head1.markdown(f"### 🎯 HEDEF: **{ticker}**")
-                            c_head2.metric("RSI", f"{plan['RSI']:.1f}")
+                            c_head2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
                             
                             c1, c2, c3 = st.columns(3)
                             c1.metric("Giriş", f"${entry:.2f}")
                             c2.metric("Yatırım", f"${trade_budget:.2f}")
                             c3.metric("Adet", f"{trade_budget/entry:.2f}")
                             
-                            st.info(f"📍 **ROTA:** Hedef: ${target_1:.2f} | Stop: ${stop_loss:.2f}")
+                            st.info(f"📄 **GÖREV EMRİ:**\n\nParça Hisse (Fractional) ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop:** ${stop_loss:.2f} (%8)")
                             
-                            # Ekleme Butonu (Kişisel)
-                            if st.button(f"➕ Benim Günlüğüme Ekle", key=f"add_{ticker}"):
+                            st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
+                            r1, r2, r3 = st.columns(3)
+                            with r1:
+                                st.success(f"**1. GÜVENLİK**\n\n🎯 **${target_1:.2f}**")
+                                st.caption("Yarısını Sat")
+                                st.markdown(f":green[**Kar: +${profit_1:.2f}**]")
+                            with r2:
+                                st.warning(f"**2. TREND**\n\n🎯 **${target_2:.2f}**")
+                                st.caption("%25 Sat")
+                                st.markdown(f":green[**Kar: +${profit_2:.2f}**]")
+                            with r3:
+                                st.error(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**")
+                                st.caption("Kalanı Sür")
+                                st.markdown(f":green[**Kar: +${profit_3:.2f}+**]")
+                            
+                            # Ekleme Butonu
+                            if st.button(f"➕ {ticker} Günlüğe Ekle", key=f"add_{ticker}"):
                                 new_trade = {
                                     "Hisse": ticker,
                                     "Giris_Fiyati": entry,
@@ -233,11 +244,10 @@ def main_dashboard():
                                     "Tarih": datetime.now().strftime("%Y-%m-%d")
                                 }
                                 st.session_state.portfolio.append(new_trade)
-                                # DOSYAYA KAYDET
                                 save_portfolio(st.session_state['username'], st.session_state.portfolio)
-                                st.success(f"✅ {ticker} senin listene eklendi!")
+                                st.success(f"✅ {ticker} listene eklendi!")
 
-    # TAB 3: GÜNLÜK (KİŞİSELLEŞTİRİLMİŞ)
+    # TAB 3: GÜNLÜK
     with tab3:
         user = st.session_state['username']
         st.header(f"📒 {user.upper()}'in Savaş Günlüğü")
@@ -265,7 +275,6 @@ def main_dashboard():
                     c4.markdown(f":{color}[**${pl_usd:.2f} (%{pl_pct:.2f})**]")
                     if c5.button("Sil", key=f"del_{i}"):
                         st.session_state.portfolio.pop(i)
-                        # SİLİNCE DE KAYDET
                         save_portfolio(st.session_state['username'], st.session_state.portfolio)
                         st.rerun()
                     st.divider()
@@ -287,7 +296,7 @@ def main_dashboard():
     # TAB 5: VERİ
     with tab5: st.dataframe(df, use_container_width=True)
 
-# --- 7. UYGULAMA AKIŞI ---
+# --- UYGULAMA BAŞLAT ---
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
