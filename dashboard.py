@@ -43,7 +43,7 @@ def get_historical_price(ticker, date_obj):
     try:
         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        if not df.empty: return float(df.iloc[0]['Close']) # Float dönüşümü eklendi
+        if not df.empty: return float(df.iloc[0]['Close'])
         return None
     except: return None
 
@@ -151,9 +151,10 @@ def main_dashboard():
         st.session_state['logged_in'] = False
         st.session_state['username'] = None
         st.session_state['portfolio'] = []
+        if 'scan_results' in st.session_state: del st.session_state['scan_results']
         st.rerun()
 
-    st.title("🌾 Komuta Merkezi V39.0")
+    st.title("🌾 Komuta Merkezi V40.0")
     
     market = get_market_sentiment()
     if "BOĞA" in market: st.markdown(f'<div class="market-safe">🟢 PİYASA: {market} - GÜVENLİ</div>', unsafe_allow_html=True)
@@ -186,13 +187,19 @@ def main_dashboard():
             if not orta.empty: c3.write(", ".join(orta['Hisse'].tolist()))
         else: st.info("Veri havuzu boş.")
 
-    # TAB 2: SNIPER LAB
+    # ==========================================================================
+    # TAB 2: SNIPER LAB (SESSION STATE FIX)
+    # ==========================================================================
     with tab2:
         st.header("🧪 Sniper Elite: Otomatik Avlanma")
         col_in, col_inf = st.columns([1, 2])
         budget = col_in.number_input("Kasa ($)", value=250.0, step=10.0)
         trade_budget = budget * 0.98
         col_inf.success(f"**Savaş Bütçesi:** ${trade_budget:.2f}")
+
+        # Tarama Sonuçlarını Hafızada Tut
+        if 'scan_results' not in st.session_state:
+            st.session_state['scan_results'] = []
 
         if st.button("🚀 Piyasayı Tara", type="primary"):
             with st.spinner("Fırsatlar Taranıyor..."):
@@ -205,68 +212,77 @@ def main_dashboard():
                 
                 if not opportunities:
                     st.warning("💤 Atış menzilinde hedef yok.")
+                    st.session_state['scan_results'] = []
                 else:
-                    for plan in opportunities[:2]:
-                        ticker = plan['Hisse']
-                        entry = plan['Fiyat']
-                        
-                        target_1 = entry * 1.10
-                        target_2 = entry * 1.30
-                        target_3 = entry * 1.50
-                        stop_loss = entry * 0.92
-                        
-                        profit_1 = (trade_budget * 0.50) * 0.10
-                        profit_2 = (trade_budget * 0.25) * 0.30
-                        profit_3 = (trade_budget * 0.25) * 0.50
-                        total_potential_profit = profit_1 + profit_2 + profit_3
-                        
-                        with st.container():
-                            st.divider()
-                            c_head1, c_head2 = st.columns([3, 1])
-                            c_head1.markdown(f"### 🎯 HEDEF: **{ticker}**")
-                            c_head2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
-                            
-                            c1, c2, c3 = st.columns(3)
-                            c1.metric("Giriş Fiyatı", f"${entry:.2f}")
-                            c2.metric("Yatırım", f"${trade_budget:.2f}")
-                            c3.metric("Adet", f"{trade_budget/entry:.2f}")
-                            
-                            st.info(f"📄 **GÖREV EMRİ:** Parça Hisse ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop:** ${stop_loss:.2f} (%8)")
-                            
-                            st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
-                            r1, r2, r3 = st.columns(3)
-                            with r1:
-                                st.success(f"**1. GÜVENLİK**\n\n🎯 **${target_1:.2f}**")
-                                st.caption("Pozisyonun %50'sini sat.")
-                                st.markdown(f":green[**Kar: +${profit_1:.2f}**]")
-                            with r2:
-                                st.warning(f"**2. TREND**\n\n🎯 **${target_2:.2f}**")
-                                st.caption("Kalanın %50'sini sat.")
-                                st.markdown(f":green[**Kar: +${profit_2:.2f}**]")
-                            with r3:
-                                st.error(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**")
-                                st.caption("Kalanı sür.")
-                                st.markdown(f":green[**Kar: +${profit_3:.2f}+**]")
-                            
-                            st.markdown(f"### 💰 Tahmini Toplam Kar: :green[${total_potential_profit:.2f}]")
+                    # Sadece ilk 2 fırsatı kaydet
+                    st.session_state['scan_results'] = opportunities[:2]
 
-                            # --- DÜZELTİLEN KISIM: FLOAT CONVERSION + RERUN ---
-                            if st.button(f"➕ Deftere İşle", key=f"add_{ticker}"):
-                                new_trade = {
-                                    "Tip": "Hisse",
-                                    "Hisse": str(ticker),
-                                    "Giris_Tarihi": datetime.now().strftime("%Y-%m-%d"),
-                                    "Giris_Fiyati": float(entry), # FLOAT'A ZORLANDI
-                                    "Yatirim": float(trade_budget),
-                                    "Adet": float(trade_budget/entry),
-                                    "Durum": "Acik",
-                                    "Cikis_Tarihi": None,
-                                    "Cikis_Fiyati": None
-                                }
-                                st.session_state.portfolio.append(new_trade)
-                                save_portfolio(st.session_state['username'], st.session_state.portfolio)
-                                st.success(f"✅ {ticker} deftere işlendi!")
-                                st.rerun() # SAYFA YENİLEME
+        # Sonuçları Hafızadan Göster (Böylece buton tıklanınca kaybolmazlar)
+        if st.session_state['scan_results']:
+            st.divider()
+            st.markdown(f"### 🔥 Bulunan Fırsatlar ({len(st.session_state['scan_results'])})")
+            
+            for plan in st.session_state['scan_results']:
+                ticker = plan['Hisse']
+                entry = plan['Fiyat']
+                
+                target_1 = entry * 1.10
+                target_2 = entry * 1.30
+                target_3 = entry * 1.50
+                stop_loss = entry * 0.92
+                
+                profit_1 = (trade_budget * 0.50) * 0.10
+                profit_2 = (trade_budget * 0.25) * 0.30
+                profit_3 = (trade_budget * 0.25) * 0.50
+                total_potential_profit = profit_1 + profit_2 + profit_3
+                
+                with st.container():
+                    st.divider()
+                    c_head1, c_head2 = st.columns([3, 1])
+                    c_head1.markdown(f"### 🎯 HEDEF: **{ticker}**")
+                    c_head2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
+                    
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Giriş Fiyatı", f"${entry:.2f}")
+                    c2.metric("Yatırım", f"${trade_budget:.2f}")
+                    c3.metric("Adet", f"{trade_budget/entry:.2f}")
+                    
+                    st.info(f"📄 **GÖREV EMRİ:** Parça Hisse ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop:** ${stop_loss:.2f} (%8)")
+                    
+                    st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
+                    r1, r2, r3 = st.columns(3)
+                    with r1:
+                        st.success(f"**1. GÜVENLİK**\n\n🎯 **${target_1:.2f}**")
+                        st.caption("Pozisyonun %50'sini sat.")
+                        st.markdown(f":green[**Kar: +${profit_1:.2f}**]")
+                    with r2:
+                        st.warning(f"**2. TREND**\n\n🎯 **${target_2:.2f}**")
+                        st.caption("Kalanın %50'sini sat.")
+                        st.markdown(f":green[**Kar: +${profit_2:.2f}**]")
+                    with r3:
+                        st.error(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**")
+                        st.caption("Kalanı sür.")
+                        st.markdown(f":green[**Kar: +${profit_3:.2f}+**]")
+                    
+                    st.markdown(f"### 💰 Tahmini Toplam Kar: :green[${total_potential_profit:.2f}]")
+
+                    if st.button(f"➕ Deftere İşle", key=f"add_{ticker}"):
+                        new_trade = {
+                            "Tip": "Hisse",
+                            "Hisse": str(ticker),
+                            "Giris_Tarihi": datetime.now().strftime("%Y-%m-%d"),
+                            "Giris_Fiyati": float(entry),
+                            "Yatirim": float(trade_budget),
+                            "Adet": float(trade_budget/entry),
+                            "Durum": "Acik",
+                            "Cikis_Tarihi": None,
+                            "Cikis_Fiyati": None
+                        }
+                        st.session_state.portfolio.append(new_trade)
+                        save_portfolio(st.session_state['username'], st.session_state.portfolio)
+                        st.success(f"✅ {ticker} deftere işlendi!")
+                        # Rerun'a gerek kalmadan UI update için:
+                        # st.rerun()
 
     # TAB 3: BÜYÜK DEFTER
     with tab3:
