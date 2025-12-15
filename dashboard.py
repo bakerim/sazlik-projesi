@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 
@@ -14,13 +14,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. KULLANICI SİSTEMİ (GÜNCELLENDİ) ---
+# --- 2. KULLANICI SİSTEMİ ---
 USERS = {
-    "mert": "1317",      # Mert'in Yeni Şifresi
-    "murat": "5199"      # Murat'ın Şifresi
+    "mert": "1317",
+    "murat": "5199"
 }
 
-# --- 3. VERİ TABANI (JSON) ---
+# --- 3. VERİ TABANI ---
 def get_user_file(username):
     return f"portfolio_{username}.json"
 
@@ -36,15 +36,18 @@ def save_portfolio(username, data):
     with open(filename, "w") as f:
         json.dump(data, f)
 
-# --- 4. CSS TASARIMI ---
-st.markdown("""
-<style>
-    .stApp { background-color: #0d1117; }
-    div[data-testid="stMetric"] { background-color: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 8px; }
-    .market-safe { color: #3fb950; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #238636; border-radius: 10px; background: rgba(35, 134, 54, 0.1); }
-    .market-danger { color: #f85149; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #da3633; border-radius: 10px; background: rgba(218, 54, 51, 0.1); }
-</style>
-""", unsafe_allow_html=True)
+# --- 4. YARDIMCI MOTORLAR ---
+def get_historical_price(ticker, date_obj):
+    """Verilen tarihteki fiyatı bulur. O gün tatilse bir sonraki günü dener."""
+    start_date = date_obj
+    end_date = date_obj + timedelta(days=5) # 5 gün opsiyon tanı (haftasonu için)
+    try:
+        df = yf.download(ticker, start=start_date, end=end_date, progress=False)
+        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+        if not df.empty:
+            return df.iloc[0]['Close']
+        return None
+    except: return None
 
 # --- 5. HESAPLAMA MOTORLARI ---
 FULL_WATCHLIST = ["NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"]
@@ -115,7 +118,7 @@ def login_screen():
     with c2:
         with st.container():
             st.markdown("<h1 style='text-align: center;'>🔐 Sazlık Pro</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #8b949e;'>Yetkili Personel Girişi</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #8b949e;'>Varlık Yönetim Sistemi</p>", unsafe_allow_html=True)
             
             user_input = st.text_input("Kullanıcı Adı")
             pass_input = st.text_input("Şifre", type="password")
@@ -127,19 +130,34 @@ def login_screen():
                     st.session_state['portfolio'] = load_portfolio(user_input)
                     st.rerun()
                 else:
-                    st.error("Hatalı kullanıcı adı veya şifre!")
+                    st.error("Yetkisiz Erişim!")
 
 # --- 7. ANA PANEL ---
 def main_dashboard():
+    # --- CSS ---
+    st.markdown("""
+    <style>
+        .stApp { background-color: #0d1117; }
+        div[data-testid="stMetric"] { background-color: #161b22; border: 1px solid #30363d; padding: 10px; border-radius: 8px; }
+        .market-safe { color: #3fb950; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #238636; border-radius: 10px; background: rgba(35, 134, 54, 0.1); }
+        .market-danger { color: #f85149; font-weight: bold; font-size: 20px; text-align: center; padding: 10px; border: 1px solid #da3633; border-radius: 10px; background: rgba(218, 54, 51, 0.1); }
+        
+        /* VARLIK TİPİ ROZETLERİ */
+        .badge-stock { background-color: #1f6feb; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .badge-crypto { background-color: #d29922; color: black; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+        .badge-commodity { background-color: #8b949e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+    </style>
+    """, unsafe_allow_html=True)
+
     c_user, c_logout = st.columns([8, 1])
-    c_user.caption(f"👤 Aktif Komutan: **{st.session_state['username'].upper()}**")
+    c_user.caption(f"👤 Yönetici: **{st.session_state['username'].upper()}**")
     if c_logout.button("Çıkış"):
         st.session_state['logged_in'] = False
         st.session_state['username'] = None
         st.session_state['portfolio'] = []
         st.rerun()
 
-    st.title("🌾 Komuta Merkezi V36.2")
+    st.title("🌾 Komuta Merkezi V37.0")
     
     market = get_market_sentiment()
     if "BOĞA" in market: st.markdown(f'<div class="market-safe">🟢 PİYASA: {market} - GÜVENLİ</div>', unsafe_allow_html=True)
@@ -148,7 +166,7 @@ def main_dashboard():
     df = load_market_data()
     st.divider()
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔭 Gözetleme", "🧪 Sniper Lab", "📒 Günlük (Özel)", "🔎 Dedektif", "🗃️ Veri"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔭 Gözetleme", "🧪 Sniper Lab", "📒 BÜYÜK DEFTER", "🔎 Dedektif", "🗃️ Veri"])
 
     # TAB 1: GÖZETLEME
     with tab1:
@@ -159,13 +177,11 @@ def main_dashboard():
             for i, (index, row) in enumerate(top_picks.iterrows()):
                 with cols[i]:
                     st.metric(label=f"#{i+1} {row['Hisse']}", value=f"${row['Fiyat']}", delta=f"Puan: {int(row['Guven_Skoru_Num'])}")
-            
             st.divider()
             c1, c2, c3 = st.columns(3)
             efsane = df[df['Guven_Skoru_Num'] >= 85]
             iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
             orta = df[(df['Guven_Skoru_Num'] >= 50) & (df['Guven_Skoru_Num'] < 70)]
-            
             c1.success(f"💎 Mükemmel ({len(efsane)})")
             if not efsane.empty: c1.write(", ".join(efsane['Hisse'].tolist()))
             c2.info(f"🚀 İyi ({len(iyi)})")
@@ -174,9 +190,9 @@ def main_dashboard():
             if not orta.empty: c3.write(", ".join(orta['Hisse'].tolist()))
         else: st.info("Veri havuzu boş.")
 
-    # TAB 2: SNIPER LAB (NATIVE UI - DIVSİZ!)
+    # TAB 2: SNIPER LAB
     with tab2:
-        st.header("🧪 Sniper Elite: Operasyon Planlama")
+        st.header("🧪 Sniper Elite: Otomatik Avlanma")
         col_in, col_inf = st.columns([1, 2])
         budget = col_in.number_input("Kasa ($)", value=250.0, step=10.0)
         trade_budget = budget * 0.98
@@ -198,87 +214,175 @@ def main_dashboard():
                         ticker = plan['Hisse']
                         entry = plan['Fiyat']
                         target_1 = entry * 1.10
-                        target_2 = entry * 1.30
-                        target_3 = entry * 1.50
                         stop_loss = entry * 0.92
-                        profit_1 = (trade_budget * 0.50) * 0.10
-                        profit_2 = (trade_budget * 0.25) * 0.30
-                        profit_3 = (trade_budget * 0.25) * 0.50
                         
-                        # KART TASARIMI (NATIVE)
                         with st.container():
                             st.divider()
                             c_head1, c_head2 = st.columns([3, 1])
                             c_head1.markdown(f"### 🎯 HEDEF: **{ticker}**")
-                            c_head2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
+                            c_head2.metric("RSI", f"{plan['RSI']:.1f}")
                             
                             c1, c2, c3 = st.columns(3)
                             c1.metric("Giriş", f"${entry:.2f}")
                             c2.metric("Yatırım", f"${trade_budget:.2f}")
                             c3.metric("Adet", f"{trade_budget/entry:.2f}")
                             
-                            st.info(f"📄 **GÖREV EMRİ:**\n\nParça Hisse (Fractional) ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop:** ${stop_loss:.2f} (%8)")
+                            st.info(f"📍 **ROTA:** Hedef: ${target_1:.2f} | Stop: ${stop_loss:.2f}")
                             
-                            st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
-                            r1, r2, r3 = st.columns(3)
-                            with r1:
-                                st.success(f"**1. GÜVENLİK**\n\n🎯 **${target_1:.2f}**")
-                                st.caption("Yarısını Sat")
-                                st.markdown(f":green[**Kar: +${profit_1:.2f}**]")
-                            with r2:
-                                st.warning(f"**2. TREND**\n\n🎯 **${target_2:.2f}**")
-                                st.caption("%25 Sat")
-                                st.markdown(f":green[**Kar: +${profit_2:.2f}**]")
-                            with r3:
-                                st.error(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**")
-                                st.caption("Kalanı Sür")
-                                st.markdown(f":green[**Kar: +${profit_3:.2f}+**]")
-                            
-                            # Ekleme Butonu
-                            if st.button(f"➕ {ticker} Günlüğe Ekle", key=f"add_{ticker}"):
+                            if st.button(f"➕ Deftere İşle", key=f"add_{ticker}"):
                                 new_trade = {
+                                    "Tip": "Hisse",
                                     "Hisse": ticker,
+                                    "Giris_Tarihi": datetime.now().strftime("%Y-%m-%d"),
                                     "Giris_Fiyati": entry,
                                     "Yatirim": trade_budget,
                                     "Adet": trade_budget/entry,
-                                    "Tarih": datetime.now().strftime("%Y-%m-%d")
+                                    "Durum": "Acik",
+                                    "Cikis_Tarihi": None,
+                                    "Cikis_Fiyati": None
                                 }
                                 st.session_state.portfolio.append(new_trade)
                                 save_portfolio(st.session_state['username'], st.session_state.portfolio)
-                                st.success(f"✅ {ticker} listene eklendi!")
+                                st.success(f"✅ {ticker} deftere işlendi!")
 
-    # TAB 3: GÜNLÜK
+    # TAB 3: BÜYÜK DEFTER (GELİŞMİŞ GÜNLÜK)
     with tab3:
         user = st.session_state['username']
-        st.header(f"📒 {user.upper()}'in Savaş Günlüğü")
+        st.header(f"📒 {user.upper()} - Muhasebe Kayıtları")
         
+        # --- MANUEL İŞLEM EKLEME ALANI ---
+        with st.expander("➕ Manuel İşlem / Geçmiş Kayıt Ekle", expanded=False):
+            c_type, c_sym, c_amt = st.columns(3)
+            i_type = c_type.selectbox("Varlık Tipi", ["Hisse", "Kripto", "Emtia"])
+            i_sym = c_sym.text_input("Sembol (Örn: TSLA, BTC-USD, GC=F)").upper()
+            i_amt = c_amt.number_input("Yatırım Tutarı ($)", min_value=1.0, value=100.0)
+            
+            c_date1, c_date2 = st.columns(2)
+            i_buy_date = c_date1.date_input("Alış Tarihi")
+            is_sold = c_date2.checkbox("Bu işlem satıldı mı (Kapalı)?")
+            i_sell_date = None
+            if is_sold:
+                i_sell_date = c_date2.date_input("Satış Tarihi")
+            
+            if st.button("Kaydı Oluştur", type="primary"):
+                if i_sym:
+                    with st.spinner("Tarihsel fiyatlar taranıyor..."):
+                        # Alış Fiyatını Bul
+                        buy_price = get_historical_price(i_sym, i_buy_date)
+                        if buy_price:
+                            qty = i_amt / buy_price
+                            sell_price = None
+                            status = "Acik"
+                            
+                            # Satış varsa Satış Fiyatını Bul
+                            if is_sold and i_sell_date:
+                                sell_price = get_historical_price(i_sym, i_sell_date)
+                                status = "Kapali"
+                            
+                            new_record = {
+                                "Tip": i_type,
+                                "Hisse": i_sym,
+                                "Giris_Tarihi": i_buy_date.strftime("%Y-%m-%d"),
+                                "Giris_Fiyati": buy_price,
+                                "Yatirim": i_amt,
+                                "Adet": qty,
+                                "Durum": status,
+                                "Cikis_Tarihi": i_sell_date.strftime("%Y-%m-%d") if i_sell_date else None,
+                                "Cikis_Fiyati": sell_price
+                            }
+                            st.session_state.portfolio.append(new_record)
+                            save_portfolio(user, st.session_state.portfolio)
+                            st.success(f"✅ Kayıt başarıyla oluşturuldu! (Alış: ${buy_price:.2f})")
+                            st.rerun()
+                        else:
+                            st.error(f"❌ {i_buy_date} tarihinde {i_sym} için fiyat verisi bulunamadı!")
+
+        st.divider()
+        
+        # --- LİSTELEME ALANI ---
         if len(st.session_state.portfolio) == 0: 
-            st.info("Listen boş. 'Sniper Lab'dan işlem ekle.")
+            st.info("Kayıt defteri boş.")
         else:
-            total_pl = 0
-            for i, trade in enumerate(st.session_state.portfolio):
-                try:
-                    live_data = yf.Ticker(trade['Hisse']).history(period="1d")
-                    current_price = live_data['Close'].iloc[-1]
-                except: current_price = trade['Giris_Fiyati']
+            total_active_value = 0
+            total_realized_pl = 0
+            
+            # Kayıtları ters çevir (En yeni en üstte)
+            for i, trade in enumerate(reversed(st.session_state.portfolio)):
+                real_index = len(st.session_state.portfolio) - 1 - i
                 
-                pl_usd = (current_price - trade['Giris_Fiyati']) * trade['Adet']
-                pl_pct = ((current_price - trade['Giris_Fiyati']) / trade['Giris_Fiyati']) * 100
-                total_pl += pl_usd
+                # Rozet Rengi
+                badge_class = "badge-stock"
+                if trade.get("Tip") == "Kripto": badge_class = "badge-crypto"
+                elif trade.get("Tip") == "Emtia": badge_class = "badge-commodity"
                 
+                # Fiyat ve Kar/Zarar Hesaplama
+                current_val = 0
+                pl_val = 0
+                pl_pct = 0
+                is_closed = trade.get("Durum") == "Kapali"
+                
+                if is_closed:
+                    # KAPALI İŞLEM (Gerçekleşmiş Kar/Zarar)
+                    exit_price = trade['Cikis_Fiyati'] if trade['Cikis_Fiyati'] else trade['Giris_Fiyati']
+                    current_val = exit_price * trade['Adet']
+                    pl_val = current_val - trade['Yatirim']
+                    pl_pct = (pl_val / trade['Yatirim']) * 100
+                    total_realized_pl += pl_val
+                else:
+                    # AÇIK İŞLEM (Canlı Fiyat)
+                    try:
+                        live = yf.Ticker(trade['Hisse']).history(period="1d")
+                        curr_price = live['Close'].iloc[-1]
+                    except: curr_price = trade['Giris_Fiyati']
+                    
+                    current_val = curr_price * trade['Adet']
+                    pl_val = current_val - trade['Yatirim']
+                    pl_pct = (pl_val / trade['Yatirim']) * 100
+                    total_active_value += pl_val
+
+                # KART GÖRÜNÜMÜ
                 with st.container():
-                    c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1])
+                    c1, c2, c3, c4, c5, c6 = st.columns([1, 2, 2, 2, 2, 1])
+                    
+                    # C1: Tip ve Sembol
+                    c1.markdown(f"<span class='{badge_class}'>{trade.get('Tip', 'Hisse')}</span>", unsafe_allow_html=True)
                     c1.markdown(f"**{trade['Hisse']}**")
-                    c2.write(f"Giriş: ${trade['Giris_Fiyati']:.2f}")
-                    c3.write(f"Anlık: **${current_price:.2f}**")
-                    color = "green" if pl_usd >= 0 else "red"
-                    c4.markdown(f":{color}[**${pl_usd:.2f} (%{pl_pct:.2f})**]")
-                    if c5.button("Sil", key=f"del_{i}"):
-                        st.session_state.portfolio.pop(i)
-                        save_portfolio(st.session_state['username'], st.session_state.portfolio)
+                    
+                    # C2: Tarihler
+                    date_str = f"Alış: {trade['Giris_Tarihi']}"
+                    if is_closed: date_str += f"<br>Satış: {trade['Cikis_Tarihi']}"
+                    c2.markdown(date_str, unsafe_allow_html=True)
+                    
+                    # C3: Maliyet Verileri
+                    c3.write(f"Maliyet: ${trade['Giris_Fiyati']:.2f}")
+                    c3.write(f"Yatırım: ${trade['Yatirim']:.2f}")
+                    
+                    # C4: Durum ve Son Fiyat
+                    if is_closed:
+                        c4.markdown("**KAPALI POZİSYON**")
+                        c4.write(f"Satış: ${trade['Cikis_Fiyati']:.2f}")
+                    else:
+                        c4.markdown("**AÇIK (Canlı)**")
+                        c4.write(f"Fiyat: ${curr_price:.2f}") # curr_price variable scope issue potential fix: re-fetch or assume valid
+                    
+                    # C5: Kar/Zarar
+                    color = "green" if pl_val >= 0 else "red"
+                    c5.markdown(f":{color}[**${pl_val:.2f}**]")
+                    c5.markdown(f":{color}[**%{pl_pct:.2f}**]")
+                    
+                    # C6: Sil
+                    if c6.button("Sil", key=f"del_{real_index}"):
+                        st.session_state.portfolio.pop(real_index)
+                        save_portfolio(user, st.session_state.portfolio)
                         st.rerun()
+                    
                     st.divider()
-            st.metric("PORTFÖY DURUMU", f"${total_pl:.2f}")
+
+            # ÖZET TABLOSU
+            st.markdown("### 📊 Muhasebe Özeti")
+            m1, m2 = st.columns(2)
+            m1.metric("Açık Pozisyon Kar/Zarar (Unrealized)", f"${total_active_value:.2f}")
+            m2.metric("Kasa Kar/Zarar (Realized)", f"${total_realized_pl:.2f}")
 
     # TAB 4: GRAFİK
     with tab4:
