@@ -154,7 +154,7 @@ def main_dashboard():
         if 'scan_results' in st.session_state: del st.session_state['scan_results']
         st.rerun()
 
-    st.title("🌾 Komuta Merkezi V40.0")
+    st.title("🌾 SAZLIK PRO V40.0: IRONCLAD (HATASIZ) LEDGER")
     
     market = get_market_sentiment()
     if "BOĞA" in market: st.markdown(f'<div class="market-safe">🟢 PİYASA: {market} - GÜVENLİ</div>', unsafe_allow_html=True)
