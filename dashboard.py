@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import yfinance as yf
 import pandas_ta as ta
+import plotly.graph_objects as go
+from datetime import datetime
 
-# --- 1. SAYFA AYARLARI ---
+# --- 1. SAYFA AYARLARI VE SESSION STATE ---
 st.set_page_config(
     page_title="Sazlık Pro - Komuta Merkezi",
     page_icon="🌾",
@@ -12,51 +13,34 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. CSS (Sadece Renk ve Kutu Stilleri İçin - HTML Yapısı Yok) ---
+# Savaş Günlüğü için Hafıza (Session State)
+if 'portfolio' not in st.session_state:
+    st.session_state.portfolio = []
+
+# --- 2. CSS TASARIMI ---
 st.markdown("""
 <style>
     .stApp { background-color: #0d1117; }
     
     /* Metrik Kutuları */
     div[data-testid="stMetric"] {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        padding: 15px;
-        border-radius: 10px;
+        background-color: #161b22; border: 1px solid #30363d; padding: 15px; border-radius: 10px;
     }
-    
-    /* Başarı Mesajları (Yeşil) */
-    .stSuccess {
-        background-color: rgba(35, 134, 54, 0.1);
-        border-left: 5px solid #238636;
+    /* PİYASA DURUMU KUTUSU */
+    .market-box {
+        padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; font-weight: bold; font-size: 20px;
     }
-    
-    /* Hata Mesajları (Kırmızı) */
-    .stError {
-        background-color: rgba(218, 54, 51, 0.1);
-        border-left: 5px solid #da3633;
-    }
-    
-    /* Bilgi Mesajları (Mavi) */
-    .stInfo {
-        background-color: rgba(56, 139, 253, 0.1);
-        border-left: 5px solid #1f6feb;
-    }
-    
-    /* Konteyner Çerçeveleri */
-    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] > div[data-testid="stVerticalBlock"] {
-        border: 1px solid #30363d;
-        border-radius: 12px;
-        padding: 20px;
-        background-color: #161b22;
-    }
+    .market-safe { background-color: rgba(35, 134, 54, 0.2); border: 2px solid #238636; color: #3fb950; }
+    .market-danger { background-color: rgba(218, 54, 51, 0.2); border: 2px solid #da3633; color: #f85149; }
+
+    /* RENKLER */
+    .text-green { color: #3fb950 !important; } 
+    .text-red { color: #f85149 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- İZLEME LİSTESİ ---
-FULL_WATCHLIST = [
-    "NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"
-]
+FULL_WATCHLIST = ["NVDA", "META", "TSLA", "AVGO", "AMZN", "MSFT", "GOOGL", "PLTR", "MSTR", "COIN"]
 
 # --- VERİ YÜKLEME ---
 @st.cache_data(ttl=300)
@@ -64,20 +48,35 @@ def load_data():
     try:
         df = pd.read_csv("sazlik_signals.csv", on_bad_lines='skip', engine='python')
         df['Tarih'] = pd.to_datetime(df['Tarih'], errors='coerce')
-        required = ['Hisse', 'Fiyat', 'Karar', 'Guven_Skoru', 'Hedef_Fiyat', 'Stop_Loss', 'Vade', 'Analiz_Ozeti', 'Kazanc_Potansiyeli', 'Risk_Yuzdesi']
+        required = ['Hisse', 'Fiyat', 'Karar', 'Guven_Skoru', 'Hedef_Fiyat', 'Stop_Loss', 'Vade', 'Analiz_Ozeti']
         for col in required:
             if col not in df.columns: df[col] = "-"
         df = df.sort_values('Tarih', ascending=False).drop_duplicates('Hisse')
         df['Guven_Skoru_Num'] = pd.to_numeric(df['Guven_Skoru'], errors='coerce').fillna(50)
         df = df[df['Hisse'].isin(FULL_WATCHLIST)]
         return df
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
-df = pd.DataFrame()
 df = load_data()
 
-# --- ANALİZ MOTORU ---
+# --- PİYASA ANALİZİ (SPY) ---
+def get_market_sentiment():
+    try:
+        spy = yf.download("SPY", period="6mo", interval="1d", progress=False)
+        if len(spy) < 50: return "NÖTR"
+        
+        # Multi-index düzeltmesi
+        if isinstance(spy.columns, pd.MultiIndex):
+            spy.columns = spy.columns.get_level_values(0)
+            
+        current = spy['Close'].iloc[-1]
+        sma50 = spy['Close'].rolling(50).mean().iloc[-1]
+        
+        if current > sma50: return "BOĞA (GÜVENLİ)"
+        return "AYI (RİSKLİ)"
+    except: return "VERİ YOK"
+
+# --- SNIPER ANALİZİ ---
 def analyze_sniper(ticker):
     try:
         df_sniper = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
@@ -107,77 +106,87 @@ def analyze_sniper(ticker):
         return { "Hisse": ticker, "Fiyat": close, "RSI": rsi, "Durum": durum }
     except: return None
 
-# --- CANLI ANALİZ ---
-def canli_analiz_yap(ticker):
+# --- CANLI ANALİZ VE GRAFİK ---
+def get_chart_data(ticker):
     try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="1y")
-        if len(hist) < 200: return None
-        curr_price = hist['Close'].iloc[-1]
-        hist.ta.rsi(length=14, append=True)
-        rsi = hist['RSI_14'].iloc[-1]
-        score = 50
-        if rsi < 30: score += 25
-        elif rsi < 40: score += 10
-        elif rsi > 70: score -= 20
-        karar = "BEKLE"
-        if score >= 60: karar = "AL"
-        elif score <= 30: karar = "SAT"
-        return {
-            'Hisse': ticker, 'Fiyat': curr_price, 'Karar': karar, 'Guven_Skoru_Num': score,
-            'Hedef_Fiyat': curr_price * 1.05, 'Stop_Loss': curr_price * 0.95,
-            'Vade': "1-2 Hafta", 'Analiz_Ozeti': f"RSI: {rsi:.1f}"
-        }
+        data = yf.download(ticker, period="3mo", interval="1d", progress=False)
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+        return data
     except: return None
 
-# --- 4. ANA EKRAN ---
-st.title("🌾 Sazlık Pro: Komuta Merkezi")
-st.markdown(f"**Aktif Özel Tim:** `{', '.join(FULL_WATCHLIST)}`")
-st.divider()
+# --- PORTFÖY FONKSİYONLARI ---
+def add_to_portfolio(ticker, entry_price, amount, target, stop):
+    st.session_state.portfolio.append({
+        "Hisse": ticker,
+        "Giris_Fiyati": entry_price,
+        "Yatirim": amount,
+        "Adet": amount / entry_price,
+        "Hedef": target,
+        "Stop": stop,
+        "Tarih": datetime.now().strftime("%Y-%m-%d")
+    })
 
+# --- 4. ANA EKRAN ---
+st.title("🌾 Sazlık Pro V30.0: Grand Commander")
+st.caption("Tam Teşekküllü Borsa Operasyon Merkezi")
+
+# PİYASA DURUMU (TRAFİK IŞIĞI)
+market_status = get_market_sentiment()
+if "BOĞA" in market_status:
+    st.markdown(f'<div class="market-box market-safe">🟢 PİYASA DURUMU: {market_status} - ATEŞ SERBEST</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div class="market-box market-danger">🔴 PİYASA DURUMU: {market_status} - DİKKATLİ OL</div>', unsafe_allow_html=True)
+
+# SEKMELER (YENİ YAPI)
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🏆 AI Vitrini", "📊 Portföy Analizi", "🧪 250$ Deney Labı", "🗃️ Veri Havuzu", "🔎 Hisse Dedektifi"
+    "🔭 Gözetleme Kulesi", "🧪 Sniper Lab", "📒 Savaş Günlüğü", "🔎 Dedektif", "🗃️ Veri"
 ])
 
-# --- TAB 1: AI VİTRİNİ ---
+# ==============================================================================
+# TAB 1: GÖZETLEME KULESİ (BİRLEŞTİRİLMİŞ)
+# ==============================================================================
 with tab1:
     if not df.empty:
+        st.subheader("🏆 Günün Yıldızları (Top 3)")
         top_picks = df.sort_values('Guven_Skoru_Num', ascending=False).head(3)
         cols = st.columns(3)
         for i, (index, row) in enumerate(top_picks.iterrows()):
             with cols[i]:
-                st.subheader(f"#{i+1} {row['Hisse']}")
-                st.metric(label="Fiyat", value=f"${row['Fiyat']}", delta=f"Puan: {int(row['Guven_Skoru_Num'])}")
-                st.info(f"**Hedef:** {row['Hedef_Fiyat']} | **Stop:** {row['Stop_Loss']}")
-    else:
-        st.info("Veri havuzu boş.")
+                st.metric(label=f"#{i+1} {row['Hisse']}", value=f"${row['Fiyat']}", delta=f"Puan: {int(row['Guven_Skoru_Num'])}")
+                st.info(f"🎯 Hedef: {row['Hedef_Fiyat']}")
 
-# --- TAB 2: PORTFÖY ANALİZİ ---
+        st.divider()
+        st.subheader("📊 Genel Tarama Durumu")
+        c1, c2, c3, c4 = st.columns(4)
+        efsane = df[df['Guven_Skoru_Num'] >= 85]
+        iyi = df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)]
+        orta = df[(df['Guven_Skoru_Num'] >= 50) & (df['Guven_Skoru_Num'] < 70)]
+        cop = df[df['Guven_Skoru_Num'] < 50]
+        
+        c1.success(f"💎 Mükemmel: {len(efsane)}")
+        if not efsane.empty: c1.table(efsane[['Hisse', 'Fiyat']])
+        
+        c2.info(f"🚀 İyi: {len(iyi)}")
+        if not iyi.empty: c2.table(iyi[['Hisse', 'Fiyat']])
+        
+        c3.warning(f"⚖️ Orta: {len(orta)}")
+        c4.error(f"⛔ Uzak Dur: {len(cop)}")
+    else:
+        st.info("Veri havuzu boş. Lütfen analizleri çalıştırın.")
+
+# ==============================================================================
+# TAB 2: SNIPER LAB (ENVANTERE EKLEME ÖZELLİĞİ)
+# ==============================================================================
 with tab2:
-    if not df.empty:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.success("💎 **MÜKEMMEL FIRSATLAR**")
-            st.dataframe(df[df['Guven_Skoru_Num'] >= 85][['Hisse', 'Fiyat', 'Guven_Skoru']], use_container_width=True)
-        with c2:
-            st.info("🚀 **İYİ FIRSATLAR**")
-            st.dataframe(df[(df['Guven_Skoru_Num'] >= 70) & (df['Guven_Skoru_Num'] < 85)][['Hisse', 'Fiyat', 'Guven_Skoru']], use_container_width=True)
-    else:
-        st.warning("Veri bekleniyor.")
-
-# ==============================================================================
-# --- TAB 3: SNIPER ELITE LABORATUVARI (NATIVE UI - HTML YOK) ---
-# ==============================================================================
-with tab3:
-    st.header("🧪 250$ Deney Laboratuvarı: SNIPER ELITE")
-    
+    st.header("🧪 Sniper Elite: Operasyon Planlama")
     col_in, col_inf = st.columns([1, 2])
     budget = col_in.number_input("Kasa ($)", value=250.0, step=10.0)
     trade_budget = budget * 0.98
-    col_inf.success(f"**Savaş Bütçesi:** ${trade_budget:.2f} (Parça Hisse Alımı Aktif)")
+    col_inf.success(f"**Savaş Bütçesi:** ${trade_budget:.2f}")
 
     if st.button("🚀 Piyasayı Tara ve Yol Haritasını Çıkar", type="primary"):
-        with st.spinner("Strateji hesaplanıyor..."):
+        with st.spinner("Hedefler taranıyor..."):
             opportunities = []
             for ticker in FULL_WATCHLIST:
                 res = analyze_sniper(ticker)
@@ -187,82 +196,110 @@ with tab3:
             opportunities.sort(key=lambda x: x["RSI"], reverse=True)
             
             if not opportunities:
-                st.warning("### 💤 Pusuya Devam")
-                st.write("Şu an atış menzilinde uygun hisse yok.")
+                st.warning("💤 Uygun fırsat yok.")
             else:
-                plan_a = opportunities[0]
-                plan_b = opportunities[1] if len(opportunities) > 1 else None
-                
-                # --- OPERASYON KARTI (NATIVE STREAMLIT) ---
-                def render_native_card(plan, label):
+                for plan in opportunities[:2]: # İlk 2 fırsat
                     ticker = plan['Hisse']
-                    entry_price = plan['Fiyat']
-                    rsi = plan['RSI']
+                    entry = plan['Fiyat']
                     
-                    target_1 = entry_price * 1.10
-                    target_2 = entry_price * 1.30
-                    target_3 = entry_price * 1.50
-                    stop_loss = entry_price * 0.92
-                    
-                    profit_1 = (trade_budget * 0.50) * 0.10
-                    profit_2 = (trade_budget * 0.25) * 0.30
-                    profit_3 = (trade_budget * 0.25) * 0.50
-                    total_potential_profit = profit_1 + profit_2 + profit_3
-
-                    # KART BAŞLANGICI
                     with st.container():
                         st.divider()
-                        c_title, c_rsi = st.columns([3, 1])
-                        c_title.markdown(f"### {label}: **{ticker}**")
-                        c_rsi.metric("RSI Gücü", f"{rsi:.1f}")
+                        c_title, c_act = st.columns([3, 1])
+                        c_title.markdown(f"### HEDEF: **{ticker}** (RSI: {plan['RSI']:.1f})")
                         
-                        # GİRİŞ BİLGİLERİ
-                        c1, c2 = st.columns(2)
-                        c1.metric("Giriş Fiyatı", f"${entry_price:.2f}")
-                        c2.metric("Yatırılacak Tutar", f"${trade_budget:.2f}")
+                        # --- OPERASYON KARTI ---
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Giriş", f"${entry:.2f}")
+                        c2.metric("Yatırım", f"${trade_budget:.2f}")
+                        c3.metric("Adet (Tahmini)", f"{trade_budget/entry:.2f}")
                         
-                        # ALIM EMRİ KUTUSU
-                        st.info(f"📄 **GÖREV EMRİ:**\n\nParça Hisse (Fractional) emri ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop Loss:** ${stop_loss:.2f} (%8)")
+                        target_1 = entry * 1.10
+                        stop_loss = entry * 0.92
                         
-                        st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
+                        st.info(f"📍 **ROTA:** Hedef 1: ${target_1:.2f} (%10) | Stop: ${stop_loss:.2f} (%8)")
                         
-                        # YOL HARİTASI (3 KOLON)
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            st.success(f"**1. GÜVENLİK KİLİDİ**\n\n🎯 **${target_1:.2f}**\n\nElindekinin **%50'sini** sat.\n\n💰 Kazanç: +${profit_1:.2f}")
-                            st.caption("Tahmini: 1-3 Hafta")
-                            
-                        with col2:
-                            st.success(f"**2. TREND KAZANCI**\n\n🎯 **${target_2:.2f}**\n\nElindekinin **%25'ini** sat.\n\n💰 Kazanç: +${profit_2:.2f}")
-                            st.caption("Tahmini: 1-2 Ay")
-                            
-                        with col3:
-                            st.success(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**\n\nKalan **%25'i** sür.\n\n💰 Kazanç: +${profit_3:.2f}+")
-                            st.caption("Tahmini: 3-6 Ay")
-                        
-                        st.markdown(f"🎯 **Operasyon Başarılı Olursa Toplam Tahmini Kar: :green[${total_potential_profit:.2f}]**")
+                        # ENVANTERE EKLEME BUTONU
+                        if c_act.button(f"➕ {ticker} Günlüğe Ekle", key=f"add_{ticker}"):
+                            add_to_portfolio(ticker, entry, trade_budget, target_1, stop_loss)
+                            st.success(f"✅ {ticker} Savaş Günlüğüne işlendi!")
 
-                st.subheader(f"🔥 TESPİT EDİLEN FIRSATLAR ({len(opportunities)} Adet)")
-                render_native_card(plan_a, "PLAN A")
+# ==============================================================================
+# TAB 3: SAVAŞ GÜNLÜĞÜ (PORTFÖY TAKİBİ)
+# ==============================================================================
+with tab3:
+    st.header("📒 Savaş Günlüğü (Aktif Operasyonlar)")
+    
+    if len(st.session_state.portfolio) == 0:
+        st.info("Henüz aktif bir operasyonun yok. 'Sniper Lab'dan işlem ekleyebilirsin.")
+    else:
+        # Portföy Tablosu Hazırla
+        total_pl = 0
+        
+        for i, trade in enumerate(st.session_state.portfolio):
+            # Canlı Fiyat Çek
+            try:
+                live_data = yf.Ticker(trade['Hisse']).history(period="1d")
+                current_price = live_data['Close'].iloc[-1]
+            except:
+                current_price = trade['Giris_Fiyati'] # Hata olursa giriş fiyatını baz al
+            
+            # Kar/Zarar Hesapla
+            pl_usd = (current_price - trade['Giris_Fiyati']) * trade['Adet']
+            pl_pct = ((current_price - trade['Giris_Fiyati']) / trade['Giris_Fiyati']) * 100
+            total_pl += pl_usd
+            
+            # Kart Görünümü
+            with st.container():
+                c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 1])
+                c1.markdown(f"**{trade['Hisse']}**")
+                c2.write(f"Giriş: ${trade['Giris_Fiyati']:.2f}")
+                c3.write(f"Anlık: **${current_price:.2f}**")
                 
-                if plan_b:
-                    st.markdown("👇 **Alternatif:**")
-                    render_native_card(plan_b, "PLAN B")
+                # Renkli K/Z
+                color = "green" if pl_usd >= 0 else "red"
+                c4.markdown(f":{color}[**${pl_usd:.2f} (%{pl_pct:.2f})**]")
+                
+                if c5.button("🗑️ Sil", key=f"del_{i}"):
+                    st.session_state.portfolio.pop(i)
+                    st.rerun()
+                st.divider()
+        
+        st.metric("TOPLAM KAR/ZARAR", f"${total_pl:.2f}")
 
-# --- TAB 4 & 5 ---
+# ==============================================================================
+# TAB 4: DEDEKTİF (GRAFİK DESTEKLİ)
+# ==============================================================================
 with tab4:
-    st.dataframe(df if not df.empty else pd.DataFrame(), use_container_width=True)
+    st.header("🔎 Hisse Dedektifi (Grafik Masası)")
+    sel_ticker = st.selectbox("İncele:", sorted(FULL_WATCHLIST))
+    
+    if st.button("Detaylı Analiz"):
+        with st.spinner("Uydu görüntüleri alınıyor..."):
+            chart_data = get_chart_data(sel_ticker)
+            if chart_data is not None:
+                # 1. Metrikler
+                curr = chart_data['Close'].iloc[-1]
+                prev = chart_data['Close'].iloc[-2]
+                diff = curr - prev
+                pct = (diff / prev) * 100
+                
+                m1, m2 = st.columns(2)
+                m1.metric(f"{sel_ticker} Fiyat", f"${curr:.2f}", f"{pct:.2f}%")
+                
+                # 2. Grafik (Plotly)
+                fig = go.Figure(data=[go.Candlestick(x=chart_data.index,
+                                open=chart_data['Open'],
+                                high=chart_data['High'],
+                                low=chart_data['Low'],
+                                close=chart_data['Close'])])
+                fig.update_layout(title=f"{sel_ticker} - Son 3 Ay", template="plotly_dark", height=500)
+                st.plotly_chart(fig, use_container_width=True)
+                
+            else:
+                st.error("Veri alınamadı.")
+
+# ==============================================================================
+# TAB 5: VERİ HAVUZU
+# ==============================================================================
 with tab5:
-    st.header("🔎 Hisse Dedektifi")
-    sel = st.selectbox("Hisse Seç:", sorted(FULL_WATCHLIST))
-    if st.button("Analiz Et"):
-        with st.spinner("Bakılıyor..."):
-            r = canli_analiz_yap(sel)
-            if r:
-                c1, c2 = st.columns(2)
-                c1.metric("Fiyat", f"${r['Fiyat']:.2f}")
-                c1.metric("Puan", f"{int(r['Guven_Skoru_Num'])}")
-                c2.info(r['Analiz_Ozeti'])
-                st.success(f"Karar: {r['Karar']}")
-            else: st.error("Hata.")
+    st.dataframe(df, use_container_width=True)
