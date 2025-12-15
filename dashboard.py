@@ -43,7 +43,7 @@ def get_historical_price(ticker, date_obj):
     try:
         df = yf.download(ticker, start=start_date, end=end_date, progress=False)
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
-        if not df.empty: return df.iloc[0]['Close']
+        if not df.empty: return float(df.iloc[0]['Close']) # Float dönüşümü eklendi
         return None
     except: return None
 
@@ -99,7 +99,7 @@ def analyze_sniper(ticker):
         if (last_row['Close'] > last_row['SMA_200'] and last_row['Close'] > last_row['SMA_50']) and (last_row['RSI_14'] >= 55) and (last_row['Close'] > last_row['SMA_20']):
             durum = "AL (SNIPER)"
         elif last_row['Close'] < last_row['SMA_50']: durum = "SAT"
-        return { "Hisse": ticker, "Fiyat": last_row['Close'], "RSI": last_row['RSI_14'], "Durum": durum }
+        return { "Hisse": ticker, "Fiyat": float(last_row['Close']), "RSI": float(last_row['RSI_14']), "Durum": durum }
     except: return None
 
 def get_chart_data(ticker):
@@ -153,7 +153,7 @@ def main_dashboard():
         st.session_state['portfolio'] = []
         st.rerun()
 
-    st.title("🌾 Komuta Merkezi V38.0")
+    st.title("🌾 Komuta Merkezi V39.0")
     
     market = get_market_sentiment()
     if "BOĞA" in market: st.markdown(f'<div class="market-safe">🟢 PİYASA: {market} - GÜVENLİ</div>', unsafe_allow_html=True)
@@ -186,9 +186,7 @@ def main_dashboard():
             if not orta.empty: c3.write(", ".join(orta['Hisse'].tolist()))
         else: st.info("Veri havuzu boş.")
 
-    # ==========================================================================
-    # TAB 2: SNIPER LAB (ROTA TASARIMI GERİ GELDİ & BUTON DÜZELDİ)
-    # ==========================================================================
+    # TAB 2: SNIPER LAB
     with tab2:
         st.header("🧪 Sniper Elite: Otomatik Avlanma")
         col_in, col_inf = st.columns([1, 2])
@@ -212,7 +210,6 @@ def main_dashboard():
                         ticker = plan['Hisse']
                         entry = plan['Fiyat']
                         
-                        # HESAPLAMALAR
                         target_1 = entry * 1.10
                         target_2 = entry * 1.30
                         target_3 = entry * 1.50
@@ -223,36 +220,29 @@ def main_dashboard():
                         profit_3 = (trade_budget * 0.25) * 0.50
                         total_potential_profit = profit_1 + profit_2 + profit_3
                         
-                        # --- KART BAŞLANGICI ---
                         with st.container():
                             st.divider()
-                            # Başlık
                             c_head1, c_head2 = st.columns([3, 1])
                             c_head1.markdown(f"### 🎯 HEDEF: **{ticker}**")
                             c_head2.metric("RSI Gücü", f"{plan['RSI']:.1f}")
                             
-                            # Giriş Bilgileri
                             c1, c2, c3 = st.columns(3)
                             c1.metric("Giriş Fiyatı", f"${entry:.2f}")
                             c2.metric("Yatırım", f"${trade_budget:.2f}")
                             c3.metric("Adet", f"{trade_budget/entry:.2f}")
                             
-                            st.info(f"📄 **GÖREV EMRİ:** Parça Hisse ile **${trade_budget:.2f}** tutarında **{ticker}** al. Stop: ${stop_loss:.2f}")
+                            st.info(f"📄 **GÖREV EMRİ:** Parça Hisse ile **${trade_budget:.2f}** tutarında **{ticker}** al.\n\n🛑 **Stop:** ${stop_loss:.2f} (%8)")
                             
-                            # --- 3 KADEMELİ SATIŞ ROTASI (RENKLİ KUTULARLA) ---
                             st.markdown("#### 📍 3 KADEMELİ SATIŞ ROTASI")
                             r1, r2, r3 = st.columns(3)
-                            
                             with r1:
                                 st.success(f"**1. GÜVENLİK**\n\n🎯 **${target_1:.2f}**")
                                 st.caption("Pozisyonun %50'sini sat.")
                                 st.markdown(f":green[**Kar: +${profit_1:.2f}**]")
-
                             with r2:
                                 st.warning(f"**2. TREND**\n\n🎯 **${target_2:.2f}**")
                                 st.caption("Kalanın %50'sini sat.")
                                 st.markdown(f":green[**Kar: +${profit_2:.2f}**]")
-
                             with r3:
                                 st.error(f"**3. JACKPOT**\n\n🎯 **${target_3:.2f}+**")
                                 st.caption("Kalanı sür.")
@@ -260,23 +250,23 @@ def main_dashboard():
                             
                             st.markdown(f"### 💰 Tahmini Toplam Kar: :green[${total_potential_profit:.2f}]")
 
-                            # --- DEFTERE İŞLEME BUTONU (DÜZELTİLDİ) ---
-                            # Dictionary yapısı artık Tab 3 ile %100 uyumlu.
+                            # --- DÜZELTİLEN KISIM: FLOAT CONVERSION + RERUN ---
                             if st.button(f"➕ Deftere İşle", key=f"add_{ticker}"):
                                 new_trade = {
                                     "Tip": "Hisse",
-                                    "Hisse": ticker,
+                                    "Hisse": str(ticker),
                                     "Giris_Tarihi": datetime.now().strftime("%Y-%m-%d"),
-                                    "Giris_Fiyati": entry,
-                                    "Yatirim": trade_budget,
-                                    "Adet": trade_budget/entry,
+                                    "Giris_Fiyati": float(entry), # FLOAT'A ZORLANDI
+                                    "Yatirim": float(trade_budget),
+                                    "Adet": float(trade_budget/entry),
                                     "Durum": "Acik",
                                     "Cikis_Tarihi": None,
                                     "Cikis_Fiyati": None
                                 }
                                 st.session_state.portfolio.append(new_trade)
                                 save_portfolio(st.session_state['username'], st.session_state.portfolio)
-                                st.success(f"✅ {ticker} başarıyla deftere işlendi! (Büyük Defter sekmesine bakabilirsin)")
+                                st.success(f"✅ {ticker} deftere işlendi!")
+                                st.rerun() # SAYFA YENİLEME
 
     # TAB 3: BÜYÜK DEFTER
     with tab3:
@@ -311,12 +301,12 @@ def main_dashboard():
                                 "Tip": i_type,
                                 "Hisse": i_sym,
                                 "Giris_Tarihi": i_buy_date.strftime("%Y-%m-%d"),
-                                "Giris_Fiyati": buy_price,
-                                "Yatirim": i_amt,
-                                "Adet": qty,
+                                "Giris_Fiyati": float(buy_price),
+                                "Yatirim": float(i_amt),
+                                "Adet": float(qty),
                                 "Durum": status,
                                 "Cikis_Tarihi": i_sell_date.strftime("%Y-%m-%d") if i_sell_date else None,
-                                "Cikis_Fiyati": sell_price
+                                "Cikis_Fiyati": float(sell_price) if sell_price else None
                             }
                             st.session_state.portfolio.append(new_record)
                             save_portfolio(user, st.session_state.portfolio)
@@ -344,7 +334,7 @@ def main_dashboard():
                 else:
                     try:
                         live = yf.Ticker(trade['Hisse']).history(period="1d")
-                        curr_price = live['Close'].iloc[-1]
+                        curr_price = float(live['Close'].iloc[-1])
                     except: curr_price = trade['Giris_Fiyati']
                     current_val = curr_price * trade['Adet']
                     pl_val = current_val - trade['Yatirim']
