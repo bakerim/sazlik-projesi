@@ -22,7 +22,7 @@ st.markdown("""
 <style>
     .stApp { background-color: #0d1117; }
     
-    /* Metrik Kutuları */
+    /* Metrik Kutularını Özelleştir */
     div[data-testid="stMetric"] {
         background-color: #161b22; border: 1px solid #30363d; padding: 15px; border-radius: 10px;
     }
@@ -82,27 +82,19 @@ def analyze_sniper(ticker):
         df_sniper = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
         if isinstance(df_sniper.columns, pd.MultiIndex):
             df_sniper.columns = df_sniper.columns.get_level_values(0)
-        
         if len(df_sniper) < 200: return None
-        
-        df_sniper.ta.rsi(length=14, append=True)
-        df_sniper.ta.sma(length=20, append=True)
-        df_sniper.ta.sma(length=50, append=True)
-        df_sniper.ta.sma(length=200, append=True)
-        
+        df_sniper = calculate_indicators(df_sniper)
         last_row = df_sniper.iloc[-1]
         close = last_row['Close']
         sma20 = last_row['SMA_20']
         sma50 = last_row['SMA_50']
         sma200 = last_row['SMA_200']
         rsi = last_row['RSI_14']
-        
         durum = "BEKLE"
         if (close > sma200 and close > sma50) and (rsi >= 55) and (close > sma20):
             durum = "AL (SNIPER)"
         elif close < sma50: 
             durum = "SAT"
-        
         return { "Hisse": ticker, "Fiyat": close, "RSI": rsi, "Durum": durum }
     except: return None
 
@@ -192,7 +184,6 @@ with tab2:
                 res = analyze_sniper(ticker)
                 if res and res["Durum"] == "AL (SNIPER)":
                     opportunities.append(res)
-            
             opportunities.sort(key=lambda x: x["RSI"], reverse=True)
             
             if not opportunities:
