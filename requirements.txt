@@ -8,3 +8,4 @@ feedparser
 nltk
 pandas_ta
 plotly
+numpy
