@@ -7,3 +7,4 @@ matplotlib
 feedparser
 nltk
 pandas_ta
+plotly
