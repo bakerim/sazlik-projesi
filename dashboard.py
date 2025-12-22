@@ -79,14 +79,12 @@ def calculate_indicators(df):
 
 def get_market_sentiment():
     try:
-        spy = yf.download("SPY", period="6mo", interval="1d", progress=False)
-        if isinstance(spy.columns, pd.MultiIndex): spy.columns = spy.columns.get_level_values(0)
-        if len(spy) < 50: return "NÖTR"
+        spy = yf.download("SPY", period="6mo", interval="1d", progress=False, auto_adjust=True)
+        if isinstance(spy.columns, pd.MultiIndex): spy.columns = spy.columns.droplevel(1)
         current = spy['Close'].iloc[-1]
         sma50 = spy['Close'].rolling(50).mean().iloc[-1]
-        if current > sma50: return "BOĞA"
-        return "AYI"
-    except: return "VERİ YOK"
+        return "BOĞA" if current > sma50 else "AYI"
+    except: return "NÖTR"
 
 def analyze_sniper(ticker):
     try:
