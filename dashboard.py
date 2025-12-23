@@ -4,7 +4,7 @@ import pandas_ta as ta
 import pandas as pd
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık Pro V4.1", layout="wide")
+st.set_page_config(page_title="Sazlık Pro V4.2", layout="wide")
 
 # --- LİSTE ---
 WATCHLIST = [
@@ -25,7 +25,6 @@ def analiz_motoru(symbol):
         if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
         if 'Close' not in df.columns: return None
 
-        # İndikatörler
         df['RSI'] = ta.rsi(df['Close'], length=14)
         df['EMA20'] = ta.ema(df['Close'], length=20)
         df['ATR'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
@@ -43,11 +42,8 @@ def analiz_motoru(symbol):
         vol_avg = float(last['Vol_Avg'])
 
         hareket_yuzdesi = (atr / fiyat) * 100
-        
-        # Hız Limiti: %1.5 altı çok yavaş, ele.
         if hareket_yuzdesi < 1.5: return None 
 
-        # --- PUANLAMA ---
         puan = 0
         sebepler = []
 
@@ -68,7 +64,7 @@ def analiz_motoru(symbol):
             
         if hareket_yuzdesi > 2.5:
             puan += 20
-            sebepler.append("Yüksek Hız")
+            sebepler.append("Hızlı")
         elif hareket_yuzdesi > 1.5:
             puan += 10
 
@@ -78,7 +74,6 @@ def analiz_motoru(symbol):
             "symbol": symbol,
             "fiyat": fiyat,
             "puan": puan,
-            "rsi": rsi,
             "atr_pct": hareket_yuzdesi,
             "sebepler": sebepler
         }
@@ -86,8 +81,8 @@ def analiz_motoru(symbol):
         return None
 
 # --- ARAYÜZ ---
-st.title("💸 SAZLIK V4.1 - RENKLİ AVCI")
-st.write("Sadece en yüksek puanlı **TOP 10** hisse gösterilir.")
+st.title("💸 SAZLIK V4.2 - PROFESYONEL KARTLAR")
+st.write("Sadece en iyi **TOP 10** hisse, renkli kartlar içinde gösterilir.")
 st.markdown("---")
 
 col1, col2 = st.columns([1, 2])
@@ -96,7 +91,7 @@ with col1:
 
 if st.button("🚀 TARAMAYI BAŞLAT"):
     
-    st.info("📡 Piyasa taranıyor... Renkler hazırlanıyor...")
+    st.info("📡 Analiz yapılıyor... Kartlar hazırlanıyor...")
     progress = st.progress(0)
     
     firsatlar = []
@@ -110,14 +105,11 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
     if not firsatlar:
         st.error("❌ Piyasa kötü. Uygun hisse çıkmadı.")
     else:
-        # Puan sıralaması ve İLK 10 FİLTRESİ
         firsatlar = sorted(firsatlar, key=lambda x: x['puan'], reverse=True)
-        secilenler = firsatlar[:10] # Sadece Top 10
-        
-        # Ağırlıklı Dağıtım Hesabı (Sadece ekrandaki 10 hisse için)
+        secilenler = firsatlar[:10]
         toplam_puan = sum(item['puan'] for item in secilenler)
         
-        st.success(f"✅ En iyi {len(secilenler)} hisse listeleniyor.")
+        st.success(f"✅ En iyi {len(secilenler)} hisse tespit edildi.")
         st.markdown("---")
         
         # 3'lü kolon düzeni
@@ -125,44 +117,37 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
         
         for i, veri in enumerate(secilenler):
             with cols[i % 3]:
-                # 1. Renk Belirleme
-                if veri['puan'] >= 90:
-                    renk_str = "green"
-                    baslik = "MÜKEMMEL"
-                    emoji = "🟢"
-                elif veri['puan'] >= 80:
-                    renk_str = "blue"
-                    baslik = "GÜÇLÜ"
-                    emoji = "🔵"
-                else:
-                    renk_str = "orange"
-                    baslik = "DENENEBİLİR"
-                    emoji = "🟠"
-
-                # 2. Hesaplamalar
+                # Hesaplamalar
                 pay_orani = veri['puan'] / toplam_puan
                 yatirim_tutari = bakiye * pay_orani
                 giris = veri['fiyat']
                 hedef = giris * 1.05
                 stop = giris * 0.975
-                
-                # Süre Tahmini (Güvenlik payı eklenmiş)
                 gun_tahmini = max(1, int(5 / veri['atr_pct']))
-                vade_str = f"1-{gun_tahmini + 1} Gün"
+                
+                # İÇERİK HAZIRLAMA
+                baslik = f"{veri['symbol']} | Puan: {veri['puan']}"
+                icerik = f"""
+                **Neden?** {', '.join(veri['sebepler'])}
+                
+                ```yaml
+                💰 YATIRIM: ${yatirim_tutari:.2f}
+                👉 EMİR: AL
+                📉 GİRİŞ: ${giris:.2f}
+                🎯 HEDEF: ${hedef:.2f}
+                🛑 STOP:  ${stop:.2f}
+                ⏳ SÜRE:  1-{gun_tahmini + 1} Gün
+                ⚡ HIZ:   %{veri['atr_pct']:.2f}/gün
+                ```
+                """
 
-                # 3. KART ÇİZİMİ
-                # Başlığı Renkli Yapıyoruz
-                st.markdown(f"### :{renk_str}[{emoji} {veri['symbol']}]")
-                st.caption(f"**{baslik}** | Puan: {veri['puan']} | Hız: %{veri['atr_pct']:.2f}/gün")
-                
-                st.code(f"""
-💰 YATIRIM: ${yatirim_tutari:.2f}
-👉 EMİR: AL
-📉 GİRİŞ: ${giris:.2f}
-🎯 HEDEF: ${hedef:.2f}
-🛑 STOP:  ${stop:.2f}
-⏳ SÜRE:  {vade_str}
-                """, language="yaml")
-                
-                st.markdown(f"*{', '.join(veri['sebepler'])}*")
-                st.markdown("---")
+                # RENKLİ ÇERÇEVE MANTIĞI (Streamlit native boxes)
+                if veri['puan'] >= 90:
+                    with st.success(f"🚨 {baslik} (MÜKEMMEL)"):
+                        st.markdown(icerik)
+                elif veri['puan'] >= 80:
+                    with st.info(f"🔵 {baslik} (GÜÇLÜ)"):
+                        st.markdown(icerik)
+                else:
+                    with st.warning(f"🟠 {baslik} (DENENEBİLİR)"):
+                        st.markdown(icerik)
