@@ -1,13 +1,3 @@
-# --- 1. SİSTEM AYARLARI ---
-RSS_URLS = [
-    "https://finance.yahoo.com/news/rssindex",
-    "http://feeds.marketwatch.com/marketwatch/marketpulse",
-    "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664",
-    "https://www.cnbc.com/id/100003114/device/rss/rss.html" # Ekstra global haber akışı
-]
-
-OUTPUT_FILE = "sazlik_signals.csv"
-
 # --- 2. ANA İZLEME LİSTESİ (WATCHLIST) ---
 WATCHLIST_TICKERS = [
     # TEKNOLOJİ DEVLERİ
@@ -80,10 +70,3 @@ TRACKED_STOCKS = {
     "lyft": "LYFT", "airbnb": "ABNB", "etsy": "ETSY", "roku": "ROKU",
     "coinbase": "COIN", "shopify": "SHOP", "alibaba": "BABA", "jd com": "JD"
 }
-
-# Ticker kodlarını da kelime olarak ekleyelim (NVDA, MSFT vb. direkt geçebilir)
-for ticker in WATCHLIST_TICKERS:
-    if ticker.lower() not in TRACKED_STOCKS:
-        TRACKED_STOCKS[ticker.lower()] = ticker
-# Sonuçların Kaydedileceği Dosya Adı
-OUTPUT_FILE = "sazlik_signals.csv"
