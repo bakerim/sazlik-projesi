@@ -4,7 +4,7 @@ import pandas_ta as ta
 import pandas as pd
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık Pro V4.2", layout="wide")
+st.set_page_config(page_title="Sazlık Pro V4.3", layout="wide")
 
 # --- LİSTE ---
 WATCHLIST = [
@@ -81,7 +81,7 @@ def analiz_motoru(symbol):
         return None
 
 # --- ARAYÜZ ---
-st.title("💸 SAZLIK V4.2 - PROFESYONEL KARTLAR")
+st.title("💸 SAZLIK V4.3 - İSİM HATASI GİDERİLDİ")
 st.write("Sadece en iyi **TOP 10** hisse, renkli kartlar içinde gösterilir.")
 st.markdown("---")
 
@@ -125,10 +125,10 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
                 stop = giris * 0.975
                 gun_tahmini = max(1, int(5 / veri['atr_pct']))
                 
-                # İÇERİK HAZIRLAMA
-                baslik = f"{veri['symbol']} | Puan: {veri['puan']}"
+                # --- İÇERİK (İsim en başa eklendi) ---
                 icerik = f"""
-                **Neden?** {', '.join(veri['sebepler'])}
+                ### {veri['symbol']}
+                **Puan: {veri['puan']}** | *{', '.join(veri['sebepler'])}*
                 
                 ```yaml
                 💰 YATIRIM: ${yatirim_tutari:.2f}
@@ -141,13 +141,13 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
                 ```
                 """
 
-                # RENKLİ ÇERÇEVE MANTIĞI (Streamlit native boxes)
+                # RENKLİ KUTU (İçeriği basıyoruz)
                 if veri['puan'] >= 90:
-                    with st.success(f"🚨 {baslik} (MÜKEMMEL)"):
+                    with st.success("MÜKEMMEL FIRSAT 🟢"):
                         st.markdown(icerik)
                 elif veri['puan'] >= 80:
-                    with st.info(f"🔵 {baslik} (GÜÇLÜ)"):
+                    with st.info("GÜÇLÜ AL 🔵"):
                         st.markdown(icerik)
                 else:
-                    with st.warning(f"🟠 {baslik} (DENENEBİLİR)"):
+                    with st.warning("DENENEBİLİR 🟠"):
                         st.markdown(icerik)
