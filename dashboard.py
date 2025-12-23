@@ -4,7 +4,7 @@ import pandas_ta as ta
 import pandas as pd
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık Pro V5.0", layout="wide")
+st.set_page_config(page_title="Sazlık Pro V5.1", layout="wide")
 
 # --- LİSTE ---
 WATCHLIST = [
@@ -81,7 +81,7 @@ def analiz_motoru(symbol):
         return None
 
 # --- ARAYÜZ ---
-st.title("💸 SAZLIK V5.0 - ELİT SEÇİM")
+st.title("💸 SAZLIK V5.1 - ZIRHLI TASARIM")
 st.write("Sadece en iyi **TOP 6** hisse listelenir.")
 st.markdown("---")
 
@@ -91,7 +91,7 @@ with col1:
 
 if st.button("🚀 TARAMAYI BAŞLAT"):
     
-    st.info("📡 Analiz yapılıyor... En iyiler seçiliyor...")
+    st.info("📡 Analiz yapılıyor... Özel kartlar hazırlanıyor...")
     progress = st.progress(0)
     
     firsatlar = []
@@ -127,30 +127,54 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
                 stop = giris * 0.975
                 gun_tahmini = max(1, int(5 / veri['atr_pct']))
                 
-                # İÇERİK
-                stats = f"""
-                **Neden?** {', '.join(veri['sebepler'])}
-                ```yaml
-                💰 YATIRIM: ${yatirim_tutari:.2f}
-                👉 EMİR: AL
-                📉 GİRİŞ: ${giris:.2f}
-                🎯 HEDEF: ${hedef:.2f}
-                🛑 STOP:  ${stop:.2f}
-                ⏳ SÜRE:  1-{gun_tahmini + 1} Gün
-                ⚡ HIZ:   %{veri['atr_pct']:.2f}/gün
-                ```
-                """
-
-                # --- KUTULAR (BAŞLIK KUTUNUN KENDİSİ OLDU) ---
+                # --- RENK MANTIĞI ---
                 if veri['puan'] >= 90:
-                    # Yeşil Kutu
-                    with st.success(f"🚀 {veri['symbol']} (PUAN: {veri['puan']})"):
-                        st.markdown(stats)
+                    renk_kodu = "#2ea043" # Yeşil
+                    durum = "MÜKEMMEL"
                 elif veri['puan'] >= 80:
-                    # Mavi Kutu
-                    with st.info(f"🔵 {veri['symbol']} (PUAN: {veri['puan']})"):
-                        st.markdown(stats)
+                    renk_kodu = "#1f6feb" # Mavi
+                    durum = "GÜÇLÜ"
                 else:
-                    # Turuncu Kutu
-                    with st.warning(f"🟠 {veri['symbol']} (PUAN: {veri['puan']})"):
-                        st.markdown(stats)
+                    renk_kodu = "#d29922" # Turuncu
+                    durum = "DENENEBİLİR"
+
+                # --- HTML İLE ZORLA BAŞLIK ---
+                # Bu kısım Streamlit temasından etkilenmez.
+                st.markdown(f"""
+                <div style="
+                    border: 2px solid {renk_kodu};
+                    border-radius: 10px;
+                    padding: 10px;
+                    margin-bottom: 5px;
+                    background-color: transparent;
+                ">
+                    <h2 style="
+                        color: {renk_kodu};
+                        margin: 0;
+                        padding: 0;
+                        text-align: center;
+                        font-weight: 800;
+                    ">{veri['symbol']}</h2>
+                    <p style="
+                        color: white;
+                        text-align: center;
+                        margin: 0;
+                        font-size: 14px;
+                    ">{durum} (PUAN: {veri['puan']})</p>
+                    <hr style="border-color: {renk_kodu}; margin-top:5px; margin-bottom:5px;">
+                    <p style="color: #cccccc; font-size: 12px; margin:0;">
+                    <i>{', '.join(veri['sebepler'])}</i>
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # --- VERİ KISMI ---
+                st.code(f"""
+💰 YATIRIM: ${yatirim_tutari:.2f}
+👉 EMİR: AL
+📉 GİRİŞ: ${giris:.2f}
+🎯 HEDEF: ${hedef:.2f}
+🛑 STOP:  ${stop:.2f}
+⏳ SÜRE:  1-{gun_tahmini + 1} Gün
+⚡ HIZ:   %{veri['atr_pct']:.2f}/gün
+                """, language="yaml")
