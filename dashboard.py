@@ -4,7 +4,7 @@ import pandas_ta as ta
 import pandas as pd
 
 # --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık Pro V4.3", layout="wide")
+st.set_page_config(page_title="Sazlık Pro V5.0", layout="wide")
 
 # --- LİSTE ---
 WATCHLIST = [
@@ -81,8 +81,8 @@ def analiz_motoru(symbol):
         return None
 
 # --- ARAYÜZ ---
-st.title("💸 SAZLIK V4.3 - İSİM HATASI GİDERİLDİ")
-st.write("Sadece en iyi **TOP 10** hisse, renkli kartlar içinde gösterilir.")
+st.title("💸 SAZLIK V5.0 - ELİT SEÇİM")
+st.write("Sadece en iyi **TOP 6** hisse listelenir.")
 st.markdown("---")
 
 col1, col2 = st.columns([1, 2])
@@ -91,7 +91,7 @@ with col1:
 
 if st.button("🚀 TARAMAYI BAŞLAT"):
     
-    st.info("📡 Analiz yapılıyor... Kartlar hazırlanıyor...")
+    st.info("📡 Analiz yapılıyor... En iyiler seçiliyor...")
     progress = st.progress(0)
     
     firsatlar = []
@@ -105,11 +105,13 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
     if not firsatlar:
         st.error("❌ Piyasa kötü. Uygun hisse çıkmadı.")
     else:
+        # SIRALAMA ve KISITLAMA (Sadece 6 Tane)
         firsatlar = sorted(firsatlar, key=lambda x: x['puan'], reverse=True)
-        secilenler = firsatlar[:10]
+        secilenler = firsatlar[:6] 
+        
         toplam_puan = sum(item['puan'] for item in secilenler)
         
-        st.success(f"✅ En iyi {len(secilenler)} hisse tespit edildi.")
+        st.success(f"✅ Analiz Bitti. Kasanız bu 6 hisseye paylaştırıldı.")
         st.markdown("---")
         
         # 3'lü kolon düzeni
@@ -125,11 +127,9 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
                 stop = giris * 0.975
                 gun_tahmini = max(1, int(5 / veri['atr_pct']))
                 
-                # --- İÇERİK (İsim en başa eklendi) ---
-                icerik = f"""
-                ### {veri['symbol']}
-                **Puan: {veri['puan']}** | *{', '.join(veri['sebepler'])}*
-                
+                # İÇERİK
+                stats = f"""
+                **Neden?** {', '.join(veri['sebepler'])}
                 ```yaml
                 💰 YATIRIM: ${yatirim_tutari:.2f}
                 👉 EMİR: AL
@@ -141,13 +141,16 @@ if st.button("🚀 TARAMAYI BAŞLAT"):
                 ```
                 """
 
-                # RENKLİ KUTU (İçeriği basıyoruz)
+                # --- KUTULAR (BAŞLIK KUTUNUN KENDİSİ OLDU) ---
                 if veri['puan'] >= 90:
-                    with st.success("MÜKEMMEL FIRSAT 🟢"):
-                        st.markdown(icerik)
+                    # Yeşil Kutu
+                    with st.success(f"🚀 {veri['symbol']} (PUAN: {veri['puan']})"):
+                        st.markdown(stats)
                 elif veri['puan'] >= 80:
-                    with st.info("GÜÇLÜ AL 🔵"):
-                        st.markdown(icerik)
+                    # Mavi Kutu
+                    with st.info(f"🔵 {veri['symbol']} (PUAN: {veri['puan']})"):
+                        st.markdown(stats)
                 else:
-                    with st.warning("DENENEBİLİR 🟠"):
-                        st.markdown(icerik)
+                    # Turuncu Kutu
+                    with st.warning(f"🟠 {veri['symbol']} (PUAN: {veri['puan']})"):
+                        st.markdown(stats)
