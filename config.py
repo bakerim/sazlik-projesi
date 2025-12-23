@@ -1,5 +1,5 @@
 # --- 2. ANA İZLEME LİSTESİ (WATCHLIST) ---
-WATCHLIST_TICKERS = [
+WATCHLIST = [
     # TEKNOLOJİ DEVLERİ
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
