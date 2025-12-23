@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas_ta as ta
 import pandas as pd
+from config import WATCHLIST
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Sazlık Pro V5.1", layout="wide")
