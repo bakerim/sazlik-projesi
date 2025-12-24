@@ -16,41 +16,48 @@ if API_KEY:
     genai.configure(api_key=API_KEY)
     model = genai.GenerativeModel('gemini-2.0-flash')
 
-# --- TURBO GARANTİCİ BABA ANALİZİ ---
+# --- TURBO GARANTİCİ BABA ANALİZİ (SİGORTALI) ---
 def garantici_baba_analiz(ticker):
     try:
         stock = yf.Ticker(ticker)
-        # Bize sadece son 3 ay lazım (hız için)
+        # Hız ve momentum hesabı için son 3 ay yeterli
         df = stock.history(period="3mo") 
         if len(df) < 50: return None 
         
         current_price = df['Close'].iloc[-1]
-        
+
+        # --- SİGORTA: 20 GÜNLÜK MOMENTUM KONTROLÜ ---
+        # Mantık: Hisse son 1 ayda (20 işlem günü) sürünüyorsa, bize yaramaz.
+        # Bugünün fiyatı, 20 gün önceki fiyattan büyük olmak ZORUNDA.
+        try:
+            price_20_days_ago = df['Close'].iloc[-21]
+            if current_price <= price_20_days_ago:
+                return None # ELEDİK (Zaman Kaybı)
+        except:
+            return None # Veri hatası varsa riske girme
+
         # --- İNDİKATÖRLER ---
-        # append=True diyerek dataframe'e ekliyoruz
         df.ta.rsi(length=14, append=True)
         df.ta.ema(length=20, append=True)
         df.ta.atr(length=14, append=True)
         
-        # Son değerleri al (iloc[-1])
         rsi = df['RSI_14'].iloc[-1]
         ema20 = df['EMA_20'].iloc[-1]
         atr = df['ATRr_14'].iloc[-1]
         
-        # Veri kontrolü (NaN gelirse iptal)
         if pd.isna(rsi) or pd.isna(atr): return None
 
         # HIZ HESABI (ATR / Fiyat)
         hiz_yuzdesi = (atr / current_price) * 100
         
-        # SÜZGEÇ: Çok yavaşsa (günde %1.5 altı) zaman kaybetme
+        # SÜZGEÇ: Çok hantal hisseleri (Günde %1.5 altı) ele
         if hiz_yuzdesi < 1.5: return None
 
         # --- PUANLAMA ---
         score = 50
         sebepler = []
         
-        # 1. Trend
+        # 1. Trend (EMA20)
         if current_price > ema20:
             score += 30
             sebepler.append("Trend Yukarı")
@@ -76,7 +83,7 @@ def garantici_baba_analiz(ticker):
         if score >= 80: karar = "GÜÇLÜ AL"
         elif score >= 60: karar = "AL"
         
-        # Süre Hesabı (%5 Kar hedefi için)
+        # Süre Hesabı (%5 Hedef için)
         gun_tahmini = max(1, int(5 / hiz_yuzdesi))
         vade_str = f"1-{gun_tahmini + 1} Gün"
 
@@ -96,21 +103,13 @@ def garantici_baba_analiz(ticker):
     except:
         return None
 
-# --- AI SORGU MODÜLÜ ---
-def ask_gemini_consolidated(ticker, news_list, tech_data):
-    if not API_KEY: return None
-    # Basit bir yapay zeka dönüşü (Dashboard içinde zaten detaylı soruyoruz)
-    return {"analiz_ozeti": "Haber akışı incelendi."}
-
 # --- ANA MOTOR ---
 def run_news_bot():
-    print("🧠 Sazlık Motoru: Tarama Başlıyor...")
+    print("🧠 Sazlık Motoru: Sigortalı Tarama Başlıyor...")
     
     all_signals = []
-    processed_tickers = set()
     
-    # Tüm Listeden Rastgele 20 Tanesini Tara (Hız İçin - İstersen Sayıyı Artır)
-    # Eğer tüm listeyi tarasın dersen: scan_list = WATCHLIST_TICKERS
+
     target_list = WATCHLIST_TICKERS 
     scan_limit = 350
     scan_list = random.sample(target_list, min(len(target_list), scan_limit))
@@ -135,18 +134,15 @@ def run_news_bot():
                     "hiz": res['hiz']
                 }
                 all_signals.append(signal)
-                processed_tickers.add(ticker)
         except: continue
 
     # CSV KAYIT İŞLEMLERİ
     if all_signals:
         df = pd.DataFrame(all_signals)
-        # Eğer dosya varsa üzerine ekleme mantığı
         if os.path.exists(OUTPUT_FILE):
              try:
                  old_df = pd.read_csv(OUTPUT_FILE)
                  combined = pd.concat([df, old_df])
-                 # Tekrarları sil (En günceli tut)
                  combined = combined.drop_duplicates(subset=['Hisse'], keep='first')
                  combined.to_csv(OUTPUT_FILE, index=False)
                  return len(all_signals)
@@ -157,7 +153,7 @@ def run_news_bot():
              df.to_csv(OUTPUT_FILE, index=False)
              return len(all_signals)
     
-    # --- İŞTE EKSİK OLAN HAYATİ SATIR ---
+    # HATA ÖNLEYİCİ: Hiçbir şey bulamazsa 0 döndür
     return 0 
 
 if __name__ == "__main__":
