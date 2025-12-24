@@ -20,74 +20,70 @@ else:
     print("⚠️ UYARI: GEMINI_API_KEY bulunamadı.")
 
 # --- GELİŞMİŞ GARANTİCİ BABA ALGORİTMASI ---
+
 def garantici_baba_analiz(ticker):
     try:
         stock = yf.Ticker(ticker)
-        df = stock.history(period="1y") 
-        if len(df) < 200: return None 
+        # Son 3 ay yeterli, bize hız lazım
+        df = stock.history(period="3mo") 
+        if len(df) < 50: return None 
         
         current_price = df['Close'].iloc[-1]
         
-        # İndikatörler
+        # --- İNDİKATÖRLER VE HIZ HESABI ---
         df.ta.rsi(length=14, append=True)
-        df.ta.sma(length=50, append=True)
-        df.ta.sma(length=200, append=True)
+        df.ta.ema(length=20, append=True)
+        # ATR (Hissenin günlük hareket marjı - HIZ GÖSTERGESİ)
+        df.ta.atr(length=14, append=True)
         
         rsi = df['RSI_14'].iloc[-1]
-        sma50 = df['SMA_50'].iloc[-1]
-        sma200 = df['SMA_200'].iloc[-1]
+        ema20 = df['EMA_20'].iloc[-1]
+        atr = df['ATRr_14'].iloc[-1]
         
-        if pd.isna(rsi): return None
+        if pd.isna(rsi) or pd.isna(atr): return None
 
-        # --- PUANLAMA VE DETAYLI YORUM ---
+        # HIZ HESABI (Yüzde olarak günde ne kadar oynuyor?)
+        hiz_yuzdesi = (atr / current_price) * 100
+        
+        # SÜZGEÇ 1: Çok yavaşsa (günde %1.5 altı) bize gelmesin, zaman kaybı.
+        if hiz_yuzdesi < 1.5: return None
+
+        # --- PUANLAMA (VUR-KAÇ ODAKLI) ---
         score = 50
         sebepler = []
-        vade = "Belirsiz"
         
-        # 1. RSI Yorumu
-        if rsi < 30:
-            score += 25
-            sebepler.append(f"RSI göstergesi {rsi:.0f} seviyesinde dip yaptı. Bu teknik olarak 'aşırı satım' bölgesidir ve güçlü bir tepki alımı beklenebilir.")
-            vade = "3-5 Gün (Tepki)"
-        elif rsi < 40:
-            score += 10
-            sebepler.append(f"RSI {rsi:.0f} ile ucuz bölgede, kademeli alım için makul.")
-            vade = "1-2 Hafta"
-        elif rsi > 70:
-            score -= 20
-            sebepler.append(f"RSI {rsi:.0f} ile aşırı ısındı. Düzeltme riski çok yüksek.")
-            vade = "Uzak Dur"
-        else:
-            sebepler.append(f"RSI {rsi:.0f} ile nötr bölgede seyrediyor.")
-
-        # 2. Trend Yorumu
-        if current_price > sma200:
-            score += 15
-            sebepler.append(f"Fiyat 200 günlük ortalamanın (${sma200:.2f}) üzerinde, yani ana trend hala YÜKSELİŞ yönünde.")
-            if vade == "Belirsiz": vade = "Orta Vade"
-        else:
+        # 1. Trend (EMA20 üstündeyse yukarı gidiyordur)
+        if current_price > ema20:
+            score += 30
+            sebepler.append("Trend Yukarı")
+        
+        # 2. Momentum (RSI 50-65 arası en tatlı, en hızlı yerdir)
+        if 50 <= rsi <= 65:
+            score += 30
+            sebepler.append("RSI Patlamaya Hazır")
+        elif rsi < 30: # Dip tepkisi
+            score += 20
+            sebepler.append("Dip Tepkisi")
+        elif rsi > 70: # Çok şişmiş
             score -= 10
-            sebepler.append(f"Fiyat 200 günlük ortalamanın (${sma200:.2f}) altına sarkmış, ayı piyasası baskısı var.")
+            sebepler.append("Aşırı Şişik")
 
-        # 3. Golden Cross
-        if sma50 > sma200:
-            score += 10
-            sebepler.append("50 günlük ortalama 200 günlüğü yukarı kesmiş (Golden Cross), bu uzun vadeli en güçlü boğa sinyalidir.")
+        # 3. Hız Puanı
+        if hiz_yuzdesi > 3.0:
+            score += 20
+            sebepler.append("Çok Hızlı")
         
-        # 4. Fiyat Konumu
-        if current_price > sma50:
-            score += 5
-            sebepler.append("Kısa vadeli momentum pozitif (Fiyat > SMA50).")
-        
+        # --- SÜRE HESABI (MATEMATİKSEL) ---
+        # Hedefimiz %5. Hisse günde %2.5 gidiyorsa, hedef 2 günde gelir.
+        tahmini_gun = max(1, int(5 / hiz_yuzdesi))
+        vade_str = f"1-{tahmini_gun + 1} Gün" # +1 gün opsiyon
+
         # Karar Mekanizması
         karar = "BEKLE"
-        if score >= 75: karar = "GÜÇLÜ AL"
+        if score >= 80: karar = "GÜÇLÜ AL"
         elif score >= 60: karar = "AL"
-        elif score <= 30: karar = "SAT"
         
-        # Yorumları Birleştir
-        analiz_metni = " ".join(sebepler)
-        analiz_metni = f"[GARANTİCİ BABA]: {analiz_metni}"
+        analiz_metni = " | ".join(sebepler)
         
         return {
             "karar": karar,
@@ -95,15 +91,15 @@ def garantici_baba_analiz(ticker):
             "analiz_ozeti": analiz_metni,
             "fiyat": round(current_price, 2),
             "rsi": round(rsi, 2),
-            "hedef_fiyat": round(current_price * 1.05, 2),
-            "stop_loss": round(current_price * 0.95, 2),
+            # HEDEFİMİZ FIX %5
+            "hedef_fiyat": round(current_price * 1.05, 2), 
+            "stop_loss": round(current_price * 0.96, 2), # Stop %4
             "kazanc_pot": "%5",
-            "risk_yuzde": "%-5",
-            "vade": vade
+            "vade": vade_str, # Artık "1-2 Hafta" yok, "1-3 Gün" var.
+            "hiz": round(hiz_yuzdesi, 2)
         }
     except:
         return None
-
 # --- GEMINI AI SORGUSU ---
 def ask_gemini_consolidated(ticker, news_list, tech_data):
     if not API_KEY: return None
