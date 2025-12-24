@@ -68,8 +68,14 @@ if os.path.exists(OUTPUT_FILE):
                     except:
                         ai_notu = "Teknik görünüm sağlam, hacim artışıyla pozisyon alınabilir."
 
-                # 3. KASA VE RENK HESABI
+ # 3. KASA VE KÂR HESABI (NET RAKAMLAR)
                 pay = (puan / toplam_puan) * bakiye
+                kasa_yuzdesi = (pay / bakiye) * 100
+                
+                # Potansiyel kâr hesabı (%5 hedef sabit)
+                potansiyel_kar_dolar = pay * 0.05 
+                
+                # Renk Ayarları
                 if puan >= 90:
                     renk = "#2ea043" # Yeşil
                     durum = "MÜKEMMEL"
@@ -80,26 +86,33 @@ if os.path.exists(OUTPUT_FILE):
                     renk = "#d29922" # Turuncu
                     durum = "FIRSAT"
 
-                # 4. KART ÇİZİMİ
+                # 4. KART ÇİZİMİ (MAĞARA ADAMI FORMATI)
                 st.markdown(f"""
                 <div style="border: 2px solid {renk}; border-radius: 12px; padding: 15px; margin-bottom: 10px; background-color: rgba(255,255,255,0.03);">
                     <h2 style="color: {renk}; margin: 0; text-align: center; font-size: 30px;">{hisse}</h2>
                     <p style="color: white; text-align: center; margin: 0; font-weight: bold;">{durum} (SKOR: {puan})</p>
                     <hr style="border-color: {renk}; opacity: 0.2; margin: 10px 0;">
+                    
                     <p style="color: #00ff00; font-size: 13px; margin: 0 0 5px 0;"><b>🧠 AI NOTU:</b> <span style="color: #ccc;">{ai_notu}</span></p>
                     <p style="color: #4ea8de; font-size: 11px; margin: 0;"><b>📊 TEKNİK:</b> {teknik_yorum[:80]}...</p>
+                    
                     <div style="margin-top: 10px; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.2);">
                         <p style="color: #eee; font-size: 10px; margin:0;">📢 {haber_baslik[:60]}...</p>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
+                # NET RAKAMLAR BURADA
                 st.code(f"""
-💰 YATIRIM: ${pay:.2f}
+💰 YATIRIM: ${pay:.2f} (Kasanın %{kasa_yuzdesi:.1f}'i)
+💵 POTANSİYEL KÂR: +${potansiyel_kar_dolar:.2f}
+
+👉 EMİR: AL
 📉 GİRİŞ:   ${row.Fiyat}
 🎯 HEDEF:   ${row.Hedef_Fiyat}
 🛑 STOP:    ${row.Stop_Loss}
 ⏳ VADE:    {row.Vade}
+⚡ HIZ:     %{row.hiz if hasattr(row, 'hiz') else '-'} / gün
                 """, language="yaml")
 else:
     st.info("📂 Henüz analiz yapılmamış. Butona basarak 'Garantici Baba'yı ava gönder.")
