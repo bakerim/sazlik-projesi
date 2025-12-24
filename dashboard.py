@@ -7,8 +7,6 @@ from config import OUTPUT_FILE, WATCHLIST_TICKERS
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="Sazlık AI Terminali", layout="wide")
-
-# Özel CSS (Tasarım için)
 st.markdown("""
     <style>
     .main { background-color: #0d1117; }
@@ -16,8 +14,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("💸 SAZLIK - ELİT 6 MODU")
-st.markdown(f"**Tarama:** {len(WATCHLIST_TICKERS)} Hisse | **Yorum:** Sadece En İyi 6 Fırsat (Gemini AI)")
+st.title("💸 SAZLIK - DELİKANLI MODU (FULL TARAMA)")
+st.markdown(f"**Hedef:** {len(WATCHLIST_TICKERS)} Hisse (Tam Liste) | **Filtre:** Garantici Baba + 20 Gün Sigortası")
 st.markdown("---")
 
 # --- KASA GİRİŞİ ---
@@ -25,49 +23,47 @@ col_kasa, col_btn = st.columns([2, 1])
 with col_kasa:
     bakiye = st.number_input("💵 Toplam Kasa ($):", min_value=100.0, value=1000.0, step=100.0)
 
-# --- BUTON VE DURUM YÖNETİMİ ---
+# --- BUTON ---
 with col_btn:
     st.write("")
     st.write("")
-    if st.button("🚀 EN İYİ 6 FIRSATI BUL VE YORUMLA"):
-        with st.spinner("Piyasa taranıyor... Bu işlem 30-60 saniye sürebilir..."):
-            try:
-                # Önce eski dosyayı silelim (Temiz sayfa)
-                if os.path.exists(OUTPUT_FILE):
-                    os.remove(OUTPUT_FILE)
-                
-                # Motoru çalıştır
-                bulunan_sayisi = news_bot.run_news_bot()
-                
-                # SONUCU SAKLA
-                if bulunan_sayisi > 0:
-                    st.success(f"✅ Analiz bitti! {bulunan_sayisi} fırsat bulundu.")
-                    time.sleep(1) # Kullanıcı mesajı görsün
-                    st.rerun()
-                else:
-                    st.error("❌ Analiz yapıldı ama kriterlere uyan (Güçlü Al) hisse bulunamadı.")
-                    st.caption("Sebep: Piyasa çok durgun olabilir veya `yfinance` veri çekemiyor olabilir.")
+    if st.button("🚀 PİYASANIN İÇİNDEN GEÇ (FULL TARAMA)"):
+        # Buradaki yazıyı değiştirdim
+        msg = st.empty()
+        msg.info("🔥 350+ Hisse tek tek taranıyor... Çayını kahveni al, bu işlem piyasanın durumuna göre 2-3 dakika sürebilir. Sakın kapatma!")
+        
+        try:
+            # Eski dosyayı sil
+            if os.path.exists(OUTPUT_FILE):
+                os.remove(OUTPUT_FILE)
             
-            except Exception as e:
-                st.error(f"⚠️ Motor Hatası: {e}")
+            # Motoru çalıştır
+            start_time = time.time()
+            bulunan_sayisi = news_bot.run_news_bot()
+            end_time = time.time()
+            
+            sure = int(end_time - start_time)
+            
+            if bulunan_sayisi > 0:
+                msg.success(f"✅ Bitti! {sure} saniyede piyasa tarandı ve {bulunan_sayisi} fırsat bulundu.")
+                time.sleep(2)
+                st.rerun()
+            else:
+                msg.error("❌ Koca piyasada kriterlerine uyan tek bir hisse bile çıkmadı. Nakitte kal.")
+        
+        except Exception as e:
+            msg.error(f"⚠️ Hata: {e}")
 
 # --- SONUÇLARI GÖSTER ---
 if os.path.exists(OUTPUT_FILE):
     try:
         df = pd.read_csv(OUTPUT_FILE)
         
-        # 1. KOLON KONTROLÜ (HATA ZIRHI)
-        gerekli_kolonlar = ['Guven_Skoru', 'Hisse', 'Fiyat', 'Hedef_Fiyat', 'Stop_Loss']
-        if not all(col in df.columns for col in gerekli_kolonlar):
-            st.warning("⚠️ Veri dosyası formatı eski. Lütfen tekrar tarama yapın.")
-            st.stop()
-
-        # 2. FİLTRELEME
-        # Sadece 60 puan üstü (AL ve GÜÇLÜ AL)
+        # Filtreleme
         df_filtered = df[df['Guven_Skoru'] >= 60].copy()
         
         if df_filtered.empty:
-            st.info("📉 Taranan hisselerden hiçbiri 60 puan barajını geçemedi. Piyasa riskli.")
+            st.info("📉 Taranan hisseler 60 puanı geçemedi.")
         else:
             # En iyi 6 taneyi seç
             df_final = df_filtered.sort_values(by='Guven_Skoru', ascending=False).head(6)
@@ -77,42 +73,37 @@ if os.path.exists(OUTPUT_FILE):
             
             for i, row in enumerate(df_final.itertuples()):
                 with cols[i % 3]:
-                    # Verileri Güvenle Al
+                    # Veriler
                     hisse = row.Hisse
                     puan = int(row.Guven_Skoru)
                     fiyat = row.Fiyat
                     hedef = row.Hedef_Fiyat
                     stop = row.Stop_Loss
-                    # Eksik veri varsa varsayılan ata
                     vade = row.Vade if hasattr(row, 'Vade') else "1-3 Gün"
-                    hiz = row.hiz if hasattr(row, 'hiz') else (row.Atr_Hiz if hasattr(row, 'Atr_Hiz') else '-')
-                    teknik = row.Analiz_Ozeti if hasattr(row, 'Analiz_Ozeti') else "Teknik veri yok"
+                    hiz = row.hiz if hasattr(row, 'hiz') else '-'
+                    teknik = row.Analiz_Ozeti if hasattr(row, 'Analiz_Ozeti') else "Veri yok"
                     haber_baslik = row.Haber_Baslik if hasattr(row, 'Haber_Baslik') else "Haber yok"
 
-                    # GEMINI AI YORUMU (Sadece bu 6'sı için)
+                    # GEMINI AI
                     ai_notu = "Yükleniyor..."
                     try:
-                        prompt = f"Hisse: {hisse}, Puan: {puan}, Teknik: {teknik}. 5 kelimelik, net, mağara adamı yatırım tavsiyesi ver."
-                        # news_bot içindeki modeli kullan
+                        prompt = f"Hisse: {hisse}, Puan: {puan}, Teknik: {teknik}. 5 kelimelik, net, sert bir borsa koçu tavsiyesi ver."
                         resp = news_bot.model.generate_content(prompt)
                         ai_notu = resp.text.strip().replace('"', '')[:60]
                     except:
-                        ai_notu = "Teknik görünüm pozitif, hacim destekli."
+                        ai_notu = "Teknik onaylı, trend güçlü."
 
-                    # HESAPLAMALAR
+                    # HESAP
                     pay = (puan / toplam_puan) * bakiye
                     kasa_yuzdesi = (pay / bakiye) * 100
                     potansiyel_kar = pay * 0.05
 
-                    # RENKLER
-                    if puan >= 90:
-                        renk = "#2ea043"; durum = "MÜKEMMEL"
-                    elif puan >= 80:
-                        renk = "#1f6feb"; durum = "GÜÇLÜ"
-                    else:
-                        renk = "#d29922"; durum = "FIRSAT"
+                    # RENK
+                    if puan >= 90: renk = "#2ea043"; durum = "MÜKEMMEL"
+                    elif puan >= 80: renk = "#1f6feb"; durum = "GÜÇLÜ"
+                    else: renk = "#d29922"; durum = "FIRSAT"
 
-                    # KART ÇİZİMİ
+                    # KART
                     st.markdown(f"""
                     <div style="border: 2px solid {renk}; border-radius: 12px; padding: 15px; margin-bottom: 10px; background-color: rgba(255,255,255,0.03);">
                         <h2 style="color: {renk}; margin: 0; text-align: center; font-size: 30px;">{hisse}</h2>
@@ -137,13 +128,8 @@ if os.path.exists(OUTPUT_FILE):
 ⏳ VADE:    {vade}
 ⚡ HIZ:     %{hiz} / gün
                     """, language="yaml")
-
     except Exception as e:
-        st.error(f"Dosya okuma hatası: {e}")
-        # Hata durumunda butonu tekrar göster
-        if os.path.exists(OUTPUT_FILE):
-            os.remove(OUTPUT_FILE)
-
+        if os.path.exists(OUTPUT_FILE): os.remove(OUTPUT_FILE)
+        st.error("Dosya okuma hatası, tekrar dene.")
 else:
-    # Dosya yoksa veya silindiyse
-    st.info("📂 Henüz analiz sonucu yok. Lütfen yukarıdaki butona basarak 'Garantici Baba'yı ava gönder.")
+    st.info("📂 Analiz bekleniyor. Butona bas ve yaslan.")
