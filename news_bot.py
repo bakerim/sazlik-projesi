@@ -112,7 +112,7 @@ def run_news_bot():
     # Tüm Listeden Rastgele 20 Tanesini Tara (Hız İçin - İstersen Sayıyı Artır)
     # Eğer tüm listeyi tarasın dersen: scan_list = WATCHLIST_TICKERS
     target_list = WATCHLIST_TICKERS 
-    scan_limit = 25 # Şimdilik 25 hisse bak ki hızlı bitsin
+    scan_limit = 350
     scan_list = random.sample(target_list, min(len(target_list), scan_limit))
 
     for ticker in scan_list:
