@@ -70,3 +70,16 @@ TRACKED_STOCKS = {
     "lyft": "LYFT", "airbnb": "ABNB", "etsy": "ETSY", "roku": "ROKU",
     "coinbase": "COIN", "shopify": "SHOP", "alibaba": "BABA", "jd com": "JD"
 }
+
+
+# --- 4. SİSTEM AYARLARI (GEREKLİ) ---
+# Botun ve Dashboard'un ortak kullanacağı değişkenler
+WATCHLIST_TICKERS = WATCHLIST # İsmi botun anlayacağı dile çeviriyoruz
+OUTPUT_FILE = "sazlik_analiz_sonuclari.csv"
+
+# RSS KAYNAKLARI
+RSS_URLS = [
+    "https://finance.yahoo.com/news/rssindex",
+    "https://finance.yahoo.com/topic/stock-market-news/rss",
+    "https://feeds.content.dowjones.io/public/rss/mw_topstories"
+]
