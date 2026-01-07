@@ -1,14 +1,9 @@
 {
-    "bakiye": 0.850153923034668,
+    "bakiye": 3915.7101011276245,
     "portfoy": {
         "EBAY": {
             "adet": 22,
             "maliyet": 87.73999786376953,
-            "tarih": "2025-12-29"
-        },
-        "PENN": {
-            "adet": 134,
-            "maliyet": 14.890000343322754,
             "tarih": "2025-12-29"
         },
         "PAGP": {
@@ -20,11 +15,6 @@
             "adet": 111,
             "maliyet": 17.959999084472656,
             "tarih": "2026-01-01"
-        },
-        "MU": {
-            "adet": 6,
-            "maliyet": 312.05999755859375,
-            "tarih": "2026-01-02"
         },
         "TSM": {
             "adet": 1,
@@ -125,6 +115,20 @@
             "sembol": "PLUG",
             "islem": "ALIS",
             "fiyat": 2.244999885559082
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "PENN",
+            "islem": "SATIS",
+            "fiyat": 14.09000015258789,
+            "sebep": "ZARAR KES (%3)"
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "MU",
+            "islem": "SATIS",
+            "fiyat": 337.79998779296875,
+            "sebep": "K\u00c2R AL (%5)"
         }
     ]
 }
