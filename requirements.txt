@@ -1,0 +1,11 @@
+streamlit
+pandas
+yfinance
+google-generativeai
+requests
+matplotlib
+feedparser
+nltk
+pandas_ta
+plotly
+numpy
