@@ -6,6 +6,6 @@ requests
 matplotlib
 feedparser
 nltk
-pandas_ta
+ta
 plotly
 numpy
