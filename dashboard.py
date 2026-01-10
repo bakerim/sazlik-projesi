@@ -1,135 +1,188 @@
 import streamlit as st
 import pandas as pd
+import json
+import requests
 import news_bot
-import os
-import time
-from config import OUTPUT_FILE, WATCHLIST_TICKERS
+from datetime import datetime
+from config import GITHUB_TOKEN, GIST_ID
 
-# --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Sazlık AI Terminali", layout="wide")
+st.set_page_config(page_title="Sazlık Projesi", page_icon="🦅", layout="wide")
+
+# --- CSS (V7.0 STİLİ) ---
 st.markdown("""
-    <style>
-    .main { background-color: #0d1117; }
-    div[data-testid="stMetricValue"] { font-size: 20px; }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+    .card {
+        background-color: #0e1117;
+        border: 1px solid #30333d;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    .card:hover { border-color: #00ff41; transform: scale(1.01); }
+    
+    .ticker-row { display: flex; justify_content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 10px; }
+    .ticker-name { font-size: 22px; font-weight: 900; color: #fff; }
+    .score-badge { font-size: 16px; font-weight: bold; padding: 4px 10px; border-radius: 15px; color: #000; }
+    
+    .ai-row { font-size: 12px; color: #00ff41; font-style: italic; margin-bottom: 12px; border-left: 2px solid #00ff41; padding-left: 8px; }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 13px; font-family: 'Courier New'; color: #ccc; }
+    .val-up { color: #00ff41; }
+    .val-down { color: #ff4444; }
+    .val-neut { color: #4da6ff; }
+    
+    .invest-row { margin-top: 12px; text-align: right; border-top: 1px solid #333; padding-top: 8px; }
+    .invest-amount { font-size: 18px; font-weight: bold; color: #fff; }
+</style>
+""", unsafe_allow_html=True)
 
-st.title("💸 SAZLIK - DELİKANLI MODU (FULL TARAMA)")
-st.markdown(f"**Hedef:** {len(WATCHLIST_TICKERS)} Hisse (Tam Liste) | **Filtre:** Garantici Baba + 20 Gün Sigortası")
-st.markdown("---")
+GIST_FILENAME = "sazlik_portfolio.json"
 
-# --- KASA GİRİŞİ ---
-col_kasa, col_btn = st.columns([2, 1])
-with col_kasa:
-    bakiye = st.number_input("💵 Toplam Kasa ($):", min_value=100.0, value=1000.0, step=100.0)
-
-# --- BUTON ---
-with col_btn:
-    st.write("")
-    st.write("")
-    if st.button("🚀 PİYASANIN İÇİNDEN GEÇ (FULL TARAMA)"):
-        # Buradaki yazıyı değiştirdim
-        msg = st.empty()
-        msg.info("🔥 350+ Hisse tek tek taranıyor... Çayını kahveni al, bu işlem piyasanın durumuna göre 2-3 dakika sürebilir. Sakın kapatma!")
-        
-        try:
-            # Eski dosyayı sil
-            if os.path.exists(OUTPUT_FILE):
-                os.remove(OUTPUT_FILE)
-            
-            # Motoru çalıştır
-            start_time = time.time()
-            bulunan_sayisi = news_bot.run_news_bot()
-            end_time = time.time()
-            
-            sure = int(end_time - start_time)
-            
-            if bulunan_sayisi > 0:
-                msg.success(f"✅ Bitti! {sure} saniyede piyasa tarandı ve {bulunan_sayisi} fırsat bulundu.")
-                time.sleep(2)
-                st.rerun()
-            else:
-                msg.error("❌ Koca piyasada kriterlerine uyan tek bir hisse bile çıkmadı. Nakitte kal.")
-        
-        except Exception as e:
-            msg.error(f"⚠️ Hata: {e}")
-
-# --- SONUÇLARI GÖSTER ---
-if os.path.exists(OUTPUT_FILE):
+def get_portfolio():
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     try:
-        df = pd.read_csv(OUTPUT_FILE)
-        
-        # Filtreleme
-        df_filtered = df[df['Guven_Skoru'] >= 60].copy()
-        
-        if df_filtered.empty:
-            st.info("📉 Taranan hisseler 60 puanı geçemedi.")
-        else:
-            # En iyi 6 taneyi seç
-            df_final = df_filtered.sort_values(by='Guven_Skoru', ascending=False).head(6)
-            toplam_puan = df_final['Guven_Skoru'].sum()
+        r = requests.get(f"https://api.github.com/gists/{GIST_ID}", headers=headers)
+        if r.status_code == 200:
+            files = r.json().get('files', {})
+            if files:
+                content = files[list(files.keys())[0]].get('content', '{}')
+                return json.loads(content) if content else {}
+        return {}
+    except: return {}
+
+def save_portfolio(portfolio):
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    try:
+        r = requests.get(f"https://api.github.com/gists/{GIST_ID}", headers=headers)
+        filename = list(r.json()['files'].keys())[0] if r.status_code == 200 else "portfolio.json"
+        data = {"files": {filename: {"content": json.dumps(portfolio, indent=4)}}}
+        requests.patch(f"https://api.github.com/gists/{GIST_ID}", headers=headers, json=data)
+    except: pass
+
+def create_card(stock, yatirim):
+    if stock['Guven_Skoru'] >= 85: color = "#00ff41"
+    elif stock['Guven_Skoru'] >= 70: color = "#4da6ff"
+    else: color = "#ffbb00"
+    
+    html = f"""
+    <div class="card" style="border-top: 3px solid {color};">
+        <div class="ticker-row">
+            <span class="ticker-name" style="color:{color}">{stock['Hisse']}</span>
+            <span class="score-badge" style="background-color:{color}">{stock['Guven_Skoru']:.1f}</span>
+        </div>
+        <div class="ai-row">🤖 {stock['AI_Notu']}</div>
+        <div class="metric-grid">
+            <div>Fiyat: <span style="color:white">${stock['Fiyat']:.2f}</span></div>
+            <div>Potansiyel: <span class="val-neut">%{stock['Pot_Kar']:.2f}</span></div>
+            <div>Stop: <span class="val-down">${stock['Stop']:.2f}</span></div>
+            <div>Hedef: <span class="val-up">${stock['Hedef']:.2f}</span></div>
+        </div>
+        <div class="invest-row">
+            <span style="font-size:12px; color:#888">GİRİŞ TUTARI:</span>
+            <span class="invest-amount">${yatirim}</span>
+        </div>
+    </div>
+    """
+    return html
+
+st.title("🦅 SAZLIK - V7.0 GADDAR MOD")
+st.caption("Filtre: Gaddar (SMA200 Altını Affetmez) | Puanlama: Bonkör (Fırsat Varsa 90+) | Tarama: Full")
+
+col1, col2 = st.columns([1,3])
+with col1:
+    kasa = st.number_input("💵 Kasa ($)", value=1000.0, step=100.0)
+
+tab1, tab2 = st.tabs(["🚀 Piyasa Taraması", "💼 Portföy"])
+
+with tab1:
+    if st.button("TARAMAYI BAŞLAT", type="primary"):
+        with st.spinner("Gaddar Mod devrede... Zayıf halkalar eleniyor..."):
+            results = news_bot.run_analysis_engine()
+            results = sorted(results, key=lambda x: x['Guven_Skoru'], reverse=True)
+            top_picks = results[:9] # İlk 9 taneyi göster
             
-            cols = st.columns(3)
-            
-            for i, row in enumerate(df_final.itertuples()):
-                with cols[i % 3]:
-                    # Veriler
-                    hisse = row.Hisse
-                    puan = int(row.Guven_Skoru)
-                    fiyat = row.Fiyat
-                    hedef = row.Hedef_Fiyat
-                    stop = row.Stop_Loss
-                    vade = row.Vade if hasattr(row, 'Vade') else "1-3 Gün"
-                    hiz = row.hiz if hasattr(row, 'hiz') else '-'
-                    teknik = row.Analiz_Ozeti if hasattr(row, 'Analiz_Ozeti') else "Veri yok"
-                    haber_baslik = row.Haber_Baslik if hasattr(row, 'Haber_Baslik') else "Haber yok"
-
-                    # GEMINI AI
-                    ai_notu = "Yükleniyor..."
-                    try:
-                        prompt = f"Hisse: {hisse}, Puan: {puan}, Teknik: {teknik}. 5 kelimelik, net, sert bir borsa koçu tavsiyesi ver."
-                        resp = news_bot.model.generate_content(prompt)
-                        ai_notu = resp.text.strip().replace('"', '')[:60]
-                    except:
-                        ai_notu = "Teknik onaylı, trend güçlü."
-
-                    # HESAP
-                    pay = (puan / toplam_puan) * bakiye
-                    kasa_yuzdesi = (pay / bakiye) * 100
-                    potansiyel_kar = pay * 0.05
-
-                    # RENK
-                    if puan >= 90: renk = "#2ea043"; durum = "MÜKEMMEL"
-                    elif puan >= 80: renk = "#1f6feb"; durum = "GÜÇLÜ"
-                    else: renk = "#d29922"; durum = "FIRSAT"
-
-                    # KART
-                    st.markdown(f"""
-                    <div style="border: 2px solid {renk}; border-radius: 12px; padding: 15px; margin-bottom: 10px; background-color: rgba(255,255,255,0.03);">
-                        <h2 style="color: {renk}; margin: 0; text-align: center; font-size: 30px;">{hisse}</h2>
-                        <p style="color: white; text-align: center; margin: 0; font-weight: bold;">{durum} (SKOR: {puan})</p>
-                        <hr style="border-color: {renk}; opacity: 0.2; margin: 10px 0;">
-                        <p style="color: #00ff00; font-size: 13px; margin: 0 0 5px 0;"><b>🧠 AI NOTU:</b> <span style="color: #ccc;">{ai_notu}</span></p>
-                        <p style="color: #4ea8de; font-size: 11px; margin: 0;"><b>📊 TEKNİK:</b> {str(teknik)[:80]}...</p>
-                        <div style="margin-top: 10px; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.2);">
-                            <p style="color: #eee; font-size: 10px; margin:0;">📢 {str(haber_baslik)[:60]}...</p>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            if top_picks:
+                current_portfolio = get_portfolio()
+                st.success(f"🦁 {len(top_picks)} adet elit fırsat bulundu.")
+                
+                cols = st.columns(3)
+                for i, stock in enumerate(top_picks):
+                    # Bonkör Yatırım Hesabı
+                    if stock['Guven_Skoru'] >= 85: ratio = 0.25
+                    elif stock['Guven_Skoru'] >= 75: ratio = 0.20
+                    else: ratio = 0.15
+                    yatirim = round(kasa * ratio, 2)
                     
-                    st.code(f"""
-💰 YATIRIM: ${pay:.2f} (%{kasa_yuzdesi:.1f})
-💵 POT. KÂR: +${potansiyel_kar:.2f}
+                    with cols[i%3]:
+                        st.markdown(create_card(stock, yatirim), unsafe_allow_html=True)
+                        key = f"btn_{stock['Hisse']}_{datetime.now().timestamp()}"
+                        
+                        if stock['Hisse'] in current_portfolio:
+                            st.button(f"✅ Cüzdanda Var", key=key, disabled=True)
+                        else:
+                            if st.button(f"AL: {stock['Hisse']}", key=key):
+                                adet = round(yatirim / stock['Fiyat'], 4)
+                                current_portfolio[stock['Hisse']] = {
+                                    "cost": stock['Fiyat'], "shares": adet,
+                                    "date": str(datetime.now().date()),
+                                    "total_invested": yatirim, "stop": stock['Stop'], "target": stock['Hedef']
+                                }
+                                save_portfolio(current_portfolio)
+                                st.toast(f"{stock['Hisse']} eklendi!", icon="🦅")
+            else:
+                st.warning("Gaddar Mod: Piyasa çok kötü, kriterlere uyan sağlam kağıt yok.")
 
-👉 EMİR: AL
-📉 GİRİŞ:   ${fiyat}
-🎯 HEDEF:   ${hedef}
-🛑 STOP:    ${stop}
-⏳ VADE:    {vade}
-⚡ HIZ:     %{hiz} / gün
-                    """, language="yaml")
-    except Exception as e:
-        if os.path.exists(OUTPUT_FILE): os.remove(OUTPUT_FILE)
-        st.error("Dosya okuma hatası, tekrar dene.")
-else:
-    st.info("📂 Analiz bekleniyor. Butona bas ve yaslan.")
+with tab2:
+    st.header("📊 Portföy Z Raporu")
+    portfolio = get_portfolio() # sazlik_cuzdan.json verisi
+    
+    if portfolio:
+        # Terminal çıktısı gibi sade bir liste hazırlıyoruz
+        report_data = []
+        toplam_kar_zarar = 0
+        
+        for ticker, info in portfolio.items():
+            # Güncel fiyatı çek (yfinance ile)
+            try:
+                stock = yf.Ticker(ticker)
+                current_price = stock.history(period="1d")['Close'].iloc[-1]
+            except:
+                current_price = info['cost'] # Hata olursa maliyeti yaz
+            
+            # Hesaplamalar
+            total_value = current_price * info['shares']
+            pnl = (current_price - info['cost']) * info['shares']
+            pnl_perc = ((current_price - info['cost']) / info['cost']) * 100
+            toplam_kar_zarar += pnl
+            
+            # Terminal stili satır oluşturma
+            color = "🟢" if pnl >= 0 else "🔴"
+            report_data.append({
+                "Hisse": f"{color} {ticker}",
+                "Fiyat (Güncel)": f"${current_price:.2f}",
+                "Adet": f"x{info['shares']}",
+                "Maliyet (Ort)": f"${info['cost']:.2f}",
+                "Değer": f"${total_value:.0f}$",
+                "PNL (%)": f"%{pnl_perc:.2f}",
+                "PNL ($)": f"{'+' if pnl >= 0 else ''}{pnl:.1f}$"
+            })
+        
+        # DataFrame olarak terminal tarzı gösterim
+        df_portfolio = pd.DataFrame(report_data)
+        st.table(df_portfolio) # st.table daha sade ve sabit bir görüntü sunar
+        
+        # Alt Toplam Paneli
+        st.markdown("---")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Nakit (Boşta)", f"${kasa:.2f}")
+        with c2:
+            hisse_degeri = sum([float(d['Değer'].replace('$','')) for d in report_data])
+            st.metric("Hisse Değeri", f"${hisse_degeri:.2f}")
+        with c3:
+            toplam_servet = kasa + hisse_degeri
+            st.metric("TOPLAM SERVET", f"${toplam_servet:.2f}", delta=f"{toplam_kar_zarar:.2f}$")
+            
+    else:
+        st.info("Portföy henüz boş. Tavşan avına başla! 🦅")

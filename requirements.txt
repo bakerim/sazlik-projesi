@@ -1,11 +1,8 @@
 streamlit
 pandas
 yfinance
-google-generativeai
+google-genai
 requests
-matplotlib
-feedparser
-nltk
 ta
-plotly
-numpy
+feedparser
+colorama

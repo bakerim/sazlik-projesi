@@ -1,5 +1,5 @@
 {
-    "bakiye": 3915.7101011276245,
+    "bakiye": 572.0744858741759,
     "portfoy": {
         "EBAY": {
             "adet": 22,
@@ -21,10 +21,83 @@
             "maliyet": 320.3299865722656,
             "tarih": "2026-01-02"
         },
-        "PLUG": {
-            "adet": 59,
-            "maliyet": 2.244999885559082,
-            "tarih": "2026-01-02"
+        "CMCSA": {
+            "adet": 13,
+            "maliyet": 27.32,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "QCOM": {
+            "adet": 1,
+            "maliyet": 182.91,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "AMGN": {
+            "adet": 1,
+            "maliyet": 327.12,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "ADI": {
+            "adet": 1,
+            "maliyet": 293.04,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "ROST": {
+            "adet": 1,
+            "maliyet": 189.26,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "BAC": {
+            "adet": 2,
+            "maliyet": 57.18,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "WFC": {
+            "adet": 1,
+            "maliyet": 96.06,
+            "tarih": "2026-01-06",
+            "puan": 100
+        },
+        "AAPL": {
+            "adet": 1,
+            "maliyet": 261.69,
+            "tarih": "2026-01-07",
+            "puan": 90.0
+        },
+        "GOOGL": {
+            "adet": 1,
+            "maliyet": 322.65,
+            "tarih": "2026-01-07",
+            "puan": 80.0
+        },
+        "GOOG": {
+            "adet": 1,
+            "maliyet": 323.17,
+            "tarih": "2026-01-07",
+            "puan": 80.0
+        },
+        "AMZN": {
+            "adet": 1,
+            "maliyet": 242.49,
+            "tarih": "2026-01-07",
+            "puan": 80.0
+        },
+        "NVDA": {
+            "adet": 2,
+            "maliyet": 189.29,
+            "tarih": "2026-01-07",
+            "puan": 80.0
+        },
+        "INTC": {
+            "adet": 9,
+            "maliyet": 42.74,
+            "tarih": "2026-01-07",
+            "puan": 80.0
         }
     },
     "cezalar": {
@@ -117,18 +190,121 @@
             "fiyat": 2.244999885559082
         },
         {
+            "tarih": "2026-01-05",
+            "sembol": "PLUG",
+            "islem": "SATIS",
+            "fiyat": 2.3815999031066895
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "MU",
+            "islem": "SATIS",
+            "fiyat": 333.9849853515625,
+            "sebep": "K\u00c2R AL (%5)"
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "CMCSA",
+            "islem": "ALIS",
+            "fiyat": 27.32,
+            "adet": 13
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "QCOM",
+            "islem": "ALIS",
+            "fiyat": 182.91,
+            "adet": 1
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "AMGN",
+            "islem": "ALIS",
+            "fiyat": 327.12,
+            "adet": 1
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "ADI",
+            "islem": "ALIS",
+            "fiyat": 293.04,
+            "adet": 1
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "ROST",
+            "islem": "ALIS",
+            "fiyat": 189.26,
+            "adet": 1
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "BAC",
+            "islem": "ALIS",
+            "fiyat": 57.18,
+            "adet": 2
+        },
+        {
+            "tarih": "2026-01-06",
+            "sembol": "WFC",
+            "islem": "ALIS",
+            "fiyat": 96.06,
+            "adet": 1
+        },
+        {
             "tarih": "2026-01-07",
             "sembol": "PENN",
             "islem": "SATIS",
-            "fiyat": 14.09000015258789,
+            "fiyat": 14.175000190734863,
             "sebep": "ZARAR KES (%3)"
         },
         {
             "tarih": "2026-01-07",
-            "sembol": "MU",
-            "islem": "SATIS",
-            "fiyat": 337.79998779296875,
-            "sebep": "K\u00c2R AL (%5)"
+            "sembol": "AAPL",
+            "islem": "ALIS",
+            "fiyat": 261.69,
+            "adet": 1,
+            "puan": 90.0
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "GOOGL",
+            "islem": "ALIS",
+            "fiyat": 322.65,
+            "adet": 1,
+            "puan": 80.0
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "GOOG",
+            "islem": "ALIS",
+            "fiyat": 323.17,
+            "adet": 1,
+            "puan": 80.0
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "AMZN",
+            "islem": "ALIS",
+            "fiyat": 242.49,
+            "adet": 1,
+            "puan": 80.0
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "NVDA",
+            "islem": "ALIS",
+            "fiyat": 189.29,
+            "adet": 2,
+            "puan": 80.0
+        },
+        {
+            "tarih": "2026-01-07",
+            "sembol": "INTC",
+            "islem": "ALIS",
+            "fiyat": 42.74,
+            "adet": 9,
+            "puan": 80.0
         }
     ]
 }
