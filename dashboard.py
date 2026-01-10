@@ -9,7 +9,7 @@ from config import GITHUB_TOKEN, GIST_ID
 
 st.set_page_config(page_title="Sazlık Projesi", page_icon="🦅", layout="wide")
 
-# --- CSS (Matrix/Terminal Stili) ---
+# --- CSS (Terminal & Matrix Stili) ---
 st.markdown("""
 <style>
     .card { background-color: #0e1117; border: 1px solid #30333d; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
@@ -34,6 +34,7 @@ st.markdown("""
     }
     .pnl-pos { color: #00ff41 !important; font-weight: bold; }
     .pnl-neg { color: #ff4444 !important; font-weight: bold; }
+    .term-header { color: #888; font-size: 12px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,7 +54,6 @@ def get_full_data():
 st.title("🦅 SAZLIK PRO - Z RAPORU")
 
 full_data = get_full_data()
-# Yeni JSON yapısındaki 'bakiye' anahtarını kullanıyoruz
 bakiye_gist = full_data.get('bakiye', 1000.0)
 
 col_kasa, _ = st.columns([1, 3])
@@ -62,7 +62,7 @@ with col_kasa:
 
 tab1, tab2 = st.tabs(["🔍 Tavşan Avı (79+)", "📜 Z Raporu (Cüzdan)"])
 
-# --- TAB 1: TAVŞAN AVI ---
+# --- TAB 1: TAVŞAN AVI (HTML DÜZELTİLDİ) ---
 with tab1:
     if st.button("🚀 TARAMAYI BAŞLAT", type="primary"):
         with st.spinner("Gemini 3 toplu analiz yapıyor..."):
@@ -74,7 +74,7 @@ with tab1:
                     color = "#00ff41" if stock['Guven_Skoru'] >= 85 else "#4da6ff"
                     yatirim = round(kasa * (0.25 if stock['Guven_Skoru'] >= 85 else 0.20), 2)
                     with cols[i % 3]:
-                        # KART HTML ( unsafe_allow_html=True ile basılacak)
+                        # Tekil kartlar için markdown
                         st.markdown(f"""
                         <div class="card" style="border-top: 4px solid {color};">
                             <div style="display:flex; justify-content:space-between;">
@@ -91,26 +91,24 @@ with tab1:
             else:
                 st.warning("⚠️ 79 puan barajını aşan hisse bulunamadı.")
 
-# --- TAB 2: Z RAPORU (PORTFÖY) ---
+# --- TAB 2: Z RAPORU (DİV HATASI BURADA ÇÖZÜLDÜ) ---
 with tab2:
     st.subheader("📊 Canlı Portföy Durumu")
-    
-    # Yeni JSON yapısında veriler 'portfoy' anahtarı altında
     portfolio_dict = full_data.get('portfoy', {})
     
     if portfolio_dict:
         t_invested, t_current = 0, 0
-        html_out = '<div class="terminal-box">' # Tüm satırları bu kutunun içine hapsediyoruz
+        # HTML'i burada biriktiriyoruz
+        html_pool = '<div class="terminal-box">'
+        html_pool += '<div class="term-header">HİSSE (TARİH) | ADET @ MALİYET | GÜNCEL DEĞER | PNL</div>'
         
         for ticker, info in portfolio_dict.items():
             shares = info.get('adet', 0)
             cost = info.get('maliyet', 0)
             date = info.get('tarih', '---')
             
-            # Anlık Fiyat Çekimi
             try:
                 stock_data = yf.Ticker(ticker)
-                # 1 günlük veri çekip son kapanışı alıyoruz
                 hist = stock_data.history(period="1d")
                 curr_price = hist['Close'].iloc[-1] if not hist.empty else cost
             except: 
@@ -124,11 +122,11 @@ with tab2:
             t_invested += invested
             t_current += val
             
-            pnl_class = "pnl-pos" if pnl >= 0 else "pnl-neg"
+            p_class = "pnl-pos" if pnl >= 0 else "pnl-neg"
             sign = "+" if pnl >= 0 else ""
             
-            # TEK BİR SATIR OLUŞTURMA
-            html_out += f"""
+            # Satırı havuza ekle (Markdown içinde değil, değişken içinde!)
+            html_pool += f"""
             <div class="term-row">
                 <span>
                     <b style="color:#4da6ff;">{ticker}</b> <small style="color:#666;">({date})</small><br>
@@ -136,14 +134,14 @@ with tab2:
                 </span>
                 <span style="text-align:right;">
                     <b style="color:#fff;">{val:.2f}$</b><br>
-                    <small class="{pnl_class}">%{pnl_p:.2f} ({sign}{pnl:.2f}$)</small>
+                    <small class="{p_class}">%{pnl_p:.2f} ({sign}{pnl:.2f}$)</small>
                 </span>
             </div>
             """
         
-        html_out += '</div>' # Kutuyu kapatıyoruz
-        # EN ÖNEMLİ KISIM: Tek seferde HTML olarak basıyoruz
-        st.markdown(html_out, unsafe_allow_html=True)
+        html_pool += '</div>'
+        # TÜM TABLO TEK SEFERDE BASILIYOR (Div'lerin metin olma sebebi buydu)
+        st.markdown(html_pool, unsafe_allow_html=True)
         
         # --- FİNANSAL ÖZET ---
         net_pnl = t_current - t_invested
