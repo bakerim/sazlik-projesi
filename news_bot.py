@@ -6,7 +6,7 @@ import time
 import config 
 import json
 
-# --- YENİ NESİL MOTOR ---
+# --- YENİ NESİL MOTOR KURULUMU ---
 try:
     client = genai.Client(api_key=config.GEMINI_API_KEY)
     MODEL_NAME = 'gemini-3-flash-preview' 
@@ -15,7 +15,7 @@ except:
     AI_AVAILABLE = False
 
 def get_technical_analysis(ticker):
-    """ V7.0 GADDAR ANALİZ """
+    """ V7.0 GADDAR ANALİZ - 79 PUAN BARAJI İÇİN """
     try:
         stock = yf.Ticker(ticker)
         df = stock.history(period="1y")
@@ -32,69 +32,77 @@ def get_technical_analysis(ticker):
         sma50 = df['SMA_50'].iloc[-1]
         atr = df['ATR'].iloc[-1]
 
+        # GADDAR FİLTRE: SMA 200 Altı Elenir
         if curr < sma200: return 0, curr, None 
 
         score = 50.0 
         if rsi < 30: score += 30.0    
         elif rsi < 40: score += 20.0  
         elif rsi < 50: score += 10.0  
+        
         if curr > sma50: score += 10.0
         score += (50 - rsi) / 10.0 
 
         data = {
             "Stop": curr - (atr * 2.0),
             "Hedef": curr + (atr * 3.0),
-            "Pot_Kar": (( (curr + (atr * 3.0)) - curr) / curr) * 100,
-            "Summary": f"Fiyat: {curr:.2f}, RSI: {rsi:.1f}, ATR Bazlı Volatilite yüksek."
+            "Pot_Kar": (((curr + (atr * 3.0)) - curr) / curr) * 100,
+            "Summary": f"Fiyat: {curr:.2f}, RSI: {rsi:.1f}, ATR Bazlı volatilite verisi."
         }
         return score, curr, data
     except: return 0, 0, None
 
 def run_analysis_engine():
     all_tech_results = []
-    total = len(config.WATCHLIST_TICKERS)
-    print(f"📡 {total} hisse taranıyor...")
+    # Yahoo'yu bozan kelimeler
+    blacklist = ["PORTFOY", "CEZALAR", "KASA", "NAKIT", "TOPLAM", "YATIRIM"]
+    clean_tickers = [t for t in config.WATCHLIST_TICKERS if t not in blacklist]
     
-    # 1. ADIM: TEKNİK ÖN ELEME
-    for index, symbol in enumerate(config.WATCHLIST_TICKERS):
+    total = len(clean_tickers)
+    print(f"📡 {total} gerçek hisse taranıyor (Baraj: 79 Puan)...")
+    
+    # 1. ADIM: TEKNİK ÖN ELEME (Bedava)
+    for index, symbol in enumerate(clean_tickers):
         print(f"🔍 [{index+1}/{total}] {symbol}", end="\r")
         base_score, price, data = get_technical_analysis(symbol)
-        if base_score >= 55:
+        
+        # KESİN KURAL: Sadece 79+ puanlılar Gemini'ye gidebilir
+        if base_score >= 79:
             all_tech_results.append({
                 "symbol": symbol, "price": price, "base_score": base_score, "data": data
             })
     
-    # 2. ADIM: EN İYİ 6 ADAYI SEÇ
+    if not all_tech_results:
+        print("\n⚠️ 79 puan barajını geçen elit hisse bulunamadı.")
+        return []
+
+    # En iyi 6 adayı seç
     finalists = sorted(all_tech_results, key=lambda x: x['base_score'], reverse=True)[:6]
     
-    if not finalists: return []
-
-    # 3. ADIM: TEK BİR PROMPT İLE TOPLU HABER VE AI ANALİZİ
+    # 2. ADIM: TOPLU GEMINI 3 ANALİZİ (Haber & Sentiment)
     print(f"\n🧠 Gemini 3 ({MODEL_NAME}) Toplu Analiz Başlatıyor...")
     
-    # Finalistleri metin haline getir
-    candidates_text = "\n".join([f"- {c['symbol']}: {c['data']['Summary']}" for c in finalists])
+    candidates_info = "\n".join([f"- {c['symbol']}: {c['data']['Summary']}" for c in finalists])
     
     prompt = f"""
-    Aşağıdaki 6 hisse için güncel haberleri ve piyasa duyarlılığını (Sentiment) analiz et. 
-    Her hisse için 0-10 arası bir EK PUAN ver ve kısa bir yorum yap. 
+    Aşağıdaki 6 hisse için 2026 güncel haberlerini ve piyasa duyarlılığını analiz et. 
+    Her biri için 0-10 arası EK PUAN ver ve kısa Türkçe yorum yap. 
     Hisseler:
-    {candidates_text}
+    {candidates_info}
 
-    Yanıtı şu JSON formatında ver:
-    {{"HisseSembolü": {{"ek_puan": 5.5, "yorum": "Haberler pozitif, direnç kırıldı."}}}}
+    Yanıtı SADECE şu JSON formatında ver (başka yazı ekleme):
+    {{"HisseSembolü": {{"ek_puan": 5.5, "yorum": "Haber akışı güçlü."}}}}
     """
 
     final_results = []
     try:
         response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        # JSON temizleme (Markdown bloklarını kaldır)
         raw_text = response.text.replace('```json', '').replace('```', '').strip()
         ai_data = json.loads(raw_text)
         
         for c in finalists:
             symbol = c['symbol']
-            res = ai_data.get(symbol, {"ek_puan": 5.0, "yorum": "Analiz hazır."})
+            res = ai_data.get(symbol, {"ek_puan": 5.0, "yorum": "Analiz tamamlandı."})
             
             final_score = min(100.0, c['base_score'] + float(res['ek_puan']))
             final_results.append({
@@ -104,11 +112,10 @@ def run_analysis_engine():
             })
     except Exception as e:
         print(f"⚠️ Toplu Analiz Hatası: {e}")
-        # Hata olursa teknik verilerle devam et
         for c in finalists:
             final_results.append({
                 "Hisse": c['symbol'], "Fiyat": c['price'], "Guven_Skoru": c['base_score'],
-                "AI_Notu": "Teknik analiz bazlı rapor.", "Stop": c['data']['Stop'], 
+                "AI_Notu": "Haber taraması atlandı, teknik veri esas.", "Stop": c['data']['Stop'], 
                 "Hedef": c['data']['Hedef'], "Pot_Kar": c['data']['Pot_Kar']
             })
 
