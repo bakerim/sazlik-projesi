@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import google.generativeai as genai
+from google import genai
 import requests
 import json
 from datetime import datetime
 import streamlit.components.v1 as components
+import config
+
 
 st.set_page_config(page_title="Sazlık Pro: Şüpheci Mod", page_icon="🛡️", layout="wide")
 
 # --- API KONTROL ---
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-    genai.configure(api_key=api_key)
-except:
-    st.error("API Anahtarı Yok!")
-    st.stop()
+response = client.models.generate_content(
+    model='gemini-2.0-flash-exp', # veya 'gemini-1.5-flash'
+    contents="Senin promptun buraya"
+)
 
 # --- 500 HİSSELİK LİSTE ---
 WATCHLIST = [

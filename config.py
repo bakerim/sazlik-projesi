@@ -1,17 +1,17 @@
-# --- config.py (GEÇİCİ YEREL MOD) ---
-import os
+import streamlit as st
 
-# Şifrelerini buraya ELİNLE yaz (Sadece test için, PUSH ETME!)
-GITHUB_TOKEN = "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"
-GIST_ID = "88ca9943208b125cdf1270d579a9c31f"
-GEMINI_API_KEY = "AIzaSyCG9a65u0wcRJiF3CSBoa2mIjUeFK1hMhI"
+# --- API ANAHTAR YÖNETİMİ ---
+# Streamlit Cloud'da 'Secrets' kullanır, lokalde boş geçer (Hata vermemesi için)
+try:
+    GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+    GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+except:
+    # Bilgisayarında test ederken buraya manuel yazabilirsin veya boş bırakabilirsin
+    GEMINI_API_KEY = "MANUEL_KEY_GIRILEBILIR"
+    GITHUB_TOKEN = ""
 
-RSS_URLS = [
-    "https://finance.yahoo.com/news/rssindex",
-    "https://finance.yahoo.com/topic/stock-market-news/rss"
-]
-
-# Gerçekten taramasını istediğin listeyi buraya koy
+# --- İZLEME LİSTESİ (Watchlist) ---
+# Teknoloji, Sanayi ve Savunma Karması (WDC Eklendi)
 WATCHLIST_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
@@ -48,8 +48,5 @@ WATCHLIST_TICKERS = [
     "HUBB", "APH", "ECL", "SHW", "PPG", "FMC", "MOS", "CF", "NUE", "STLD", 
     "RCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
     "RBLX", "UBER", "LYFT", "ABNB", "DOX", "PRU", "L", "VLO", "DVN", "APA", 
-    "HAL", "BKR", "FTI", "NOV", "TDW", "PAGP", "PAA", "WES"]
-
-# Uyumluluk için
-TRACKED_STOCKS = WATCHLIST_TICKERS
-OUTPUT_FILE = "sazlik_analiz_sonuclari.csv"
+    "HAL", "BKR", "FTI", "NOV", "TDW", "PAGP", "PAA", "WES"
+]

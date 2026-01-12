@@ -1,122 +1,111 @@
 import yfinance as yf
 import pandas as pd
-from google import genai
+import numpy as np
 import ta 
-import time 
 import config 
-import json
 
-# --- YENİ NESİL MOTOR KURULUMU ---
-try:
-    client = genai.Client(api_key=config.GEMINI_API_KEY)
-    MODEL_NAME = 'gemini-3-flash-preview' 
-    AI_AVAILABLE = True
-except:
-    AI_AVAILABLE = False
+# --- MATEMATİKSEL MOTOR ---
+def calculate_precision_metrics(df):
+    if len(df) < 20: return None
+    data = df.tail(20).copy()
+    y = data['Close'].values
+    x = np.arange(len(y))
+    
+    # Eğim (Slope) ve R2
+    slope, intercept = np.polyfit(x, y, 1)
+    y_pred = slope * x + intercept
+    ss_res = np.sum((y - y_pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+    
+    # Verimlilik (ER)
+    direction = abs(y[-1] - y[0])
+    volatility = np.sum(np.abs(np.diff(y)))
+    er = direction / volatility if volatility != 0 else 0
+    
+    return slope, r_squared, er
 
-def get_technical_analysis(ticker):
-    """ V7.0 GADDAR ANALİZ - 79 PUAN BARAJI İÇİN """
+# --- HİSSE ANALİZİ ---
+def analyze_stock(ticker):
     try:
         stock = yf.Ticker(ticker)
-        df = stock.history(period="1y")
-        if df.empty or len(df) < 200: return 0, 0, None
+        df = stock.history(period="3mo")
+        if df.empty or len(df) < 30: return None
 
-        df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
-        df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
-        df['SMA_200'] = ta.trend.sma_indicator(df['Close'], window=200)
-        df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'], window=14)
+        # 1. HACİM KONTROLÜ (YENİ)
+        # Son 5 günün ortalama hacmi vs. Son 20 günün ortalaması
+        vol_current = df['Volume'].tail(5).mean()
+        vol_avg = df['Volume'].mean()
+        vol_factor = vol_current / vol_avg if vol_avg > 0 else 1.0
+        
+        if vol_factor >= 1.1: vol_signal = "🔥 GÜÇLÜ YAKIT"
+        elif vol_factor >= 0.9: vol_signal = "✅ NORMAL"
+        else: vol_signal = "⚠️ DÜŞÜK HACİM"
 
+        # 2. TEKNİK METRİKLER
+        res = calculate_precision_metrics(df)
+        if not res: return None
+        slope, r2, er = res
         curr = df['Close'].iloc[-1]
-        rsi = df['RSI'].iloc[-1]
-        sma200 = df['SMA_200'].iloc[-1]
-        sma50 = df['SMA_50'].iloc[-1]
+        
+        # Filtre: Düşüş trendindekileri almayalım
+        if slope <= 0: return None 
+
+        # --- MASA 1: GÜVEN (İstikrar) ---
+        guven_score = (r2 * 60) + (er * 40)
+        # Hacim cezası: Eğer hacim düşükse güven puanını kır
+        if vol_factor < 0.8: guven_score *= 0.90
+        
+        # Güven Hedefi (ATR Tabanlı)
+        df['ATR'] = ta.volatility.average_true_range(df['High'], df['Low'], df['Close'], window=14)
         atr = df['ATR'].iloc[-1]
+        hedef_g = curr + (atr * 2.5)
+        stop_g = curr - (atr * 1.5)
 
-        # GADDAR FİLTRE: SMA 200 Altı Elenir
-        if curr < sma200: return 0, curr, None 
-
-        score = 50.0 
-        if rsi < 30: score += 30.0    
-        elif rsi < 40: score += 20.0  
-        elif rsi < 50: score += 10.0  
+        # --- MASA 2: FIRSAT (Hız/Scalp) ---
+        hedef_f = curr * 1.05 # Sabit %5
+        stop_f = curr * 0.97  # Sabit %3
         
-        if curr > sma50: score += 10.0
-        score += (50 - rsi) / 10.0 
+        # Vade Hesabı (Gün)
+        vade_gun = (hedef_f - curr) / slope if slope > 0 else 20
+        
+        # Fırsat Puanı: Hız + Hacim Bonusu
+        firsat_score = max(0, 100 - (vade_gun * 8))
+        if vol_factor >= 1.2: firsat_score *= 1.10 # Hacimliyse puanı artır
+        
+        hiz_pct = (slope / curr) * 100
 
-        data = {
-            "Stop": curr - (atr * 2.0),
-            "Hedef": curr + (atr * 3.0),
-            "Pot_Kar": (((curr + (atr * 3.0)) - curr) / curr) * 100,
-            "Summary": f"Fiyat: {curr:.2f}, RSI: {rsi:.1f}, ATR Bazlı volatilite verisi."
+        # Vade Metni
+        if vade_gun <= 1.5: vade_str = "⚡ 1 GÜN"
+        elif vade_gun <= 3.5: vade_str = "🚀 2-3 GÜN"
+        else: vade_str = "📅 4 GÜN+"
+        
+        return {
+            "Hisse": ticker, "Fiyat": curr,
+            "Guven_Puan": guven_score, "Firsat_Puan": firsat_score,
+            "R2": r2, "ER": er, "Slope": slope,
+            "Vade": vade_str, "Hiz_Pct": hiz_pct,
+            "Vol_Signal": vol_signal, "Vol_Factor": vol_factor,
+            "Hedef_G": hedef_g, "Stop_G": stop_g,
+            "Hedef_F": hedef_f, "Stop_F": stop_f
         }
-        return score, curr, data
-    except: return 0, 0, None
+    except Exception:
+        return None
 
+# --- TARAMA YÖNETİCİSİ ---
 def run_analysis_engine():
-    all_tech_results = []
-    # Yahoo'yu bozan kelimeler
-    blacklist = ["PORTFOY", "CEZALAR", "KASA", "NAKIT", "TOPLAM", "YATIRIM"]
-    clean_tickers = [t for t in config.WATCHLIST_TICKERS if t not in blacklist]
+    ignore = ["PORTFOY", "NAKIT", "TOPLAM"]
+    clean_list = [t for t in config.WATCHLIST_TICKERS if t not in ignore]
     
-    total = len(clean_tickers)
-    print(f"📡 {total} gerçek hisse taranıyor (Baraj: 79 Puan)...")
+    all_results = []
+    for ticker in clean_list:
+        res = analyze_stock(ticker)
+        if res: all_results.append(res)
     
-    # 1. ADIM: TEKNİK ÖN ELEME (Bedava)
-    for index, symbol in enumerate(clean_tickers):
-        print(f"🔍 [{index+1}/{total}] {symbol}", end="\r")
-        base_score, price, data = get_technical_analysis(symbol)
-        
-        # KESİN KURAL: Sadece 79+ puanlılar Gemini'ye gidebilir
-        if base_score >= 79:
-            all_tech_results.append({
-                "symbol": symbol, "price": price, "base_score": base_score, "data": data
-            })
+    # Masa 1: Güven Listesi (R2 > 0.65 ve ER makul)
+    masa_guven = sorted([r for r in all_results if r['R2'] > 0.65], key=lambda x: x['Guven_Puan'], reverse=True)[:6]
     
-    if not all_tech_results:
-        print("\n⚠️ 79 puan barajını geçen elit hisse bulunamadı.")
-        return []
-
-    # En iyi 6 adayı seç
-    finalists = sorted(all_tech_results, key=lambda x: x['base_score'], reverse=True)[:6]
+    # Masa 2: Fırsat Listesi (En yüksek Fırsat Puanı)
+    masa_firsat = sorted(all_results, key=lambda x: x['Firsat_Puan'], reverse=True)[:6]
     
-    # 2. ADIM: TOPLU GEMINI 3 ANALİZİ (Haber & Sentiment)
-    print(f"\n🧠 Gemini 3 ({MODEL_NAME}) Toplu Analiz Başlatıyor...")
-    
-    candidates_info = "\n".join([f"- {c['symbol']}: {c['data']['Summary']}" for c in finalists])
-    
-    prompt = f"""
-    Aşağıdaki 6 hisse için 2026 güncel haberlerini ve piyasa duyarlılığını analiz et. 
-    Her biri için 0-10 arası EK PUAN ver ve kısa Türkçe yorum yap. 
-    Hisseler:
-    {candidates_info}
-
-    Yanıtı SADECE şu JSON formatında ver (başka yazı ekleme):
-    {{"HisseSembolü": {{"ek_puan": 5.5, "yorum": "Haber akışı güçlü."}}}}
-    """
-
-    final_results = []
-    try:
-        response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-        raw_text = response.text.replace('```json', '').replace('```', '').strip()
-        ai_data = json.loads(raw_text)
-        
-        for c in finalists:
-            symbol = c['symbol']
-            res = ai_data.get(symbol, {"ek_puan": 5.0, "yorum": "Analiz tamamlandı."})
-            
-            final_score = min(100.0, c['base_score'] + float(res['ek_puan']))
-            final_results.append({
-                "Hisse": symbol, "Fiyat": c['price'], "Guven_Skoru": final_score,
-                "AI_Notu": res['yorum'], "Stop": c['data']['Stop'], 
-                "Hedef": c['data']['Hedef'], "Pot_Kar": c['data']['Pot_Kar']
-            })
-    except Exception as e:
-        print(f"⚠️ Toplu Analiz Hatası: {e}")
-        for c in finalists:
-            final_results.append({
-                "Hisse": c['symbol'], "Fiyat": c['price'], "Guven_Skoru": c['base_score'],
-                "AI_Notu": "Haber taraması atlandı, teknik veri esas.", "Stop": c['data']['Stop'], 
-                "Hedef": c['data']['Hedef'], "Pot_Kar": c['data']['Pot_Kar']
-            })
-
-    return sorted(final_results, key=lambda x: x['Guven_Skoru'], reverse=True)
+    return masa_guven, masa_firsat

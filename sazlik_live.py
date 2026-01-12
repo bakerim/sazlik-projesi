@@ -1,116 +1,65 @@
-import pandas as pd
+import time
 import json
-import os
 import requests
+import config
 import news_bot
 from datetime import datetime
-from colorama import Fore, Style, init
-from config import GITHUB_TOKEN, GIST_ID
 
-# Renkleri başlat
-init(autoreset=True)
+# Renkler
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    GREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
 
-# --- AYARLAR ---
-DEFAULT_FILENAME = "sazlik_portfolio.json"
-ANALYSIS_FILE = "sazlik_analiz_sonuclari.csv"
-MIN_YATIRIM = 1000
-MAX_YATIRIM = 2000
-
-# --- AKILLI GIST FONKSİYONLARI ---
-def get_portfolio():
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+def get_data():
+    headers = {"Authorization": f"token {config.GITHUB_TOKEN}"}
     try:
-        response = requests.get(f"https://api.github.com/gists/{GIST_ID}", headers=headers)
-        if response.status_code == 200:
-            files = response.json().get('files', {})
-            
-            # Gist'in içindeki ilk dosyanın adını otomatik bul
-            if files:
-                first_filename = list(files.keys())[0]
-                content = files[first_filename].get('content', '{}')
-                if not content: return {}
-                return json.loads(content)
-            else:
-                return {}
-        return {}
-    except Exception as e:
-        print(f"⚠️ Cüzdan Okuma Hatası: {e}")
-        return {}
-
-def save_portfolio(portfolio):
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    current_filename = DEFAULT_FILENAME
-    
-    # Mevcut dosya adını bulmaya çalış
-    try:
-        r = requests.get(f"https://api.github.com/gists/{GIST_ID}", headers=headers)
+        r = requests.get(f"https://api.github.com/gists/{config.GIST_ID}", headers=headers)
         if r.status_code == 200:
-            files = r.json().get('files', {})
-            if files:
-                current_filename = list(files.keys())[0]
-    except: pass
-
-    # Kaydet
-    data = {"files": {current_filename: {"content": json.dumps(portfolio, indent=4)}}}
-    requests.patch(f"https://api.github.com/gists/{GIST_ID}", headers=headers, json=data)
-
-def calculate_investment_amount(score):
-    if score >= 90: return MAX_YATIRIM
-    elif score >= 85: return 1750
-    elif score >= 80: return 1500
-    else: return MIN_YATIRIM
+            content = r.json()['files'][list(r.json()['files'].keys())[0]]['content']
+            return json.loads(content)
+    except Exception as e:
+        print(f"Hata: {e}")
+        return None
 
 def run_live_trader():
-    print(f"\n📡 {Fore.MAGENTA}SAZLIK LIVE TRADER: Akıllı Cüzdan v2{Style.RESET_ALL}")
+    print(f"\n{Colors.HEADER}📡 SAZLIK LIVE TRADER: Akıllı Cüzdan v2{Colors.ENDC}")
     
-    print("📋 Portföy Kontrol Ediliyor...")
-    portfolio = get_portfolio()
+    # 1. Cüzdan Kontrolü
+    data = get_data()
+    if data:
+        print(f"{Colors.BLUE}📋 Portföy:{Colors.ENDC} {list(data.get('portfoy', {}).keys())}")
     
-    if portfolio:
-        print(f"   🔹 Mevcut Varlıklar: {', '.join(portfolio.keys())}")
-    else:
-        print("   🔹 Cüzdan Boş.")
-
-    # Analiz Başlıyor
-    news_bot.run_news_bot()
+    # 2. Tarama Başlıyor
+    print(f"\n{Colors.BLUE}🔍 Piyasa Taranıyor (Terminal Modu)...{Colors.ENDC}")
     
-    try:
-        df = pd.read_csv(ANALYSIS_FILE)
-        top_picks = df.sort_values(by='Guven_Skoru', ascending=False).head(6)
+    ignore_list = ["PORTFOY", "CEZALAR", "KASA", "NAKIT", "TOPLAM", "YATIRIM"]
+    watch_list = [t for t in config.WATCHLIST_TICKERS if t not in ignore_list]
+    
+    found_stocks = []
+    
+    # Döngüyle tek tek bakıyoruz
+    for i, ticker in enumerate(watch_list):
+        print(f"\rAnaliz: {ticker} ({i+1}/{len(watch_list)})", end="")
         
-        print(f"\n🚀 {Fore.CYAN}ALIM İŞLEMLERİ BAŞLIYOR (1000himBHs2000$)...{Style.RESET_ALL}")
+        # News_bot içindeki tekil analiz fonksiyonunu çağırıyoruz
+        result = news_bot.analyze_stock(ticker)
         
-        trade_count = 0
-        for index, row in top_picks.iterrows():
-            ticker = row['Hisse']
-            score = row['Guven_Skoru']
-            price = row['Fiyat']
+        if result and result['Puan'] >= 50:
+            print(f" -> ✅ {Colors.GREEN}ADAY: {ticker} ({result['Puan']:.1f}){Colors.ENDC}")
+            found_stocks.append(result)
             
-            if score >= 75 and ticker not in portfolio:
-                # Parça Hisse Hesabı
-                yatirim_tutari = calculate_investment_amount(score)
-                adet = round(yatirim_tutari / price, 4)
-                
-                portfolio[ticker] = {
-                    "cost": price,
-                    "shares": adet,
-                    "date": str(datetime.now().date()),
-                    "total_invested": yatirim_tutari
-                }
-                
-                print(f"💰 {Fore.GREEN}ALIM:{Style.RESET_ALL} {ticker:<6} | Skor: {score} |  ({adet} Lot)")
-                trade_count += 1
-            elif ticker in portfolio:
-                print(f"ℹ️  {ticker} zaten portföyde, pas geçildi.")
-                
-        if trade_count > 0:
-            save_portfolio(portfolio)
-            print(f"\n☁️  Bulut cüzdanı güncellendi ({trade_count} işlem).")
-        else:
-            print("\n🤷‍♂️ Yeni işlem yapılmadı.")
-            
-    except Exception as e:
-        print(f"❌ İşlem Hatası: {e}")
+    print("\n\n🏁 Tarama Bitti.")
+    
+    if found_stocks:
+        print(f"{Colors.GREEN}--- EN İYİ SONUÇLAR ---{Colors.ENDC}")
+        # En iyi 5'i yazdır
+        top_picks = sorted(found_stocks, key=lambda x: x['Puan'], reverse=True)[:5]
+        for pick in top_picks:
+            print(f"💰 {pick['Hisse']} | Puan: {pick['Puan']:.1f} | Fiyat: ${pick['Fiyat']:.2f}")
 
 if __name__ == "__main__":
     run_live_trader()
