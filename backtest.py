@@ -75,10 +75,23 @@ class SazlikProFinal:
     def run(self):
         print(f"{Fore.CYAN}🚀 Sazlık V5 (Temiz Liste) Başlatılıyor...")
         
+        tickers = [s.replace('.', '-') for s in self.symbols]
+        if not tickers:
+            return
+
+        all_data = yf.download(tickers, start=START_DATE, end=END_DATE, progress=False, group_by='ticker')
+
         for symbol in self.symbols:
             try:
-                ticker = symbol.replace('.', '-')
-                df = yf.download(ticker, start=START_DATE, end=END_DATE, progress=False)
+                ticker_name = symbol.replace('.', '-')
+
+                if isinstance(all_data.columns, pd.MultiIndex):
+                    if ticker_name not in all_data.columns.get_level_values(0):
+                        continue
+                    df = all_data[ticker_name].dropna(how='all')
+                else:
+                    df = all_data.dropna(how='all')
+
                 if df is None or len(df) < 50: continue
                 if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
 
