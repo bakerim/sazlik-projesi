@@ -1,253 +1,219 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-from google import genai
-import requests
+import numpy as np
 import json
+import os
 from datetime import datetime
-import streamlit.components.v1 as components
-import config
+import config 
 
+# --- 1. AYARLAR VE GÜVENLİK ---
+st.set_page_config(page_title="Sazlık Master Terminal", page_icon="🦅", layout="wide")
 
-st.set_page_config(page_title="Sazlık Pro: Şüpheci Mod", page_icon="🛡️", layout="wide")
+# Config'den listeyi çek, tekrar edenleri temizle ve sırala
+WATCHLIST = sorted(list(set(config.WATCHLIST_TICKERS)))
 
-# --- API KONTROL ---
-response = client.models.generate_content(
-    model='gemini-2.0-flash-exp', # veya 'gemini-1.5-flash'
-    contents="Senin promptun buraya"
-)
+# --- 2. JSON VERİ YÖNETİMİ (KİŞİYE ÖZEL HAFIZA) ---
+def get_portfolio_file(user): 
+    return f"portfolio_{user}.json"
 
-# --- 500 HİSSELİK LİSTE ---
-WATCHLIST = [
-# --- TEKNOLOJİ & İLETİŞİM (En Büyük ve En Güvenilir) ---
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
-    "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
-    "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
-    "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "ANSS", "MSCI", "CHTR",
-    
-    # --- FİNANS & FİNANSAL HİZMETLER ---
-    "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPY", "BLK", "SCHW",
-    "C", "AXP", "CB", "MMC", "AON", "CME", "ICE", "PGR", "ALL", "MET",
-    "AIG", "PNC", "USB", "BK", "COF", "DFS", "TRV", "MCO", "CBOE", "RJF",
-    "GPN", "FIS", "ZION", "FITB", "STT", "NDAQ", "RF", "KEY", "CFG", "HBAN",
-    
-    # --- SAĞLIK & İLAÇ ---
-    "JNJ", "LLY", "UNH", "ABBV", "MRK", "PFE", "DHR", "TMO", "MDT", "SYK",
-    "AMGN", "GILD", "BIIB", "VRTX", "BMY", "ISRG", "ABT", "ZTS", "BDX", "BSX",
-    "CI", "CVS", "HUM", "HCA", "ANTM", "LH", "COO", "ALGN", "HOLX", "DVA",
-    "WAT", "RGEN", "IQV", "REGN", "EW", "TECH", "PKI", "DGX", "INCY", "CRL",
-    
-    # --- TEMEL TÜKETİM & DAYANIKLI TÜKETİM (İstikrar) ---
-    "PG", "KO", "PEP", "WMT", "COST", "HD", "MCD", "NKE", "LOW", "TGT",
-    "SBUX", "MDLZ", "CL", "PM", "MO", "KR", "DG", "ADBE", "EL", "KHC",
-    "GIS", "K", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
-    "MAT", "HOG", "GT", "TIF", "TPR", "TTC", "VFC", "HBI", "KSS", "ULTA",
-    
-    # --- ENERJİ & SANAYİ (Köklü Şirketler) ---
-    "XOM", "CVX", "BRK.B", "LMT", "RTX", "BA", "HON", "MMM", "GE", "GD",
-    "CAT", "DE", "EOG", "OXY", "SLB", "COP", "PSX", "MPC", "WMB", "KMI",
-    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR",
-    "ITW", "GWW", "WAB", "IEX", "AAL", "DAL", "UAL", "LUV", "HA", "ALK",
-    
-    # --- EMLAK, KAMU HİZMETLERİ & DİĞER (Çeşitlilik) ---
-    "DUK", "NEE", "SO", "EXC", "AEP", "SRE", "WEC", "D", "ED", "XEL",
-    "VNQ", "SPG", "PLD", "EQIX", "AMT", "CCI", "HST", "O", "ARE", "PSA",
-    "WY", "BXP", "REG", "VTR", "AVB", "ESR", "EPR", "KIM", "FRT", "APTS",
-    "LUMN", "VIAC", "FOX", "DISCA", "ETSY", "EBAY", "ATVI", "EA", "TTWO", "ZG"
+def load_portfolio(user):
+    file_path = get_portfolio_file(user)
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f: 
+            return json.load(f)
+    return []
 
-    # --- YARI İLETKEN & BULUT BİLİŞİM ---
-    "ASML", "AMAT", "TSM", "MCHP", "TER", "U", "VEEV", "OKTA", "NET", "CRWD", 
-    "DDOG", "ZS", "TEAM", "ADSK", "MSI", "FTV", "WDC", "ZBRA", "SWKS", "QDEL",
+def save_portfolio(user, data):
+    with open(get_portfolio_file(user), "wb") as f: 
+        f.write(json.dumps(data, indent=4).encode("utf-8"))
 
-    # --- YENİLENEBİLİR ENERJİ & EV (Elektrikli Araçlar) ---
-    "FSLY", "PLUG", "ENPH", "SEDG", "RUN", "SPWR", "BLDP", "FCEL", "BE", "SOL",
-    "LI", "NIO", "XPEV", "RIVN", "LCID", "NKLA", "WKHS", "QS", "ARVL", "GOEV",
+# --- 3. SESSION STATE (BELLEK) ---
+if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
+if 'current_user' not in st.session_state: st.session_state['current_user'] = None
+if 'portfolio' not in st.session_state: st.session_state['portfolio'] = []
+if 'last_results' not in st.session_state: st.session_state['last_results'] = []
 
-    # --- FİNANSAL TEKNOLOJİ (FinTech) & Dijital Ödeme ---
-    "SQ", "COIN", "HOOD", "UPST", "AFRM", "SOFI", "MQ", "BILL", "TOST", "PAYA",
-    "DWAC", "BRZE", "AVLR", "DOCU", "SABR", "TTEC", "TWLO", "RNG", "ZM", "COUP",
-    
-    # --- BİYOTEKNOLOJİ & SAĞLIK (Yüksek Büyüme) ---
-    "MRNA", "PFE", "BIIB", "VRTX", "REGN", "GILD", "AMGN", "BMRN", "ALXN", "CTAS",
-    "CORT", "EXEL", "IONS", "XBI", "LABU", "EDIT", "BEAM", "NTLA", "CRSP", "ALLK",
+# --- 4. GİRİŞ PANELİ ---
+if not st.session_state['logged_in']:
+    st.markdown("<h1 style='text-align: center; color: #8ab4f8;'>🦅 Sazlık Terminal V23</h1>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 1.2, 1])
+    with col2:
+        with st.form("login"):
+            u = st.text_input("Kullanıcı").lower()
+            p = st.text_input("Şifre", type="password")
+            if st.form_submit_button("Sisteme Bağlan", use_container_width=True):
+                if u in ['mert', 'murat'] and p == '1234':
+                    st.session_state['logged_in'] = True
+                    st.session_state['current_user'] = u
+                    st.session_state['portfolio'] = load_portfolio(u)
+                    st.rerun()
+                else:
+                    st.error("Giriş Başarısız! Kullanıcı adı veya şifre hatalı.")
+    st.stop()
 
-    # --- E-TİCARET & YENİ MEDYA ---
-    "MELI", "ETSY", "ROKU", "PTON", "SPOT", "CHWY", "ZM", "DOCU", "DDOG", "FVRR",
-    "PINS", "SNAP", "TWTR", "WIX", "SHOP", "SE", "BABA", "JD", "BIDU", "PDD",
-
-    # --- ENDÜSTRİ & OTOMASYON (Orta Ölçekli ve Dinamik) ---
-    "ROP", "TT", "Ametek", "FLR", "HUBB", "APH", "ECL", "SHW", "PPG", "FMC",
-    "MOS", "CF", "NUE", "STLD", "ALK", "AAL", "DAL", "LUV", "UAL", "SAVE",
-    "CAR", "RCL", "CCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
-
-    # --- ÇEŞİTLİ DİNAMİK BÜYÜME (Mid-Cap/IPO) ---
-    "RBLX", "UBER", "LYFT", "ABNB", "DOX", "GPN", "FLT", "PRU", "MET", "L",
-    "VLO", "PSX", "MPC", "DVN", "APA", "MRO", "EOG", "OXY", "SLB", "HAL",
-    "BKR", "FTI", "NOV", "TDW", "PAGP", "ENLC", "PAA", "WES", "WMB", "KMI",
-    "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR"
-]
-WATCHLIST.sort()
-
-# --- CSS TASARIMI ---
+# --- 5. GOOGLE FINANCE STİLİ CSS ---
 st.markdown("""
 <style>
-    .card {
-        padding: 20px; border-radius: 15px; margin-bottom: 20px; color: white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    }
-    .score-badge {
-        background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-weight: 800; float: right;
-    }
-    .card-header { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-    .analysis-text { font-size: 15px; opacity: 0.9; margin-bottom: 15px; }
-    
-    .strategy-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 5px; background: rgba(0,0,0,0.25); padding: 10px; border-radius: 10px; text-align: center;
-    }
-    .risk-row {
-        background-color: #3b3b3b;
-        padding: 8px;
-        border-radius: 8px;
-        margin-top: 10px;
-        display: flex;
-        justify-content: space-around;
-        font-weight: bold;
-    }
-    .stat-label { font-size: 11px; color: #ccc; text-transform: uppercase; }
-    .stat-val { font-size: 16px; font-weight: bold; }
-    
-    .tier-s { background: linear-gradient(135deg, #1b5e20 0%, #00e676 100%); border: 2px solid #00e676; }
-    .tier-a { background: linear-gradient(135deg, #0d47a1 0%, #2979ff 100%); border: 2px solid #2979ff; }
-    .tier-b { background: linear-gradient(135deg, #bf360c 0%, #ff6d00 100%); border: 2px solid #ff6d00; }
-    .tier-fail { background: #424242; border: 1px solid #757575; opacity: 0.6; }
+    .stApp { background-color: #202124; color: #e8eaed; }
+    div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #292a2d; border: 1px solid #3c4043; border-radius: 8px; padding: 15px; }
+    .header-box { padding: 10px; border-bottom: 1px solid #3c4043; font-size: 18px; font-weight: 500; margin-bottom: 15px;}
+    .guven-h { border-left: 4px solid #8ab4f8; }
+    .amiral-h { border-left: 4px solid #f28b82; }
+    .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid #3c4043; padding: 8px 0; font-size: 14px;}
+    .data-label { color: #9aa0a6; }
+    .data-val { color: #e8eaed; font-weight: 500;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- FONKSİYONLAR ---
+# --- 6. MATEMATİKSEL MOTOR (Garantici Baba'nın Kalbi) ---
+def calculate_precision_metrics(df):
+    if len(df) < 20: return None
+    data = df.tail(20).copy()
+    y = data['Close'].values
+    x = np.arange(len(y))
+    
+    slope, intercept = np.polyfit(x, y, 1)
+    y_pred = slope * x + intercept
+    ss_res = np.sum((y - y_pred) ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
+    
+    direction = abs(y[-1] - y[0])
+    volatility = np.sum(np.abs(np.diff(y)))
+    er = direction / volatility if volatility != 0 else 0
+    
+    return slope, r_squared, er
 
-def get_technical_filter(ticker):
+def toplu_tarama(ticker_list):
+    results = []
     try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="1mo")
-        if hist.empty: return None
-        price = hist['Close'].iloc[-1]
-        sma20 = hist['Close'].rolling(20).mean().iloc[-1]
-        trend_durumu = "POZİTİF" if price > sma20 else "NEGATİF"
-        return {"price": price, "trend": trend_durumu}
-    except: return None
-
-def get_news_leads():
-    url = "https://raw.githubusercontent.com/bakerim/sazlik-projesi/main/news_archive.json"
-    try:
-        response = requests.get(url, timeout=5)
-        if response.status_code != 200: return {}
-        data = response.json()
-        leads = {}
-        for item in data:
-            ticker = item.get('ticker')
-            if ticker:
-                if ticker not in leads: leads[ticker] = []
-                leads[ticker].append(f"- {item['content']}")
-        return leads
-    except: return {}
-
-def fetch_live_news_fallback(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        news = stock.news
-        if not news: return []
-        return [f"- {n['title']}" for n in news[:3]]
-    except: return []
-
-def score_opportunity(ticker, tech_data, news_list):
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    news_text = "\n".join(news_list[:3]) if news_list else "Haber bulunamadı."
-    
-    prompt = f"""
-    SEN "GARANTİCİ BABA" LAKAPLI, ŞÜPHECİ BİR TRADER'SIN.
-    HİSSE: {ticker} | FİYAT: ${tech_data['price']:.2f} | TREND: {tech_data['trend']}
-    HABERLER: {news_text}
-    
-    KURALLAR:
-    1. Haber metninde "{ticker}" yoksa veya alakasızsa PUANI SIFIRLA.
-    2. Trend NEGATİF ise puanı 45'in altına çek.
-    3. RİSK/KAZANÇ (R/R) oranını hesapla (Örn: 1:3).
-    
-    ÇIKTI (JSON):
-    {{
-        "puan": (0-100 arası sayı),
-        "baslik": "Kısa Başlık",
-        "analiz": "Analiz yorumu",
-        "giris": {tech_data['price']:.2f},
-        "hedef": (Hedef),
-        "stop": (Stop),
-        "vade": "X Gün",
-        "rr_orani": "1:X",
-        "kasa_yuzdesi": "%X"
-    }}
-    """
-    try:
-        response = model.generate_content(prompt)
-        text = response.text.replace('```json', '').replace('```', '')
-        return json.loads(text)
-    except: return None
-
-# --- KART GÖSTERİMİ (TEK SATIR TEKNİĞİ - ASLA BOZULMAZ) ---
-def display_card(res):
-    puan = res['puan']
-    
-    if puan >= 85: c, i = "tier-s", "💎"
-    elif puan >= 75: c, i = "tier-a", "🔥"
-    elif puan >= 60: c, i = "tier-b", "⚠️"
-    else: c, i = "tier-fail", "⛔"
-
-    # AŞAĞIDAKİ SATIR BİLEREK TEK PARÇA HALİNDE YAZILDI. LÜTFEN BÖLMEYİN.
-    # Bu, Streamlit'in HTML'i kod sanmasını %100 engeller.
-    html_card = f"""<div class="card {c}"><div class="card-header">{i} {res['ticker']} <div class="score-badge">{puan}</div></div><div class="analysis-text"><b>{res['baslik']}</b><br>{res['analiz']}</div><div class="risk-row"><span>R/R: <b style="color:#FFF;">{res['rr_orani']}</b></span><span>Kasa: <b style="color:#90caf9;">{res['kasa_yuzdesi']}</b></span></div><div class="strategy-grid"><div><div class="stat-label">GİRİŞ</div><div class="stat-val">${res['giris']}</div></div><div><div class="stat-label">HEDEF</div><div class="stat-val">${res['hedef']}</div></div><div><div class="stat-label">STOP</div><div class="stat-val">${res['stop']}</div></div><div><div class="stat-label">VADE</div><div class="stat-val">{res['vade']}</div></div></div></div>"""
-    
-    st.markdown(html_card, unsafe_allow_html=True)
-    
-    if res.get('news'):
-        with st.expander(f"Haber Detayları ({res['ticker']})"):
-            st.text("\n".join(res['news'][:3]))
-
-# --- ARAYÜZ ---
-st.title("🛡️ Sazlık: Garantici Mod")
-st.markdown("---")
-
-# 1. BÖLÜM: OTOMATİK
-if st.button("Analize Başla", type="primary"):
-    news_dict = get_news_leads()
-    
-    if not news_dict: 
-        st.warning("Bot henüz veri toplamamış veya erişilemiyor. (Manuel analiz çalışır)")
-    else:
-        status = st.empty()
-        bar = st.progress(0)
-        tickers = list(news_dict.keys())
-        results = []
+        data = yf.download(ticker_list, period="1y", progress=False)
+        if data.empty: return []
         
-        for i, ticker in enumerate(tickers):
-            status.text(f"Analiz ediliyor: {ticker}...")
-            bar.progress((i+1)/len(tickers))
-            tech = get_technical_filter(ticker)
-            if not tech: continue
+        closes = data['Close']
+        if isinstance(closes, pd.Series): 
+            closes = pd.DataFrame({ticker_list[0]: closes})
             
-            ai = score_opportunity(ticker, tech, news_dict[ticker])
-            if ai:
-                ai['ticker'] = ticker
-                ai['news'] = news_dict[ticker]
-                results.append(ai)
+        for ticker in ticker_list:
+            try:
+                if ticker not in closes: continue
+                
+                df = pd.DataFrame({'Close': closes[ticker]}).dropna()
+                if len(df) < 200: continue 
+                
+                curr = df['Close'].iloc[-1]
+                sma50 = df['Close'].rolling(50).mean().iloc[-1]
+                sma200 = df['Close'].rolling(200).mean().iloc[-1]
+                
+                res = calculate_precision_metrics(df)
+                if not res: continue
+                slope, r2, er = res
+                
+                # Torpil bitti! Gerçek formül burada.
+                gercek_puan = (r2 * 60) + (er * 40)
+                gunluk_hiz = slope if slope > 0.01 else 0.01 
+                
+                # ⚓ Amiral Masası: 200 Günlük Ortalamanın üstü (Büyük Trend)
+                if curr > sma200 and sma50 > sma200:
+                    hedef = curr * 1.25
+                    tahmini_gun = int((hedef - curr) / gunluk_hiz)
+                    results.append({
+                        "ticker": ticker, "price": curr, "type": "⚓ AMİRAL", 
+                        "target": hedef, "stop": curr*0.90, "r2": r2, "puan": gercek_puan,
+                        "vade": tahmini_gun
+                    })
+                
+                # 🛡️ Güven Masası: Doğrusallık (R2 > 0.50)
+                elif slope > 0 and r2 > 0.50 and curr > sma50:
+                    hedef = curr * 1.10
+                    tahmini_gun = int((hedef - curr) / gunluk_hiz)
+                    results.append({
+                        "ticker": ticker, "price": curr, "type": "🛡️ GÜVEN", 
+                        "target": hedef, "stop": curr*0.95, "r2": r2, "puan": gercek_puan,
+                        "vade": tahmini_gun
+                    })
+            except:
+                continue
+    except Exception as e:
+        st.error(f"Veri çekme hatası: {e}")
         
-        status.empty(); bar.empty()
-        results.sort(key=lambda x: x['puan'], reverse=True)
-        
-        if not results:
-            st.info("Kriterlere uyan hisse çıkmadı.")
-        else:
-            for res in results:
-                display_card(res)
+    return results
 
-st.markdown("---")
+# --- 7. ARAYÜZ ---
+st.sidebar.title(f"Operatör: {st.session_state['current_user'].upper()}")
+if st.sidebar.button("🚪 Çıkış Yap"):
+    st.session_state['logged_in'] = False
+    st.rerun()
+
+tab1, tab2 = st.tabs(["🚀 RADAR (Piyasa Taraması)", "💼 KASA VE PORTFÖY"])
+
+with tab1:
+    if st.button("Piyasayı Tara", type="primary", use_container_width=True):
+        with st.spinner("Radar dönüyor... Bütün piyasa tek seferde çekiliyor (Ban Korumalı)..."):
+            st.session_state['last_results'] = toplu_tarama(WATCHLIST)
+            st.session_state['last_results'] = sorted(st.session_state['last_results'], key=lambda x: x['puan'], reverse=True)
+        st.success(f"Tarama Tamamlandı. Zayıf hisseler elendi. Kalan: {len(st.session_state['last_results'])} hisse.")
+
+    if st.session_state['last_results']:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown('<div class="header-box guven-h">🛡️ GÜVEN MASASI (İstikrarlı Kale)</div>', unsafe_allow_html=True)
+            for r in [x for x in st.session_state['last_results'] if x['type'] == "🛡️ GÜVEN"][:10]:
+                with st.container(border=True):
+                    st.markdown(f"<div style='font-size:18px; font-weight:bold;'>{r['ticker']} <span style='float:right;'>${r['price']:.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='data-row'><span class='data-label'>Algoritma Puanı</span><span class='data-val'>{r['puan']:.0f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='data-row'><span class='data-label'>Hedef / Stop</span><span class='data-val'>${r['target']:.2f} / ${r['stop']:.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='data-row'><span class='data-label'>R² (Doğrusallık)</span><span class='data-val'>{r['r2']:.2f}</span></div>", unsafe_allow_html=True)
+                    
+                    renk = "green" if r['vade'] < 30 else "orange" if r['vade'] < 90 else "red"
+                    st.markdown(f"<div class='data-row'><span class='data-label'>⏳ Tahmini Vade</span><span class='data-val' style='color:{renk};'>Yaklaşık {r['vade']} Gün</span></div>", unsafe_allow_html=True)
+                    
+        with c2:
+            st.markdown('<div class="header-box amiral-h">⚓ AMİRAL MASASI (Büyük Trend)</div>', unsafe_allow_html=True)
+            for r in [x for x in st.session_state['last_results'] if x['type'] == "⚓ AMİRAL"][:10]:
+                with st.container(border=True):
+                    st.markdown(f"<div style='font-size:18px; font-weight:bold; color:#f28b82;'>{r['ticker']} <span style='float:right;'>${r['price']:.2f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='data-row'><span class='data-label'>Algoritma Puanı</span><span class='data-val'>{r['puan']:.0f}</span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='data-row'><span class='data-label'>Hedef / Stop</span><span class='data-val'>${r['target']:.2f} / ${r['stop']:.2f}</span></div>", unsafe_allow_html=True)
+                    
+                    renk = "green" if r['vade'] < 60 else "orange" if r['vade'] < 120 else "red"
+                    st.markdown(f"<div class='data-row'><span class='data-label'>⏳ Tahmini Vade</span><span class='data-val' style='color:{renk};'>Yaklaşık {r['vade']} Gün</span></div>", unsafe_allow_html=True)
+
+with tab2:
+    st.subheader("Operasyon Merkezi (Parça Hisse Destekli)")
+    with st.container(border=True):
+        secilen = st.selectbox("Hisse Seç", [""] + WATCHLIST)
+        meblah = st.number_input("Yatırılacak Tutar ($)", min_value=1.0, value=100.0)
+        
+        if secilen:
+            try:
+                curr_p = yf.Ticker(secilen).fast_info['last_price']
+                hesaplanan_lot = meblah / curr_p
+                st.write(f"Anlık Fiyat: **${curr_p:.2f}** | Alınacak Lot: **{hesaplanan_lot:.4f}**")
+                
+                if st.button("İşlemi Kaydet (JSON)", type="primary"):
+                    new_trade = {
+                        "id": int(datetime.now().timestamp()),
+                        "sembol": secilen, 
+                        "maliyet": round(curr_p, 2), 
+                        "tutar": round(meblah, 2), 
+                        "lot": round(hesaplanan_lot, 4),
+                        "tarih": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    }
+                    st.session_state['portfolio'].append(new_trade)
+                    save_portfolio(st.session_state['current_user'], st.session_state['portfolio'])
+                    st.success("Tebrikler! İşlem JSON kasasına güvenle kaydedildi.")
+                    st.rerun()
+            except Exception as e:
+                st.error("Canlı fiyat çekilemedi. Bağlantınızı kontrol edin.")
+
+    if st.session_state['portfolio']:
+        st.markdown("### Aktif Pozisyonlar")
+        df_p = pd.DataFrame(st.session_state['portfolio'])
+        st.dataframe(df_p[["tarih", "sembol", "tutar", "lot", "maliyet"]], use_container_width=True, hide_index=True)
+        
+        if st.button("🗑️ Son Kaydı Sil (Hatalı İşlemi İptal Et)"):
+            st.session_state['portfolio'].pop()
+            save_portfolio(st.session_state['current_user'], st.session_state['portfolio'])
+            st.rerun()

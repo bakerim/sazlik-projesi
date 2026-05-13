@@ -1,24 +1,31 @@
 import streamlit as st
 
 # --- API ANAHTAR YÖNETİMİ ---
-# Streamlit Cloud'da 'Secrets' kullanır, lokalde boş geçer (Hata vermemesi için)
+# Şifreler .streamlit/secrets.toml dosyasından güvenle çekilir.
 try:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-except:
-    # Bilgisayarında test ederken buraya manuel yazabilirsin veya boş bırakabilirsin
-    GEMINI_API_KEY = "MANUEL_KEY_GIRILEBILIR"
-    GITHUB_TOKEN = ""
+    GIST_ID = st.secrets["GIST_ID"]
+except Exception as e:
+    print(f"Hata: Şifreler okunamadı. Lütfen .streamlit/secrets.toml dosyasını kontrol et. Detay: {e}")
+    GEMINI_API_KEY = None
+    GITHUB_TOKEN = None
+    GIST_ID = None
 
-# --- İZLEME LİSTESİ (Watchlist) ---
-# Teknoloji, Sanayi ve Savunma Karması (WDC Eklendi)
+# --- RSS KAYNAKLARI ---
+RSS_URLS = [
+    "https://finance.yahoo.com/news/rssindex",
+    "https://finance.yahoo.com/topic/stock-market-news/rss"
+]
+
+# --- İZLEME LİSTESİ (Ölü ve Delisted Hisselerden Arındırılmış Temiz Liste) ---
 WATCHLIST_TICKERS = [
     "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ADBE", 
     "CRM", "CMCSA", "QCOM", "TXN", "AMGN", "INTC", "CSCO", "VZ", "T", "TMUS",
     "NFLX", "ORCL", "MU", "IBM", "PYPL", "INTU", "AMD", "FTNT", "ADI", "NOW",
     "LRCX", "MRVL", "CDNS", "SNPS", "DXCM", "KLAC", "ROST", "MSCI", "CHTR",
     "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPY", "BLK", "SCHW",
-    "C", "AXP", "CB", "MMC", "AON", "CME", "ICE", "PGR", "ALL", "MET",
+    "C", "AXP", "CB", "AON", "CME", "ICE", "PGR", "ALL", "MET",
     "AIG", "PNC", "USB", "BK", "COF", "TRV", "MCO", "CBOE", "RJF",
     "GPN", "FIS", "ZION", "FITB", "STT", "NDAQ", "RF", "KEY", "CFG", "HBAN",
     "JNJ", "LLY", "UNH", "ABBV", "MRK", "PFE", "DHR", "TMO", "MDT", "SYK",
@@ -27,8 +34,8 @@ WATCHLIST_TICKERS = [
     "WAT", "RGEN", "IQV", "REGN", "EW", "TECH", "DGX", "INCY", "CRL",
     "PG", "KO", "PEP", "WMT", "COST", "HD", "MCD", "NKE", "LOW", "TGT",
     "SBUX", "MDLZ", "CL", "PM", "MO", "KR", "DG", "EL", "KHC",
-    "GIS", "K", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
-    "MAT", "HOG", "GT", "TPR", "TTC", "VFC", "HBI", "KSS", "ULTA",
+    "GIS", "SYY", "APO", "DECK", "BBY", "WHR", "NWSA", "FOXA", "HAS",
+    "MAT", "HOG", "GT", "TPR", "TTC", "VFC", "KSS", "ULTA",
     "XOM", "CVX", "LMT", "RTX", "BA", "HON", "MMM", "GE", "GD",
     "CAT", "DE", "EOG", "OXY", "COP", "PSX", "MPC", "WMB", "KMI",
     "ETN", "AOS", "EMR", "PCAR", "ROK", "SWK", "TDY", "RSG", "WM", "CARR",
@@ -48,5 +55,5 @@ WATCHLIST_TICKERS = [
     "HUBB", "APH", "ECL", "SHW", "PPG", "FMC", "MOS", "CF", "NUE", "STLD", 
     "RCL", "NCLH", "MGM", "WYNN", "LVS", "PENN", "DKNG", "BYND",
     "RBLX", "UBER", "LYFT", "ABNB", "DOX", "PRU", "L", "VLO", "DVN", "APA", 
-    "HAL", "BKR", "FTI", "NOV", "TDW", "PAGP", "PAA", "WES"
+    "HAL", "BKR", "FTI", "NOV", "TDW", "PAGP", "PAA", "WES", "BRK-B", "ELV", "RVTY"
 ]
