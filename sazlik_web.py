@@ -7,11 +7,14 @@ import config
 
 st.set_page_config(page_title="Sazlık V4 - Kurumsal Terminal", layout="wide")
 
+# Config dosyasından listeyi çek veya varsayılan listeyi kullan
 WATCHLIST = sorted(list(set(getattr(config, 'WATCHLIST_TICKERS', ["AAPL", "MSFT", "NVDA", "TSLA", "AMD", "WAB", "DE", "FSLY", "DVA", "KO", "PG", "JNJ", "EOG", "INTU"]))))
 
+# Hafıza Yönetimi
 if 'v3_sonuclar' not in st.session_state: st.session_state['v3_sonuclar'] = []
 if 'amiral_sonuclar' not in st.session_state: st.session_state['amiral_sonuclar'] = []
 
+# Kurumsal CSS Tasarımı
 st.markdown("""
 <style>
 .stApp { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -37,6 +40,7 @@ st.markdown("""
 
 st.markdown('<div class="main-title">SAZLIK ANALİZ TERMİNALİ</div>', unsafe_allow_html=True)
 
+# --- MAKRO PİYASA MOTORU ---
 @st.cache_data(ttl=3600, show_spinner=False)
 def makro_piyasa_durumu():
     try:
@@ -51,7 +55,6 @@ else:
     st.markdown('<div class="macro-warning">SİSTEM DURUMU: S&P 500 Endeksi düşüş eğiliminde (SMA50 Altı). Risk yönetimine dikkat ediniz.</div>', unsafe_allow_html=True)
 
 # --- TEKNİK MOTOR (Güven Masası) ---
-# DİKKAT: Gerçek zamanlı UI güncellemesi için st.cache_data KALDIRILDI!
 def v3_guven_motoru(ticker_list, p_bar):
     sonuclar = []
     try:
@@ -63,7 +66,6 @@ def v3_guven_motoru(ticker_list, p_bar):
         if isinstance(vol_data, pd.Series): vol_data = pd.DataFrame({ticker_list[0]: vol_data})
         
         for i, ticker in enumerate(ticker_list):
-            # GERÇEK ZAMANLI BAR HESAPLAMASI (İndirme %20, İşleme %80 ağırlıkta)
             progress_oran = 0.2 + (0.8 * ((i + 1) / len(ticker_list)))
             p_bar.progress(progress_oran, text=f"İşleniyor: {ticker} (Doğrusallık ve Hacim Motoru)")
             
@@ -87,16 +89,14 @@ def v3_guven_motoru(ticker_list, p_bar):
                 sonuclar.append({"ticker": ticker, "price": curr, "r2": r2, "slope": slope, "puan": puan_g, "yakit": yakit_durumu, "target": curr * hedef_oran, "stop": curr * 0.965, "pot_dolar": (curr * hedef_oran) - curr, "pot_yuzde": (hedef_oran - 1) * 100})
     except: pass
     
-    p_bar.empty() # İşlem bitince barı ekrandan temizle
+    p_bar.empty()
     return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
 
 # --- EKONOMETRİK MOTOR (Amiral Masası) ---
-# DİKKAT: Gerçek zamanlı UI güncellemesi için st.cache_data KALDIRILDI!
 def amiral_ekonometri_motoru(ticker_list, p_bar):
     sonuclar = []
     
     for i, ticker in enumerate(ticker_list):
-        # GERÇEK ZAMANLI BAR HESAPLAMASI (Her hissede yüzdelik dilim artar)
         progress_oran = (i + 1) / len(ticker_list)
         p_bar.progress(progress_oran, text=f"Bilanço taranıyor: {ticker} (F/K, PEG, Borç Rasyoları)")
         
@@ -118,14 +118,19 @@ def amiral_ekonometri_motoru(ticker_list, p_bar):
             temettu = (dy_raw / 100) * 100 if dy_raw > 1 else dy_raw * 100
             if temettu > 25: temettu = 0 
             
-            hist = yf.Ticker(ticker).history(period='1mo')['Close']
-            if len(hist) < 20: continue
-            delta = hist.diff()
+            hist = yf.Ticker(ticker).history(period='1y')['Close']
+            if len(hist) < 200: continue
+            
+            sma200 = hist.rolling(200).mean().iloc[-1]
+            
+            hist_1mo = hist.tail(30)
+            delta = hist_1mo.diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
             rs = gain / loss if loss != 0 else 0
             rsi = 100 - (100 / (1 + rs)) if loss != 0 else 100
             
+            # Hassas Puanlama Matematiği
             peg_p = 0 if peg <= 0 else (20 if peg <= 1.0 else (0 if peg >= 3.0 else 20 - ((peg - 1.0) / 2.0) * 20))
             borc_p = 20 if borc <= 20 else (0 if borc >= 150 else 20 - ((borc - 20) / 130) * 20)
             roe_p = 20 if roe >= 25 else (0 if roe <= 5 else ((roe - 5) / 20) * 20)
@@ -150,13 +155,14 @@ def amiral_ekonometri_motoru(ticker_list, p_bar):
                 sonuclar.append({
                     "ticker": ticker, "sector": sector, "fiyat": fiyat, "fk": fk, "peg": peg, 
                     "roe": roe, "borc": borc, "beta": beta, "temettu": temettu, 
-                    "rsi": rsi, "puan": toplam_puan, "verdict": ozet_metin
+                    "rsi": rsi, "sma200": sma200, "puan": toplam_puan, "verdict": ozet_metin
                 })
         except Exception: continue
     
-    p_bar.empty() # İşlem bitince barı ekrandan temizle
+    p_bar.empty() 
     return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
 
+# --- ARAYÜZ YÖNETİMİ ---
 tab_guven, tab_amiral = st.tabs(["GÜVEN MASASI (Teknik Tarama)", "AMİRAL MASASI (Temel Analiz)"])
 
 with tab_guven:
@@ -168,10 +174,12 @@ with tab_guven:
         cols = st.columns(2)
         for idx, r in enumerate(st.session_state['v3_sonuclar'][:10]):
             yakit = f"<div class='yakit-g'>{r['yakit']}</div>" if r['yakit']=="YÜKSEK HACİM" else f"<div class='yakit-y'>{r['yakit']}</div>"
-            html = f"""<div class="sazlik-card"><div class="card-top"><div class="ticker-name">{r['ticker']}</div>{yakit}</div>
-            <div class="data-grid"><div><div class="data-label">ANALİTİK SKOR</div><div class="data-val">{r['puan']}</div></div><div><div class="data-label">R² DEĞERİ</div><div class="data-val">{r['r2']:.2f}</div></div><div><div class="data-label">TREND EĞİMİ</div><div class="data-val">{r['slope']:.2f}</div></div></div>
-            <div class="data-grid"><div><div class="data-label">GİRİŞ SEVİYESİ</div><div class="data-val">${r['price']:.2f}</div></div><div><div class="data-label">KÂR HEDEFİ</div><div class="data-val" style="color:#81c995;">${r['target']:.2f}</div></div><div><div class="data-label">ZARAR KES</div><div class="data-val" style="color:#f28b82;">${r['stop']:.2f}</div></div></div>
-            <div class="potansiyel-bar">Potansiyel Getiri Marjı: +${r['pot_dolar']:.2f} (%{r['pot_yuzde']:.2f})</div></div>"""
+            html = f"""<div class="sazlik-card">
+<div class="card-top"><div class="ticker-name">{r['ticker']}</div>{yakit}</div>
+<div class="data-grid"><div><div class="data-label">ANALİTİK SKOR</div><div class="data-val">{r['puan']}</div></div><div><div class="data-label">R² DEĞERİ</div><div class="data-val">{r['r2']:.2f}</div></div><div><div class="data-label">TREND EĞİMİ</div><div class="data-val">{r['slope']:.2f}</div></div></div>
+<div class="data-grid"><div><div class="data-label">GİRİŞ SEVİYESİ</div><div class="data-val">${r['price']:.2f}</div></div><div><div class="data-label">KÂR HEDEFİ</div><div class="data-val" style="color:#81c995;">${r['target']:.2f}</div></div><div><div class="data-label">ZARAR KES</div><div class="data-val" style="color:#f28b82;">${r['stop']:.2f}</div></div></div>
+<div class="potansiyel-bar">Potansiyel Getiri Marjı: +${r['pot_dolar']:.2f} (%{r['pot_yuzde']:.2f})</div>
+</div>"""
             with cols[idx % 2]: st.markdown(html, unsafe_allow_html=True)
 
 with tab_amiral:
@@ -182,8 +190,21 @@ with tab_amiral:
     if st.session_state['amiral_sonuclar']:
         cols_a = st.columns(2)
         for idx, r in enumerate(st.session_state['amiral_sonuclar'][:10]):
-            html = f"""<div class="amiral-card"><div class="card-top"><div><span class="ticker-name" style="color:#2ea043;">{r['ticker']}</span><span class="sector-badge">{r['sector']}</span><div style="font-size:15px; color:#8b949e; margin-top:4px;">${r['fiyat']:.2f}</div></div><div style="text-align:right;"><div style="font-size:10px; color:#8b949e; font-weight:bold;">ANALİTİK SKOR</div><div style="font-size:24px; font-weight:700; color:#2ea043; margin-top:2px;">{r['puan']}</div></div></div>
-            <div class="data-grid"><div><div class="data-label">F/K RASYOSU</div><div class="data-val">{r['fk']:.1f}</div></div><div><div class="data-label">RSI İNDİKATÖRÜ</div><div class="data-val" style="color:{'#ff7b72' if r['rsi']>70 else '#7ee787'};">{r['rsi']:.1f}</div></div><div><div class="data-label">ÖZSERMAYE KÂRLILIĞI</div><div class="data-val">%{r['roe']:.1f}</div></div></div>
-            <div class="data-grid"><div><div class="data-label">BORÇ / ÖZKAYNAK</div><div class="data-val">%{r['borc']:.1f}</div></div><div><div class="data-label">BETA KATSAYISI</div><div class="data-val">{r['beta']:.2f}</div></div><div><div class="data-label">TEMETTÜ VERİMİ</div><div class="data-val" style="color:#e3b341;">%{r['temettu']:.1f}</div></div></div>
-            <div class="ai-verdict"><b>Analiz Özeti:</b> {r['verdict']}</div></div>"""
+            bedava_hisse_hedefi = r['fiyat'] * 2
+            
+            # HTML BOŞLUKLARI SIFIRLANDI!
+            html = f"""<div class="amiral-card">
+<div class="card-top"><div><span class="ticker-name" style="color:#2ea043;">{r['ticker']}</span><span class="sector-badge">{r['sector']}</span><div style="font-size:15px; color:#8b949e; margin-top:4px;">Anlık: ${r['fiyat']:.2f}</div></div><div style="text-align:right;"><div style="font-size:10px; color:#8b949e; font-weight:bold;">ANALİTİK SKOR</div><div style="font-size:24px; font-weight:700; color:#2ea043; margin-top:2px;">{r['puan']}</div></div></div>
+<div class="data-grid"><div><div class="data-label">F/K RASYOSU</div><div class="data-val">{r['fk']:.1f}</div></div><div><div class="data-label">RSI İNDİKATÖRÜ</div><div class="data-val" style="color:{'#ff7b72' if r['rsi']>70 else '#7ee787'};">{r['rsi']:.1f}</div></div><div><div class="data-label">ÖZSERMAYE KÂRLILIĞI</div><div class="data-val">%{r['roe']:.1f}</div></div></div>
+<div class="data-grid"><div><div class="data-label">BORÇ / ÖZKAYNAK</div><div class="data-val">%{r['borc']:.1f}</div></div><div><div class="data-label">BETA KATSAYISI</div><div class="data-val">{r['beta']:.2f}</div></div><div><div class="data-label">TEMETTÜ VERİMİ</div><div class="data-val" style="color:#e3b341;">%{r['temettu']:.1f}</div></div></div>
+<div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #30363d;">
+<div style="font-size: 11px; font-weight: bold; color: #8ab4f8; margin-bottom: 8px;">AMİRAL ÇIKIŞ STRATEJİSİ (EXIT PLAN)</div>
+<div class="data-grid">
+<div><div class="data-label">ANA PARA (1/2 SAT)</div><div class="data-val" style="color:#7ee787;">${bedava_hisse_hedefi:.2f}</div></div>
+<div><div class="data-label">TREND SONU (SMA200)</div><div class="data-val" style="color:#ff7b72;">${r['sma200']:.2f}</div></div>
+<div><div class="data-label">BİLANÇO STOPU</div><div class="data-val" style="color:#d29922;">50 Puan Altı</div></div>
+</div>
+</div>
+<div class="ai-verdict"><b>Analiz Özeti:</b> {r['verdict']}</div>
+</div>"""
             with cols_a[idx % 2]: st.markdown(html, unsafe_allow_html=True)
