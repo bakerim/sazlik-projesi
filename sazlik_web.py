@@ -51,16 +51,22 @@ else:
     st.markdown('<div class="macro-warning">SİSTEM DURUMU: S&P 500 Endeksi düşüş eğiliminde (SMA50 Altı). Risk yönetimine dikkat ediniz.</div>', unsafe_allow_html=True)
 
 # --- TEKNİK MOTOR (Güven Masası) ---
-@st.cache_data(ttl=1800, show_spinner=False)
-def v3_guven_motoru(ticker_list):
+# DİKKAT: Gerçek zamanlı UI güncellemesi için st.cache_data KALDIRILDI!
+def v3_guven_motoru(ticker_list, p_bar):
     sonuclar = []
     try:
+        p_bar.progress(0.1, text="Tüm piyasa verileri paket halinde indiriliyor...")
         data = yf.download(ticker_list, period="3mo", progress=False)['Close']
         vol_data = yf.download(ticker_list, period="3mo", progress=False)['Volume']
+        
         if isinstance(data, pd.Series): data = pd.DataFrame({ticker_list[0]: data})
         if isinstance(vol_data, pd.Series): vol_data = pd.DataFrame({ticker_list[0]: vol_data})
         
-        for ticker in ticker_list:
+        for i, ticker in enumerate(ticker_list):
+            # GERÇEK ZAMANLI BAR HESAPLAMASI (İndirme %20, İşleme %80 ağırlıkta)
+            progress_oran = 0.2 + (0.8 * ((i + 1) / len(ticker_list)))
+            p_bar.progress(progress_oran, text=f"İşleniyor: {ticker} (Doğrusallık ve Hacim Motoru)")
+            
             if ticker not in data.columns: continue
             df = pd.DataFrame({'Close': data[ticker], 'Volume': vol_data[ticker]}).dropna()
             if len(df) < 30: continue
@@ -80,14 +86,20 @@ def v3_guven_motoru(ticker_list):
                 hedef_oran = 1.04 + (hiz / 100 * 2) 
                 sonuclar.append({"ticker": ticker, "price": curr, "r2": r2, "slope": slope, "puan": puan_g, "yakit": yakit_durumu, "target": curr * hedef_oran, "stop": curr * 0.965, "pot_dolar": (curr * hedef_oran) - curr, "pot_yuzde": (hedef_oran - 1) * 100})
     except: pass
+    
+    p_bar.empty() # İşlem bitince barı ekrandan temizle
     return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
 
 # --- EKONOMETRİK MOTOR (Amiral Masası) ---
-@st.cache_data(ttl=3600, show_spinner=False)
-def amiral_ekonometri_motoru(ticker_list):
+# DİKKAT: Gerçek zamanlı UI güncellemesi için st.cache_data KALDIRILDI!
+def amiral_ekonometri_motoru(ticker_list, p_bar):
     sonuclar = []
     
     for i, ticker in enumerate(ticker_list):
+        # GERÇEK ZAMANLI BAR HESAPLAMASI (Her hissede yüzdelik dilim artar)
+        progress_oran = (i + 1) / len(ticker_list)
+        p_bar.progress(progress_oran, text=f"Bilanço taranıyor: {ticker} (F/K, PEG, Borç Rasyoları)")
+        
         try:
             info = yf.Ticker(ticker).info
             if not info: continue
@@ -114,7 +126,6 @@ def amiral_ekonometri_motoru(ticker_list):
             rs = gain / loss if loss != 0 else 0
             rsi = 100 - (100 / (1 + rs)) if loss != 0 else 100
             
-            # Puanlama Hesaplamaları
             peg_p = 0 if peg <= 0 else (20 if peg <= 1.0 else (0 if peg >= 3.0 else 20 - ((peg - 1.0) / 2.0) * 20))
             borc_p = 20 if borc <= 20 else (0 if borc >= 150 else 20 - ((borc - 20) / 130) * 20)
             roe_p = 20 if roe >= 25 else (0 if roe <= 5 else ((roe - 5) / 20) * 20)
@@ -128,7 +139,6 @@ def amiral_ekonometri_motoru(ticker_list):
             
             toplam_puan = int(peg_p + borc_p + roe_p + beta_p + temettu_p + rsi_p)
             
-            # Kurumsal Finansal Analiz İfadeleri
             verdict = []
             if peg_p > 15: verdict.append("İskontolu değerleme.")
             if borc_p > 15: verdict.append("Düşük borçluluk oranı.")
@@ -144,18 +154,15 @@ def amiral_ekonometri_motoru(ticker_list):
                 })
         except Exception: continue
     
+    p_bar.empty() # İşlem bitince barı ekrandan temizle
     return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
 
 tab_guven, tab_amiral = st.tabs(["GÜVEN MASASI (Teknik Tarama)", "AMİRAL MASASI (Temel Analiz)"])
 
 with tab_guven:
     if st.button("TARAMAYI BAŞLAT", use_container_width=True, key="btn_guven"):
-        bar = st.progress(0)
-        # Sadece görsel amaçlı hızlı bir dolum efekti
-        for i in range(100):
-            bar.progress(i + 1)
-        st.session_state['v3_sonuclar'] = v3_guven_motoru(WATCHLIST)
-        bar.empty()
+        progress_bar = st.progress(0.0, text="Hazırlanıyor...")
+        st.session_state['v3_sonuclar'] = v3_guven_motoru(WATCHLIST, progress_bar)
         
     if st.session_state['v3_sonuclar']:
         cols = st.columns(2)
@@ -169,13 +176,8 @@ with tab_guven:
 
 with tab_amiral:
     if st.button("ANALİZİ BAŞLAT", type="primary", use_container_width=True, key="btn_amiral"):
-        bar_a = st.progress(0)
-        # Gerçek ilerleme için listeyi chunklara bölebilir veya progress'i fonksiyon dışına simüle edebiliriz.
-        # Fonksiyon içerisindeki progress bar Streamlit cache uyumsuzluğu yaratabildiği için dışarıda görselleştiriyoruz.
-        for i in range(100):
-            bar_a.progress(i + 1)
-        st.session_state['amiral_sonuclar'] = amiral_ekonometri_motoru(WATCHLIST)
-        bar_a.empty()
+        progress_bar = st.progress(0.0, text="Ekonometrik veritabanına bağlanılıyor...")
+        st.session_state['amiral_sonuclar'] = amiral_ekonometri_motoru(WATCHLIST, progress_bar)
         
     if st.session_state['amiral_sonuclar']:
         cols_a = st.columns(2)
