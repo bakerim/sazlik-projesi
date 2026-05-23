@@ -1,7 +1,6 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import ta 
 import config 
 
 # --- 1. MATEMATİKSEL MOTOR (GÜVEN MASASI KALESİ) ---
