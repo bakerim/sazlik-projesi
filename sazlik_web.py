@@ -2,218 +2,186 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import numpy as np
-import json
-import os
 from datetime import datetime
 import config 
 
-# --- 1. AYARLAR VE GÜVENLİK ---
-st.set_page_config(page_title="Sazlık Master Terminal", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Sazlık V4 - Kurumsal Terminal", layout="wide")
 
-# Config'den listeyi çek, tekrar edenleri temizle ve sırala
-WATCHLIST = sorted(list(set(config.WATCHLIST_TICKERS)))
+WATCHLIST = sorted(list(set(getattr(config, 'WATCHLIST_TICKERS', ["AAPL", "MSFT", "NVDA", "TSLA", "AMD", "WAB", "DE", "FSLY", "DVA", "KO", "PG", "JNJ", "EOG", "INTU"]))))
 
-# --- 2. JSON VERİ YÖNETİMİ (KİŞİYE ÖZEL HAFIZA) ---
-def get_portfolio_file(user): 
-    return f"portfolio_{user}.json"
+if 'v3_sonuclar' not in st.session_state: st.session_state['v3_sonuclar'] = []
+if 'amiral_sonuclar' not in st.session_state: st.session_state['amiral_sonuclar'] = []
 
-def load_portfolio(user):
-    file_path = get_portfolio_file(user)
-    if os.path.exists(file_path):
-        with open(file_path, "r") as f: 
-            return json.load(f)
-    return []
-
-def save_portfolio(user, data):
-    with open(get_portfolio_file(user), "wb") as f: 
-        f.write(json.dumps(data, indent=4).encode("utf-8"))
-
-# --- 3. SESSION STATE (BELLEK) ---
-if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
-if 'current_user' not in st.session_state: st.session_state['current_user'] = None
-if 'portfolio' not in st.session_state: st.session_state['portfolio'] = []
-if 'last_results' not in st.session_state: st.session_state['last_results'] = []
-
-# --- 4. GİRİŞ PANELİ ---
-if not st.session_state['logged_in']:
-    st.markdown("<h1 style='text-align: center; color: #8ab4f8;'>🦅 Sazlık Terminal V23</h1>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1.2, 1])
-    with col2:
-        with st.form("login"):
-            u = st.text_input("Kullanıcı").lower()
-            p = st.text_input("Şifre", type="password")
-            if st.form_submit_button("Sisteme Bağlan", use_container_width=True):
-                if u in ['mert', 'murat'] and p == '1234':
-                    st.session_state['logged_in'] = True
-                    st.session_state['current_user'] = u
-                    st.session_state['portfolio'] = load_portfolio(u)
-                    st.rerun()
-                else:
-                    st.error("Giriş Başarısız! Kullanıcı adı veya şifre hatalı.")
-    st.stop()
-
-# --- 5. GOOGLE FINANCE STİLİ CSS ---
 st.markdown("""
 <style>
-    .stApp { background-color: #202124; color: #e8eaed; }
-    div[data-testid="stVerticalBlockBorderWrapper"] { background-color: #292a2d; border: 1px solid #3c4043; border-radius: 8px; padding: 15px; }
-    .header-box { padding: 10px; border-bottom: 1px solid #3c4043; font-size: 18px; font-weight: 500; margin-bottom: 15px;}
-    .guven-h { border-left: 4px solid #8ab4f8; }
-    .amiral-h { border-left: 4px solid #f28b82; }
-    .data-row { display: flex; justify-content: space-between; border-bottom: 1px solid #3c4043; padding: 8px 0; font-size: 14px;}
-    .data-label { color: #9aa0a6; }
-    .data-val { color: #e8eaed; font-weight: 500;}
+.stApp { background-color: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+.main-title { font-size: 28px; font-weight: 600; color: #ffffff; margin-bottom: 25px; border-bottom: 1px solid #30363d; padding-bottom: 10px;}
+.guven-header { background-color: #1f4287; color: white; padding: 10px; border-radius: 4px; font-weight: 600; font-size: 16px; margin-bottom: 15px;}
+.amiral-header { background-color: #005a32; color: white; padding: 10px; border-radius: 4px; font-weight: 600; font-size: 16px; margin-bottom: 15px;}
+.sazlik-card { background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; margin-bottom: 15px;}
+.amiral-card { background-color: #111b15; border: 1px solid #1a3a26; border-radius: 6px; padding: 16px; margin-bottom: 15px; border-left: 4px solid #2ea043;}
+.card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;}
+.ticker-name { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;}
+.sector-badge { background-color: #2ea043; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; margin-left: 8px; vertical-align: middle;}
+.yakit-g { color: #3fb950; font-size: 12px; font-weight: 600; text-align: right;}
+.yakit-y { color: #d29922; font-size: 12px; font-weight: 600; text-align: right;}
+.data-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;}
+.data-label { font-size: 10px; color: #8b949e; text-transform: uppercase; font-weight: 600;}
+.data-val { font-size: 15px; font-weight: 600; color: #ffffff; margin-top: 2px;}
+.potansiyel-bar { background-color: #1c2b44; color: #8ab4f8; padding: 8px 12px; border-radius: 4px; font-size: 13px; font-weight: 500;}
+.ai-verdict { background-color: #14221b; color: #7ee787; padding: 8px 12px; border-radius: 4px; font-size: 12px; margin-top: 10px; border: 1px solid #2ea043;}
+.macro-warning { background-color: #4a0f0f; color: #ff7b72; padding: 12px; border-radius: 4px; border: 1px solid #f85149; margin-bottom: 20px; font-weight: 600; font-size: 14px;}
+.macro-safe { background-color: #0f3d1b; color: #7ee787; padding: 12px; border-radius: 4px; border: 1px solid #2ea043; margin-bottom: 20px; font-weight: 600; font-size: 14px;}
 </style>
 """, unsafe_allow_html=True)
 
-# --- 6. MATEMATİKSEL MOTOR (Garantici Baba'nın Kalbi) ---
-def calculate_precision_metrics(df):
-    if len(df) < 20: return None
-    data = df.tail(20).copy()
-    y = data['Close'].values
-    x = np.arange(len(y))
-    
-    slope, intercept = np.polyfit(x, y, 1)
-    y_pred = slope * x + intercept
-    ss_res = np.sum((y - y_pred) ** 2)
-    ss_tot = np.sum((y - np.mean(y)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0
-    
-    direction = abs(y[-1] - y[0])
-    volatility = np.sum(np.abs(np.diff(y)))
-    er = direction / volatility if volatility != 0 else 0
-    
-    return slope, r_squared, er
+st.markdown('<div class="main-title">SAZLIK ANALİZ TERMİNALİ</div>', unsafe_allow_html=True)
 
-def toplu_tarama(ticker_list):
-    results = []
+@st.cache_data(ttl=3600, show_spinner=False)
+def makro_piyasa_durumu():
     try:
-        data = yf.download(ticker_list, period="1y", progress=False)
-        if data.empty: return []
+        spy = yf.Ticker('SPY').history(period='3mo')['Close']
+        if len(spy) < 50: return True
+        return spy.iloc[-1] > spy.rolling(50).mean().iloc[-1]
+    except: return True
+
+if makro_piyasa_durumu():
+    st.markdown('<div class="macro-safe">SİSTEM DURUMU: S&P 500 Endeksi yükseliş eğiliminde (SMA50 Üzeri). Makro görünüm pozitif.</div>', unsafe_allow_html=True)
+else:
+    st.markdown('<div class="macro-warning">SİSTEM DURUMU: S&P 500 Endeksi düşüş eğiliminde (SMA50 Altı). Risk yönetimine dikkat ediniz.</div>', unsafe_allow_html=True)
+
+# --- TEKNİK MOTOR (Güven Masası) ---
+@st.cache_data(ttl=1800, show_spinner=False)
+def v3_guven_motoru(ticker_list):
+    sonuclar = []
+    try:
+        data = yf.download(ticker_list, period="3mo", progress=False)['Close']
+        vol_data = yf.download(ticker_list, period="3mo", progress=False)['Volume']
+        if isinstance(data, pd.Series): data = pd.DataFrame({ticker_list[0]: data})
+        if isinstance(vol_data, pd.Series): vol_data = pd.DataFrame({ticker_list[0]: vol_data})
         
-        closes = data['Close']
-        if isinstance(closes, pd.Series): 
-            closes = pd.DataFrame({ticker_list[0]: closes})
-            
         for ticker in ticker_list:
-            try:
-                if ticker not in closes: continue
-                
-                df = pd.DataFrame({'Close': closes[ticker]}).dropna()
-                if len(df) < 200: continue 
-                
-                curr = df['Close'].iloc[-1]
-                sma50 = df['Close'].rolling(50).mean().iloc[-1]
-                sma200 = df['Close'].rolling(200).mean().iloc[-1]
-                
-                res = calculate_precision_metrics(df)
-                if not res: continue
-                slope, r2, er = res
-                
-                # Torpil bitti! Gerçek formül burada.
-                gercek_puan = (r2 * 60) + (er * 40)
-                gunluk_hiz = slope if slope > 0.01 else 0.01 
-                
-                # ⚓ Amiral Masası: 200 Günlük Ortalamanın üstü (Büyük Trend)
-                if curr > sma200 and sma50 > sma200:
-                    hedef = curr * 1.25
-                    tahmini_gun = int((hedef - curr) / gunluk_hiz)
-                    results.append({
-                        "ticker": ticker, "price": curr, "type": "⚓ AMİRAL", 
-                        "target": hedef, "stop": curr*0.90, "r2": r2, "puan": gercek_puan,
-                        "vade": tahmini_gun
-                    })
-                
-                # 🛡️ Güven Masası: Doğrusallık (R2 > 0.50)
-                elif slope > 0 and r2 > 0.50 and curr > sma50:
-                    hedef = curr * 1.10
-                    tahmini_gun = int((hedef - curr) / gunluk_hiz)
-                    results.append({
-                        "ticker": ticker, "price": curr, "type": "🛡️ GÜVEN", 
-                        "target": hedef, "stop": curr*0.95, "r2": r2, "puan": gercek_puan,
-                        "vade": tahmini_gun
-                    })
-            except:
-                continue
-    except Exception as e:
-        st.error(f"Veri çekme hatası: {e}")
+            if ticker not in data.columns: continue
+            df = pd.DataFrame({'Close': data[ticker], 'Volume': vol_data[ticker]}).dropna()
+            if len(df) < 30: continue
+            
+            curr = df['Close'].iloc[-1]
+            vol_sma20 = df['Volume'].rolling(20).mean().iloc[-1]
+            yakit_durumu = "YÜKSEK HACİM" if df['Volume'].tail(3).mean() > (vol_sma20 * 1.1) else "STANDART HACİM"
+            
+            y = df['Close'].tail(20).values
+            x = np.arange(len(y))
+            slope, intercept = np.polyfit(x, y, 1)
+            r2 = 1 - (np.sum((y - (slope * x + intercept)) ** 2) / np.sum((y - np.mean(y)) ** 2)) if np.sum((y - np.mean(y)) ** 2) != 0 else 0
+            hiz = (slope / curr) * 100
+            
+            if slope > 0.05 and r2 >= 0.70:
+                puan_g = min(100, int((r2 * 70) + (20 if yakit_durumu == "YÜKSEK HACİM" else 0) + (10 if curr > df['Close'].rolling(50).mean().iloc[-1] else 0)))
+                hedef_oran = 1.04 + (hiz / 100 * 2) 
+                sonuclar.append({"ticker": ticker, "price": curr, "r2": r2, "slope": slope, "puan": puan_g, "yakit": yakit_durumu, "target": curr * hedef_oran, "stop": curr * 0.965, "pot_dolar": (curr * hedef_oran) - curr, "pot_yuzde": (hedef_oran - 1) * 100})
+    except: pass
+    return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
+
+# --- EKONOMETRİK MOTOR (Amiral Masası) ---
+@st.cache_data(ttl=3600, show_spinner=False)
+def amiral_ekonometri_motoru(ticker_list):
+    sonuclar = []
+    
+    for i, ticker in enumerate(ticker_list):
+        try:
+            info = yf.Ticker(ticker).info
+            if not info: continue
+            fk = info.get('trailingPE', 0)
+            if not (0 < fk < 35): continue
+            
+            sector = info.get('sector', 'N/A')
+            peg = info.get('pegRatio', 99)
+            borc = info.get('debtToEquity', 999) 
+            roe = info.get('returnOnEquity', 0) * 100
+            beta = info.get('beta', 1.5)
+            fiyat = info.get('currentPrice', info.get('previousClose', 0))
+            
+            dy_raw = info.get('dividendYield', 0)
+            if dy_raw is None: dy_raw = 0
+            temettu = (dy_raw / 100) * 100 if dy_raw > 1 else dy_raw * 100
+            if temettu > 25: temettu = 0 
+            
+            hist = yf.Ticker(ticker).history(period='1mo')['Close']
+            if len(hist) < 20: continue
+            delta = hist.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean().iloc[-1]
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean().iloc[-1]
+            rs = gain / loss if loss != 0 else 0
+            rsi = 100 - (100 / (1 + rs)) if loss != 0 else 100
+            
+            # Puanlama Hesaplamaları
+            peg_p = 0 if peg <= 0 else (20 if peg <= 1.0 else (0 if peg >= 3.0 else 20 - ((peg - 1.0) / 2.0) * 20))
+            borc_p = 20 if borc <= 20 else (0 if borc >= 150 else 20 - ((borc - 20) / 130) * 20)
+            roe_p = 20 if roe >= 25 else (0 if roe <= 5 else ((roe - 5) / 20) * 20)
+            beta_p = 10 if beta <= 0.8 else (0 if beta >= 1.5 else 10 - ((beta - 0.8) / 0.7) * 10)
+            temettu_p = 10 if temettu >= 4.0 else (temettu / 4.0) * 10
+            
+            if 40 <= rsi <= 50: rsi_p = 20
+            elif rsi > 70: rsi_p = max(0, 20 - (rsi - 50) * 0.8)
+            elif rsi < 40: rsi_p = max(0, 20 - (40 - rsi) * 0.5)
+            else: rsi_p = max(0, 20 - abs(rsi - 45) * 0.5)
+            
+            toplam_puan = int(peg_p + borc_p + roe_p + beta_p + temettu_p + rsi_p)
+            
+            # Kurumsal Finansal Analiz İfadeleri
+            verdict = []
+            if peg_p > 15: verdict.append("İskontolu değerleme.")
+            if borc_p > 15: verdict.append("Düşük borçluluk oranı.")
+            if roe_p > 15: verdict.append("Yüksek özsermaye kârlılığı.")
+            if rsi_p < 5: verdict.append("Aşırı alım bölgesinde (Dikkat).")
+            
+            if toplam_puan >= 50:
+                ozet_metin = " | ".join(verdict) if verdict else "Dengeli finansal rasyolar."
+                sonuclar.append({
+                    "ticker": ticker, "sector": sector, "fiyat": fiyat, "fk": fk, "peg": peg, 
+                    "roe": roe, "borc": borc, "beta": beta, "temettu": temettu, 
+                    "rsi": rsi, "puan": toplam_puan, "verdict": ozet_metin
+                })
+        except Exception: continue
+    
+    return sorted(sonuclar, key=lambda x: x['puan'], reverse=True)
+
+tab_guven, tab_amiral = st.tabs(["GÜVEN MASASI (Teknik Tarama)", "AMİRAL MASASI (Temel Analiz)"])
+
+with tab_guven:
+    if st.button("TARAMAYI BAŞLAT", use_container_width=True, key="btn_guven"):
+        bar = st.progress(0)
+        # Sadece görsel amaçlı hızlı bir dolum efekti
+        for i in range(100):
+            bar.progress(i + 1)
+        st.session_state['v3_sonuclar'] = v3_guven_motoru(WATCHLIST)
+        bar.empty()
         
-    return results
+    if st.session_state['v3_sonuclar']:
+        cols = st.columns(2)
+        for idx, r in enumerate(st.session_state['v3_sonuclar'][:10]):
+            yakit = f"<div class='yakit-g'>{r['yakit']}</div>" if r['yakit']=="YÜKSEK HACİM" else f"<div class='yakit-y'>{r['yakit']}</div>"
+            html = f"""<div class="sazlik-card"><div class="card-top"><div class="ticker-name">{r['ticker']}</div>{yakit}</div>
+            <div class="data-grid"><div><div class="data-label">ANALİTİK SKOR</div><div class="data-val">{r['puan']}</div></div><div><div class="data-label">R² DEĞERİ</div><div class="data-val">{r['r2']:.2f}</div></div><div><div class="data-label">TREND EĞİMİ</div><div class="data-val">{r['slope']:.2f}</div></div></div>
+            <div class="data-grid"><div><div class="data-label">GİRİŞ SEVİYESİ</div><div class="data-val">${r['price']:.2f}</div></div><div><div class="data-label">KÂR HEDEFİ</div><div class="data-val" style="color:#81c995;">${r['target']:.2f}</div></div><div><div class="data-label">ZARAR KES</div><div class="data-val" style="color:#f28b82;">${r['stop']:.2f}</div></div></div>
+            <div class="potansiyel-bar">Potansiyel Getiri Marjı: +${r['pot_dolar']:.2f} (%{r['pot_yuzde']:.2f})</div></div>"""
+            with cols[idx % 2]: st.markdown(html, unsafe_allow_html=True)
 
-# --- 7. ARAYÜZ ---
-st.sidebar.title(f"Operatör: {st.session_state['current_user'].upper()}")
-if st.sidebar.button("🚪 Çıkış Yap"):
-    st.session_state['logged_in'] = False
-    st.rerun()
-
-tab1, tab2 = st.tabs(["🚀 RADAR (Piyasa Taraması)", "💼 KASA VE PORTFÖY"])
-
-with tab1:
-    if st.button("Piyasayı Tara", type="primary", use_container_width=True):
-        with st.spinner("Radar dönüyor... Bütün piyasa tek seferde çekiliyor (Ban Korumalı)..."):
-            st.session_state['last_results'] = toplu_tarama(WATCHLIST)
-            st.session_state['last_results'] = sorted(st.session_state['last_results'], key=lambda x: x['puan'], reverse=True)
-        st.success(f"Tarama Tamamlandı. Zayıf hisseler elendi. Kalan: {len(st.session_state['last_results'])} hisse.")
-
-    if st.session_state['last_results']:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown('<div class="header-box guven-h">🛡️ GÜVEN MASASI (İstikrarlı Kale)</div>', unsafe_allow_html=True)
-            for r in [x for x in st.session_state['last_results'] if x['type'] == "🛡️ GÜVEN"][:10]:
-                with st.container(border=True):
-                    st.markdown(f"<div style='font-size:18px; font-weight:bold;'>{r['ticker']} <span style='float:right;'>${r['price']:.2f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='data-row'><span class='data-label'>Algoritma Puanı</span><span class='data-val'>{r['puan']:.0f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='data-row'><span class='data-label'>Hedef / Stop</span><span class='data-val'>${r['target']:.2f} / ${r['stop']:.2f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='data-row'><span class='data-label'>R² (Doğrusallık)</span><span class='data-val'>{r['r2']:.2f}</span></div>", unsafe_allow_html=True)
-                    
-                    renk = "green" if r['vade'] < 30 else "orange" if r['vade'] < 90 else "red"
-                    st.markdown(f"<div class='data-row'><span class='data-label'>⏳ Tahmini Vade</span><span class='data-val' style='color:{renk};'>Yaklaşık {r['vade']} Gün</span></div>", unsafe_allow_html=True)
-                    
-        with c2:
-            st.markdown('<div class="header-box amiral-h">⚓ AMİRAL MASASI (Büyük Trend)</div>', unsafe_allow_html=True)
-            for r in [x for x in st.session_state['last_results'] if x['type'] == "⚓ AMİRAL"][:10]:
-                with st.container(border=True):
-                    st.markdown(f"<div style='font-size:18px; font-weight:bold; color:#f28b82;'>{r['ticker']} <span style='float:right;'>${r['price']:.2f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='data-row'><span class='data-label'>Algoritma Puanı</span><span class='data-val'>{r['puan']:.0f}</span></div>", unsafe_allow_html=True)
-                    st.markdown(f"<div class='data-row'><span class='data-label'>Hedef / Stop</span><span class='data-val'>${r['target']:.2f} / ${r['stop']:.2f}</span></div>", unsafe_allow_html=True)
-                    
-                    renk = "green" if r['vade'] < 60 else "orange" if r['vade'] < 120 else "red"
-                    st.markdown(f"<div class='data-row'><span class='data-label'>⏳ Tahmini Vade</span><span class='data-val' style='color:{renk};'>Yaklaşık {r['vade']} Gün</span></div>", unsafe_allow_html=True)
-
-with tab2:
-    st.subheader("Operasyon Merkezi (Parça Hisse Destekli)")
-    with st.container(border=True):
-        secilen = st.selectbox("Hisse Seç", [""] + WATCHLIST)
-        meblah = st.number_input("Yatırılacak Tutar ($)", min_value=1.0, value=100.0)
+with tab_amiral:
+    if st.button("ANALİZİ BAŞLAT", type="primary", use_container_width=True, key="btn_amiral"):
+        bar_a = st.progress(0)
+        # Gerçek ilerleme için listeyi chunklara bölebilir veya progress'i fonksiyon dışına simüle edebiliriz.
+        # Fonksiyon içerisindeki progress bar Streamlit cache uyumsuzluğu yaratabildiği için dışarıda görselleştiriyoruz.
+        for i in range(100):
+            bar_a.progress(i + 1)
+        st.session_state['amiral_sonuclar'] = amiral_ekonometri_motoru(WATCHLIST)
+        bar_a.empty()
         
-        if secilen:
-            try:
-                curr_p = yf.Ticker(secilen).fast_info['last_price']
-                hesaplanan_lot = meblah / curr_p
-                st.write(f"Anlık Fiyat: **${curr_p:.2f}** | Alınacak Lot: **{hesaplanan_lot:.4f}**")
-                
-                if st.button("İşlemi Kaydet (JSON)", type="primary"):
-                    new_trade = {
-                        "id": int(datetime.now().timestamp()),
-                        "sembol": secilen, 
-                        "maliyet": round(curr_p, 2), 
-                        "tutar": round(meblah, 2), 
-                        "lot": round(hesaplanan_lot, 4),
-                        "tarih": datetime.now().strftime("%Y-%m-%d %H:%M")
-                    }
-                    st.session_state['portfolio'].append(new_trade)
-                    save_portfolio(st.session_state['current_user'], st.session_state['portfolio'])
-                    st.success("Tebrikler! İşlem JSON kasasına güvenle kaydedildi.")
-                    st.rerun()
-            except Exception as e:
-                st.error("Canlı fiyat çekilemedi. Bağlantınızı kontrol edin.")
-
-    if st.session_state['portfolio']:
-        st.markdown("### Aktif Pozisyonlar")
-        df_p = pd.DataFrame(st.session_state['portfolio'])
-        st.dataframe(df_p[["tarih", "sembol", "tutar", "lot", "maliyet"]], use_container_width=True, hide_index=True)
-        
-        if st.button("🗑️ Son Kaydı Sil (Hatalı İşlemi İptal Et)"):
-            st.session_state['portfolio'].pop()
-            save_portfolio(st.session_state['current_user'], st.session_state['portfolio'])
-            st.rerun()
+    if st.session_state['amiral_sonuclar']:
+        cols_a = st.columns(2)
+        for idx, r in enumerate(st.session_state['amiral_sonuclar'][:10]):
+            html = f"""<div class="amiral-card"><div class="card-top"><div><span class="ticker-name" style="color:#2ea043;">{r['ticker']}</span><span class="sector-badge">{r['sector']}</span><div style="font-size:15px; color:#8b949e; margin-top:4px;">${r['fiyat']:.2f}</div></div><div style="text-align:right;"><div style="font-size:10px; color:#8b949e; font-weight:bold;">ANALİTİK SKOR</div><div style="font-size:24px; font-weight:700; color:#2ea043; margin-top:2px;">{r['puan']}</div></div></div>
+            <div class="data-grid"><div><div class="data-label">F/K RASYOSU</div><div class="data-val">{r['fk']:.1f}</div></div><div><div class="data-label">RSI İNDİKATÖRÜ</div><div class="data-val" style="color:{'#ff7b72' if r['rsi']>70 else '#7ee787'};">{r['rsi']:.1f}</div></div><div><div class="data-label">ÖZSERMAYE KÂRLILIĞI</div><div class="data-val">%{r['roe']:.1f}</div></div></div>
+            <div class="data-grid"><div><div class="data-label">BORÇ / ÖZKAYNAK</div><div class="data-val">%{r['borc']:.1f}</div></div><div><div class="data-label">BETA KATSAYISI</div><div class="data-val">{r['beta']:.2f}</div></div><div><div class="data-label">TEMETTÜ VERİMİ</div><div class="data-val" style="color:#e3b341;">%{r['temettu']:.1f}</div></div></div>
+            <div class="ai-verdict"><b>Analiz Özeti:</b> {r['verdict']}</div></div>"""
+            with cols_a[idx % 2]: st.markdown(html, unsafe_allow_html=True)
