@@ -2,3 +2,8 @@ config.py
 __pycache__/
 *.csv
 .venv/
+# Veritabanı ve Çevre Değişkenleri
+*.db
+*.sqlite3
+.env
+__pycache__/
